@@ -29,6 +29,8 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Geography", "Understanding our planet — landscapes, climates, and cultures."),
         ("Music", "The art of sound — rhythm, melody, harmony, and expression."),
         ("Art", "Visual creativity — color, form, composition, and art history."),
+        ("Philosophy", "Thinking about thinking — logic, ethics, and the big questions of life."),
+        ("Economics", "How societies produce, distribute, and consume goods and services."),
     ];
     for (name, desc) in &subjects {
         conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
@@ -80,6 +82,16 @@ fn seed_topics(conn: &Connection) -> Result<(), rusqlite::Error> {
         (9, "Elements of Art", "beginner", 2),
         (9, "Art History", "intermediate", 3),
         (9, "Composition & Design", "intermediate", 4),
+        // Philosophy (subject_id=10)
+        (10, "Logic & Reasoning", "beginner", 1),
+        (10, "Ethics & Morality", "beginner", 2),
+        (10, "Famous Philosophers", "intermediate", 3),
+        (10, "Thought Experiments", "intermediate", 4),
+        // Economics (subject_id=11)
+        (11, "Supply & Demand", "beginner", 1),
+        (11, "Money & Banking", "beginner", 2),
+        (11, "Trade & Globalization", "intermediate", 3),
+        (11, "Economic Systems", "intermediate", 4),
     ];
     for (sid, name, diff, order) in &topics {
         conn.execute(
@@ -171,6 +183,43 @@ fn seed_lessons(conn: &Connection) -> Result<(), rusqlite::Error> {
         (32, "Modern Art Movements", "Impressionism (1870s): light, color, fleeting moments. Monet, Renoir, Degas.\nPost-Impressionism: bold color, structure. Van Gogh, Cézanne, Gauguin.\nCubism (1907): fragmented forms, multiple viewpoints. Picasso, Braque.\nSurrealism (1920s): dreams, the unconscious. Dalí, Magritte.\nAbstract Expressionism (1940s): gesture, emotion. Pollock, Rothko.\nPop Art (1960s): mass culture, consumerism. Warhol, Lichtenstein.\nStreet Art: Banksy, Keith Haring — art outside galleries.\n\nContemporary art: anything goes — video, installation, digital, performance.", 2),
         (33, "Composing a Picture", "Composition: how elements are arranged in an artwork.\n\nRule of Thirds: divide the frame into a 3×3 grid. Place key elements at intersections.\n\nLeading lines: guide the viewer's eye into the image.\nFraming: use elements to frame the subject (doorways, branches).\nSymmetry: creates calm, formal feel.\nAsymmetry: dynamic, interesting.\n\nForeground/middleground/background: creates depth.\nNegative space: empty areas that give the subject room to breathe.", 1),
         (33, "Visual Hierarchy", "Visual hierarchy controls what the viewer sees first, second, third.\n\nTools:\n- Size: bigger = more important.\n- Color: bright/contrasting colors attract attention.\n- Position: top and center get noticed first.\n- Contrast: high contrast stands out.\n- Isolation: an element alone draws the eye.\n- Detail: detailed areas attract attention over plain areas.\n\nUsed in art, design, advertising, and web design.\nAsk: 'Where does my eye go first?' — that reveals the hierarchy.", 2),
+        // Philosophy — Logic & Reasoning (topic_id=34)
+        (34, "What Is Logic?", "Logic is the study of correct reasoning.\n\nArguments have:\n- Premises: statements assumed to be true\n- Conclusion: what follows from the premises\n\nValid argument: if premises are true, conclusion MUST be true.\nSound argument: valid AND premises are actually true.\n\nExample:\n  Premise 1: All cats are animals.\n  Premise 2: Whiskers is a cat.\n  Conclusion: Whiskers is an animal. ✓ (valid and sound)", 1),
+        (34, "Common Logical Fallacies", "Fallacies are errors in reasoning that seem persuasive but are flawed.\n\nAd Hominem: attacking the person, not the argument.\nStraw Man: misrepresenting someone's argument to make it easier to attack.\nAppeal to Authority: 'A famous person said it, so it must be true.'\nFalse Dilemma: presenting only two options when more exist.\nSlippery Slope: claiming one event will inevitably lead to extreme consequences.\nCircular Reasoning: using the conclusion as a premise.\n\nSpotting fallacies helps you think critically about arguments you encounter daily.", 2),
+        // Philosophy — Ethics & Morality (topic_id=35)
+        (35, "Introduction to Ethics", "Ethics asks: What is right and wrong? How should we live?\n\nThree major frameworks:\n\n1. Consequentialism: judge actions by their outcomes.\n   Utilitarianism: the right action produces the most happiness for the most people.\n\n2. Deontology: some actions are right or wrong regardless of consequences.\n   Kant's rule: act only by rules you'd want everyone to follow.\n\n3. Virtue Ethics: focus on character, not rules.\n   Aristotle: cultivate virtues like courage, honesty, and wisdom.", 1),
+        (35, "Moral Dilemmas", "The Trolley Problem: A runaway trolley will kill 5 people. You can pull a lever to divert it to a side track where it will kill 1 person. Should you?\n\nUtilitarian answer: Pull the lever (saves more lives).\nDeontological answer: Don't pull (you shouldn't actively cause someone's death).\n\nThe Heinz Dilemma: A man's wife is dying. The only medicine costs $10,000. He can only afford $1,000. Should he steal it?\n\nThese dilemmas have no 'right' answer — they reveal how we reason about morality.", 2),
+        // Philosophy — Famous Philosophers (topic_id=36)
+        (36, "Ancient Philosophers", "Socrates (469-399 BCE): 'I know that I know nothing.'\n  Method: ask questions to expose contradictions (Socratic method).\n  Executed for 'corrupting the youth' — chose death over silence.\n\nPlato (428-348 BCE): Student of Socrates.\n  Theory of Forms: the physical world is a shadow of perfect ideals.\n  Founded the Academy — arguably the first university.\n\nAristotle (384-322 BCE): Student of Plato.\n  Logic, biology, ethics, politics — father of many fields.\n  Golden Mean: virtue is the balance between extremes.\n  Tutored Alexander the Great.", 1),
+        (36, "Modern Philosophers", "René Descartes (1596-1650): 'I think, therefore I am.'\n  Radical doubt: question everything until you find certainty.\n\nImmanuel Kant (1724-1804): Categorical Imperative.\n  Act only by rules you'd want to be universal laws.\n\nJohn Stuart Mill (1806-1873): Utilitarianism.\n  The greatest good for the greatest number.\n\nFriedrich Nietzsche (1844-1900): 'God is dead.'\n  Questioned traditional morality. Übermensch: create your own values.\n\nSimone de Beauvoir (1908-1986): 'One is not born, but rather becomes, a woman.'\n  Existentialism and feminism.", 2),
+        // Philosophy — Thought Experiments (topic_id=37)
+        (37, "Classic Thought Experiments", "Thought experiments test ideas with imagination instead of equipment.\n\nPlato's Cave: Prisoners chained in a cave see only shadows on a wall. They believe shadows are reality. One escapes and sees the sun — the true source of light. Lesson: our perceptions may be limited. Seek deeper truth.\n\nShip of Theseus: If you replace every plank of a ship one by one, is it still the same ship? What if you rebuild the old planks into a second ship? Which is the 'real' one? Explores: identity and change.\n\nBrain in a Vat: How do you know you're not a brain in a jar, being fed fake sensory experiences? (Inspired The Matrix!) Explores: the limits of knowledge.", 1),
+        (37, "Modern Thought Experiments", "The Chinese Room (John Searle, 1980): A person in a room follows rules to respond to Chinese messages, producing perfect Chinese output — but understands nothing. Does the room 'understand' Chinese? Challenges: can computers truly think?\n\nThe Experience Machine (Robert Nozick, 1974): Would you plug into a machine that gives you any experience you want — but none of it is real? Most people say no. Shows: we value authenticity, not just pleasure.\n\nThe Original Position (John Rawls, 1971): Design a society without knowing what position you'd occupy (rich/poor, healthy/sick). What rules would you choose? Most choose fairness. Foundation of modern theories of justice.", 2),
+        // Economics — Supply & Demand (topic_id=38)
+        (38, "The Law of Supply and Demand", "Supply: how much producers are willing to sell at each price.\nDemand: how much consumers want to buy at each price.\n\nLaw of Demand: as price rises, demand falls (and vice versa).\nLaw of Supply: as price rises, supply increases.\n\nEquilibrium: where supply meets demand.\n  At this price, everything produced gets bought.\n\nShortage: demand > supply (price too low).\nSurplus: supply > demand (price too high).\n\nExample: Concert tickets at $50 sell out (shortage). At $500, seats are empty (surplus). Equilibrium is somewhere between.", 1),
+        (38, "Price Elasticity", "Elasticity measures how sensitive demand is to price changes.\n\nElastic demand: small price change → big demand change.\n  Examples: luxury goods, entertainment, restaurants.\n\nInelastic demand: price changes don't affect demand much.\n  Examples: medicine, gasoline, electricity.\n\nFormula: % change in quantity demanded ÷ % change in price.\n  >1 = elastic, <1 = inelastic, =1 = unit elastic.\n\nWhy it matters: companies set prices based on elasticity.\nA hospital can charge more for life-saving drugs (inelastic).\nA movie theater must lower prices to fill seats (elastic).", 2),
+        // Economics — Money & Banking (topic_id=39)
+        (39, "What Is Money?", "Money is anything widely accepted in exchange for goods and services.\n\nFunctions of money:\n1. Medium of exchange: buy and sell without bartering.\n2. Store of value: save purchasing power for later.\n3. Unit of account: measure and compare value.\n\nHistory: shells → coins → paper → digital.\n\nFiat money: value from government decree, not gold.\n  All modern currencies are fiat.\n\nInflation: when money buys less over time.\n  $1 in 1950 ≈ $12 today.\n  Caused by: more money in circulation, higher costs, strong demand.", 1),
+        (39, "Banks and Interest", "Banks serve two main functions:\n1. Accept deposits (savings accounts).\n2. Make loans (mortgages, business loans).\n\nInterest: the cost of borrowing money (or the reward for saving).\n  Simple interest: calculated on the original amount.\n  Compound interest: calculated on amount + accumulated interest.\n  $1,000 at 5% compound interest → $1,629 after 10 years!\n\nCentral banks (e.g. Federal Reserve, ECB):\n- Set base interest rates.\n- Control money supply.\n- Goal: stable prices and full employment.\n\nThe money multiplier: banks lend most of what they receive, which gets deposited again and lent again.", 2),
+        // Economics — Trade & Globalization (topic_id=40)
+        (40, "International Trade", "Why countries trade: comparative advantage.\n  Even if Country A makes everything cheaper, both countries benefit\n  if each specializes in what they're relatively best at.\n\nExports: goods/services sold to other countries.\nImports: goods/services bought from other countries.\nTrade balance: exports - imports.\n  Surplus: exports > imports.\n  Deficit: imports > exports.\n\nTariffs: taxes on imports (protect domestic industry but raise prices).\nFree trade agreements: reduce barriers (EU single market, USMCA).\n\nGlobalization: the increasing interconnection of world economies.\nBenefits: lower prices, more variety, economic growth.\nChallenges: job displacement, inequality, environmental concerns.", 1),
+        (40, "Exchange Rates", "Exchange rate: the price of one currency in terms of another.\n  1 EUR = 1.10 USD means 1 euro buys 1.10 dollars.\n\nStrong currency: buys more foreign goods (imports cheaper).\nWeak currency: exports become cheaper for foreigners.\n\nWhat affects rates:\n- Interest rates (higher → stronger currency).\n- Inflation (lower → stronger currency).\n- Political stability.\n- Trade balances.\n\nFloating rates: determined by market supply and demand (most currencies).\nFixed/pegged rates: government sets the rate (e.g. Hong Kong dollar).", 2),
+        // Economics — Economic Systems (topic_id=41)
+        (41, "Types of Economic Systems", "How societies organize production and distribution:\n\nMarket Economy (Capitalism):\n  Private ownership. Prices set by supply/demand.\n  Pros: innovation, efficiency, freedom.\n  Cons: inequality, market failures.\n  Examples: USA, Switzerland, Singapore.\n\nCommand Economy (Planned):\n  Government controls production and prices.\n  Pros: can ensure equality, direct resources.\n  Cons: inefficiency, lack of innovation, reduced freedom.\n  Historical: Soviet Union, Maoist China.\n\nMixed Economy: combines market and government involvement.\n  Most modern economies are mixed.\n  Examples: Germany, Sweden, Japan.\n\nTraditional Economy: based on customs and traditions.\n  Found in some indigenous communities.", 1),
+        (41, "GDP and Economic Indicators", "GDP (Gross Domestic Product): total value of all goods and services produced in a country in a year.\n  Nominal GDP: measured in current prices.\n  Real GDP: adjusted for inflation.\n  GDP per capita: GDP ÷ population (standard of living).\n\nOther key indicators:\n  Unemployment rate: % of workforce without jobs.\n  Inflation rate: % increase in prices per year.\n  CPI (Consumer Price Index): tracks price of a basket of goods.\n\nBusiness cycle: expansion → peak → recession → trough → recovery.\n  Recession: two consecutive quarters of declining GDP.\n\nHDI (Human Development Index): combines income, education, and life expectancy.", 2),
+        // Additional lessons for previously under-served topics
+        // Reading Comprehension (topic_id=11) — add a second lesson
+        (11, "Inference and Context Clues", "Inference means drawing conclusions from evidence, not just what's directly stated.\n\nTypes of context clues:\n- Definition: the word is defined in the sentence.\n- Synonym: a similar word appears nearby.\n- Antonym: an opposite word provides contrast.\n- Example: examples help clarify meaning.\n\nPractice:\n'The arid desert received less than 10cm of rain per year.'\n  Clue: desert, little rain → arid means very dry.\n\nMaking inferences:\n- What does the author imply but not say?\n- What evidence supports your conclusion?\n- Could there be another interpretation?", 2),
+        // Ancient Civilizations (topic_id=12) — add a second lesson
+        (12, "Contributions of Ancient Civilizations", "Lasting gifts from the ancient world:\n\nMesopotamia: writing, the wheel, the 60-minute hour, legal codes (Hammurabi).\nEgypt: calendar, papyrus, medicine, engineering (pyramids built to millimeter precision).\nGreece: democracy, philosophy, theater, the Olympic Games, geometry.\nRome: roads, aqueducts, legal systems, concrete, republican government.\nChina: paper, printing, gunpowder, compass.\nIndia: zero and the decimal system, chess, cotton textiles.\n\nPattern: innovation often arose where trade routes met, ideas crossed, and diverse peoples exchanged knowledge.", 2),
+        // World Wars (topic_id=13) — add a second lesson
+        (13, "The Aftermath and Lessons", "After WWI:\n- Treaty of Versailles: harsh penalties on Germany → economic devastation.\n- League of Nations formed (but USA didn't join).\n- Rise of fascism in Italy and Germany.\n\nAfter WWII:\n- United Nations founded (1945) — 193 member states today.\n- Marshall Plan: USA rebuilt Europe.\n- Cold War begins: USA vs. Soviet Union.\n- Universal Declaration of Human Rights (1948).\n- Decolonization: European empires dissolved.\n\nLessons:\n- Harsh peace terms can breed future conflict.\n- International cooperation prevents war.\n- Human rights need active protection.\n- Nuclear weapons changed warfare forever.", 2),
+        // Industrial Revolution (topic_id=14) — add a second lesson
+        (14, "The Second Industrial Revolution", "The Second Industrial Revolution (1870-1914):\n\nKey innovations:\n- Electricity: Thomas Edison (light bulb), Nikola Tesla (AC power).\n- Internal combustion engine: Karl Benz (automobile).\n- Telephone: Alexander Graham Bell.\n- Assembly line: Henry Ford made cars affordable.\n\nImpact:\n- Mass production lowered prices.\n- Cities grew rapidly (urbanization).\n- Middle class expanded.\n- New social challenges: pollution, urban poverty.\n\nDigital Revolution (1970s-now): sometimes called the Third Industrial Revolution.\n  Computers → Internet → smartphones → AI.\n  Each revolution transformed how people live, work, and communicate.", 2),
+        // Hygiene (topic_id=15) — add a second lesson
+        (15, "Germ Theory and Disease Prevention", "Before germ theory, people blamed illness on bad air ('miasma').\n\nKey figures:\n- Louis Pasteur (1860s): proved microorganisms cause disease.\n- Joseph Lister: introduced antiseptic surgery.\n- Robert Koch: identified bacteria causing tuberculosis and cholera.\n\nHow diseases spread:\n- Airborne: coughing, sneezing (flu, COVID).\n- Contact: touching contaminated surfaces.\n- Waterborne: contaminated water (cholera).\n- Vector-borne: carried by insects (malaria via mosquitoes).\n\nPrevention: vaccination, sanitation, clean water, hygiene.\nVaccines have saved more lives than any other medical intervention.", 2),
+        // Nutrition (topic_id=16) — add a second lesson
+        (16, "Reading Food Labels", "Understanding nutrition labels empowers healthy choices.\n\nKey information:\n- Serving size: everything is based on this — check it first!\n- Calories: energy per serving.\n- Macronutrients: carbohydrates, protein, fat.\n- Micronutrients: vitamins and minerals.\n- Daily Value (%DV): how much one serving contributes to daily needs.\n  5% DV or less = low. 20% DV or more = high.\n\nWatch out for:\n- Added sugars (not the same as natural sugars in fruit).\n- Sodium: <2,300 mg/day recommended.\n- Trans fats: avoid entirely.\n\nIngredient list: items listed by weight (most to least).\nIf sugar is in the first 3 ingredients, reconsider.", 2),
     ];
     for (tid, title, content, order) in &lessons {
         conn.execute(
@@ -206,6 +255,16 @@ fn seed_explanations(conn: &Connection) -> Result<(), rusqlite::Error> {
         (30, "color theory", "Color theory explains how colors relate to each other and how they can be combined.", Some("Colors are like a team — some work together (analogous), some challenge each other (complementary), and that tension makes art exciting!"), Some("What two primary colors mix to make orange?")),
         (31, "elements of art", "The elements of art are the basic building blocks used to create any artwork.", Some("Think of them like ingredients in cooking — line, shape, color, form, value, texture, space. Every artwork uses some combination!"), Some("What's the difference between a shape and a form?")),
         (32, "art history", "Art history traces how visual art evolved through different periods and cultures.", Some("Art is like a conversation across centuries — each generation responds to what came before, sometimes agreeing, sometimes rebelling!"), Some("Which art movement focused on capturing light and fleeting moments?")),
+        // Philosophy
+        (34, "logic", "Logic is the study of correct reasoning — how to build arguments that hold up.", Some("Logic is like the grammar of thinking — just as bad grammar makes sentences confusing, bad logic makes arguments fall apart!"), Some("Can you spot what's wrong with this: 'All dogs are animals. My cat is an animal. Therefore my cat is a dog.'?")),
+        (35, "ethics", "Ethics is the branch of philosophy that asks how we should live and what makes actions right or wrong.", Some("Ethics is like a compass — it doesn't tell you the exact path, but it helps you find your direction when you're lost!"), Some("If you found a wallet with $100, what would you do and why?")),
+        (36, "philosophers", "Philosophers are thinkers who ask the deepest questions about reality, knowledge, and how to live.", Some("Philosophers are like explorers of the mind — while others mapped continents, they mapped the landscape of ideas!"), Some("What question would you most want a philosopher to answer?")),
+        (37, "thought experiments", "Thought experiments are imaginary scenarios used to test ideas and challenge assumptions.", Some("Thought experiments are like video game levels for your brain — you can explore dangerous scenarios without any real risk!"), Some("If you could live in a perfect virtual world or an imperfect real one, which would you choose?")),
+        // Economics
+        (38, "supply and demand", "Supply and demand is the core mechanism that determines prices in a market economy.", Some("Supply and demand is like a tug-of-war between buyers and sellers — the price settles where the rope stops moving!"), Some("What happens to the price of umbrellas when it starts raining?")),
+        (39, "money", "Money is anything widely accepted as payment — it solves the problem of bartering.", Some("Imagine trading a piano for groceries — money is the middleman that makes exchange possible!"), Some("Why can't a country just print more money to make everyone rich?")),
+        (40, "trade", "International trade allows countries to specialize in what they do best and exchange with others.", Some("Trade between countries is like trading lunch items at school — everyone ends up happier when they can swap for what they really want!"), Some("Can you think of something you use daily that was made in another country?")),
+        (41, "economic systems", "An economic system is how a society organizes the production and distribution of goods and services.", Some("Economic systems are like different recipes for running a country — same ingredients (land, labor, capital) but very different results!"), Some("What do you think is the government's role in the economy?")),
     ];
     for (tid, concept, explanation, analogy, follow_up) in &explanations {
         conn.execute(
@@ -304,6 +363,36 @@ fn seed_quiz_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         (32, "Which art movement featured melting clocks?", "multiple_choice", "Surrealism", Some("Impressionism"), Some("Cubism"), Some("Surrealism"), Some("Pop Art"), Some("Salvador Dalí"), "Salvador Dalí's 'The Persistence of Memory' (1931) is a famous Surrealist work with melting clocks."),
         (33, "The Rule of Thirds divides the frame into a ___ grid.", "fill_in_blank", "3x3", None, None, None, None, Some("Three by three"), "The Rule of Thirds divides the frame into a 3×3 grid (9 equal sections)."),
         (33, "True or false: Negative space is wasted space.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Empty space has a purpose"), "False. Negative space is intentional — it gives subjects room to breathe and improves readability."),
+        // Philosophy — Logic
+        (34, "What makes an argument 'valid'?", "multiple_choice", "If premises are true, conclusion must be true", Some("It sounds convincing"), Some("If premises are true, conclusion must be true"), Some("The conclusion is actually true"), Some("Most people agree with it"), Some("Validity is about structure, not truth"), "A valid argument means IF the premises are true, the conclusion MUST follow. The premises don't have to actually be true."),
+        (34, "Which fallacy attacks the person instead of the argument?", "multiple_choice", "Ad Hominem", Some("Straw Man"), Some("Ad Hominem"), Some("False Dilemma"), Some("Slippery Slope"), Some("It's Latin for 'to the person'"), "Ad Hominem attacks the person making the argument rather than the argument itself."),
+        (34, "True or false: A sound argument can have a false conclusion.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Sound = valid + true premises"), "False. A sound argument is valid with true premises, so its conclusion must be true."),
+        // Philosophy — Ethics
+        (35, "Which ethical framework judges actions by their outcomes?", "multiple_choice", "Consequentialism", Some("Deontology"), Some("Virtue Ethics"), Some("Consequentialism"), Some("Nihilism"), Some("Consequences = outcomes"), "Consequentialism (including utilitarianism) judges the morality of actions based on their results."),
+        (35, "Who said 'I know that I know nothing'?", "multiple_choice", "Socrates", Some("Plato"), Some("Socrates"), Some("Aristotle"), Some("Descartes"), Some("He was famous for asking questions"), "Socrates used this phrase to express intellectual humility and the importance of questioning assumptions."),
+        (35, "Kant's Categorical Imperative says you should act only by rules you'd want to be ___.", "fill_in_blank", "universal", None, None, None, None, Some("Rules for everyone"), "Kant's test: could your rule work if everyone followed it? If not, it's wrong."),
+        // Philosophy — Famous Philosophers
+        (36, "Which philosopher said 'I think, therefore I am'?", "multiple_choice", "Descartes", Some("Socrates"), Some("Kant"), Some("Descartes"), Some("Nietzsche"), Some("He doubted everything"), "René Descartes used radical doubt to find one thing he couldn't doubt: that he was thinking."),
+        (36, "Who founded the Academy in Athens?", "multiple_choice", "Plato", Some("Socrates"), Some("Plato"), Some("Aristotle"), Some("Pythagoras"), Some("Student of Socrates, teacher of Aristotle"), "Plato founded the Academy around 387 BCE — often considered the first institution of higher learning in the Western world."),
+        // Philosophy — Thought Experiments
+        (37, "What does Plato's Cave allegory illustrate?", "multiple_choice", "Our perceptions may be limited", Some("Caves are dangerous"), Some("Our perceptions may be limited"), Some("Shadows are real"), Some("Knowledge comes from experience alone"), Some("The prisoners only saw shadows"), "Plato's Cave shows that what we perceive might be only shadows of a deeper reality."),
+        (37, "The Ship of Theseus asks about ___.", "fill_in_blank", "identity", None, None, None, None, Some("Is it still the same ship?"), "The Ship of Theseus explores questions of identity: if every part is replaced, is it still the same thing?"),
+        (37, "True or false: The Chinese Room argument suggests computers can truly understand language.", "true_false", "false", Some("true"), Some("false"), None, None, Some("The person in the room doesn't understand Chinese"), "False. Searle's Chinese Room argues that following rules to manipulate symbols is not the same as understanding."),
+        // Economics — Supply & Demand
+        (38, "When price rises, what happens to demand (normally)?", "multiple_choice", "Demand falls", Some("Demand rises"), Some("Demand stays the same"), Some("Demand falls"), Some("Demand disappears"), Some("Think about expensive concert tickets"), "The Law of Demand: as price increases, quantity demanded decreases (all else equal)."),
+        (38, "What is it called when supply exceeds demand?", "multiple_choice", "Surplus", Some("Shortage"), Some("Surplus"), Some("Equilibrium"), Some("Inflation"), Some("Too much supply, not enough buyers"), "A surplus occurs when quantity supplied exceeds quantity demanded — usually because price is too high."),
+        (38, "True or false: Demand for medicine is typically elastic.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Do people stop buying medicine when prices rise?"), "False. Medicine is inelastic — people need it regardless of price changes."),
+        // Economics — Money & Banking
+        (39, "Which is NOT a function of money?", "multiple_choice", "Source of energy", Some("Medium of exchange"), Some("Store of value"), Some("Source of energy"), Some("Unit of account"), Some("Money has three main functions"), "Money serves as a medium of exchange, store of value, and unit of account — not as a source of energy."),
+        (39, "What is inflation?", "multiple_choice", "When money buys less over time", Some("When prices fall"), Some("When money buys less over time"), Some("When banks close"), Some("When wages rise faster than prices"), Some("Your dollar buys less each year"), "Inflation means the general price level rises, so each unit of currency buys fewer goods and services."),
+        (39, "Interest earned on interest is called ___ interest.", "fill_in_blank", "compound", None, None, None, None, Some("It builds on itself"), "Compound interest is calculated on both the initial principal and the accumulated interest from previous periods."),
+        // Economics — Trade
+        (40, "What is a tariff?", "multiple_choice", "A tax on imports", Some("A trade agreement"), Some("A tax on imports"), Some("A type of currency"), Some("A shipping route"), Some("It makes foreign goods more expensive"), "A tariff is a tax imposed on imported goods, making them more expensive to protect domestic industries."),
+        (40, "True or false: A trade deficit means a country exports more than it imports.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Deficit means lacking"), "False. A trade deficit means imports exceed exports. A trade surplus means exports exceed imports."),
+        // Economics — Economic Systems
+        (41, "Which economic system relies on private ownership and market prices?", "multiple_choice", "Market economy", Some("Command economy"), Some("Market economy"), Some("Traditional economy"), Some("Mixed economy"), Some("Also called capitalism"), "A market economy (capitalism) relies on private ownership and supply/demand to set prices."),
+        (41, "GDP stands for Gross ___ Product.", "fill_in_blank", "Domestic", None, None, None, None, Some("It measures a country's output"), "GDP = Gross Domestic Product — the total value of goods and services produced within a country."),
+        (41, "A recession is defined as ___ consecutive quarters of declining GDP.", "fill_in_blank", "2", None, None, None, None, Some("A common rule of thumb"), "A recession is commonly defined as two consecutive quarters of negative GDP growth."),
     ];
     for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
         conn.execute(
@@ -342,6 +431,14 @@ fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("visual arts", 2, 31, "Elements of art — the building blocks"),
         ("visual arts", 3, 33, "Composition — arranging elements effectively"),
         ("visual arts", 4, 32, "Art history — learning from the masters"),
+        ("critical thinking", 1, 34, "Logic & reasoning — the foundation of clear thinking"),
+        ("critical thinking", 2, 35, "Ethics & morality — right, wrong, and everything between"),
+        ("critical thinking", 3, 36, "Famous philosophers — standing on the shoulders of giants"),
+        ("critical thinking", 4, 37, "Thought experiments — stretch your mind"),
+        ("economics basics", 1, 38, "Supply & demand — how prices work"),
+        ("economics basics", 2, 39, "Money & banking — the financial system"),
+        ("economics basics", 3, 40, "Trade & globalization — the connected world"),
+        ("economics basics", 4, 41, "Economic systems — how societies organize"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -364,7 +461,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 9);
+        assert_eq!(count, 11);
     }
 
     #[test]
@@ -374,7 +471,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 9);
+        assert_eq!(count, 11);
     }
 
     #[test]
@@ -435,5 +532,54 @@ mod tests {
         ).unwrap();
         assert_eq!(music, 1);
         assert_eq!(art, 1);
+    }
+
+    #[test]
+    fn test_philosophy_and_economics_subjects_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let philosophy: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Philosophy'", [], |r| r.get(0)
+        ).unwrap();
+        let economics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Economics'", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(philosophy, 1);
+        assert_eq!(economics, 1);
+    }
+
+    #[test]
+    fn test_new_subjects_have_topics() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let phil_topics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Philosophy'",
+            [], |r| r.get(0)
+        ).unwrap();
+        let econ_topics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Economics'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(phil_topics, 4);
+        assert_eq!(econ_topics, 4);
+    }
+
+    #[test]
+    fn test_learning_paths_include_new_subjects() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let ct: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'critical thinking'",
+            [], |r| r.get(0)
+        ).unwrap();
+        let econ: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'economics basics'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(ct, 4);
+        assert_eq!(econ, 4);
     }
 }

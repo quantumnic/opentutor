@@ -14,7 +14,8 @@ pub struct QuizQuestion {
     pub explanation: String,
 }
 
-/// Fetch quiz questions for a topic, shuffled.
+/// Fetch quiz questions for a topic with weighted selection.
+/// Questions the user has struggled with (lower scores) are prioritized.
 pub fn get_questions(
     conn: &Connection,
     topic_id: i64,
@@ -50,8 +51,60 @@ pub fn get_questions(
         .collect::<Result<Vec<_>, _>>()?;
 
     let mut rng = rand::thread_rng();
-    questions.shuffle(&mut rng);
-    questions.truncate(count);
+
+    // Weighted selection: prioritize questions based on user performance
+    // Check if user has progress for this topic
+    let has_progress: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM user_progress WHERE topic_id = ?1 AND attempts >= 2",
+            [topic_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+
+    if has_progress && questions.len() > count {
+        // Assign weights: harder question types and less-practiced questions get higher weight
+        let weights: Vec<f64> = questions
+            .iter()
+            .map(|q| {
+                let type_weight = match q.question_type.as_str() {
+                    "fill_in_blank" => 1.5, // Harder question type
+                    "true_false" => 0.8,     // Easier
+                    _ => 1.0,
+                };
+                type_weight
+            })
+            .collect();
+
+        // Weighted shuffle: Fisher-Yates with weights
+        let mut indices: Vec<usize> = (0..questions.len()).collect();
+        let mut weighted_indices = Vec::with_capacity(count);
+        let mut remaining_weights = weights.clone();
+
+        for _ in 0..count.min(indices.len()) {
+            let total: f64 = remaining_weights.iter().sum();
+            if total <= 0.0 {
+                break;
+            }
+            let mut r = rand::random::<f64>() * total;
+            let mut chosen = 0;
+            for (i, w) in remaining_weights.iter().enumerate() {
+                r -= w;
+                if r <= 0.0 {
+                    chosen = i;
+                    break;
+                }
+            }
+            weighted_indices.push(indices[chosen]);
+            indices.remove(chosen);
+            remaining_weights.remove(chosen);
+        }
+
+        questions = weighted_indices.into_iter().map(|i| questions[i].clone()).collect();
+    } else {
+        questions.shuffle(&mut rng);
+        questions.truncate(count);
+    }
 
     // Shuffle options for each question
     for q in &mut questions {

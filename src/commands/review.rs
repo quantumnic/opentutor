@@ -15,7 +15,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
          LIMIT 10",
     )?;
 
-    let due_topics: Vec<(i64, String, String, f64, i64, String)> = stmt
+    let mut due_topics: Vec<(i64, String, String, f64, i64, String)> = stmt
         .query_map([], |r| {
             Ok((
                 r.get(0)?,
@@ -27,6 +27,13 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
             ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
+
+    // Sort by urgency (most urgent first)
+    due_topics.sort_by(|a, b| {
+        let urgency_a = spaced::review_urgency(conn, a.0);
+        let urgency_b = spaced::review_urgency(conn, b.0);
+        urgency_b.partial_cmp(&urgency_a).unwrap_or(std::cmp::Ordering::Equal)
+    });
 
     if due_topics.is_empty() {
         display::print_header("Spaced Repetition Review");

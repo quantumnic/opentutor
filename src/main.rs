@@ -56,6 +56,11 @@ enum Commands {
     },
     /// Show detailed learning statistics
     Stats,
+    /// Search across all content (lessons, quizzes, explanations)
+    Search {
+        /// Search query
+        query: String,
+    },
 }
 
 fn main() {
@@ -78,6 +83,7 @@ fn main() {
         Commands::Path { goal } => commands::path::run(&conn, &goal),
         Commands::Review { count } => commands::review::run(&conn, count),
         Commands::Stats => commands::stats::run(&conn),
+        Commands::Search { query } => commands::search::run(&conn, &query),
     };
 
     if let Err(e) = result {

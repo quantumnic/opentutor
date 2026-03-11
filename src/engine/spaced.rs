@@ -6,6 +6,8 @@ const MIN_EASE: f64 = 1.3;
 const MAX_INTERVAL: i64 = 180;
 /// Days overdue before a card is considered lapsed
 const LAPSE_THRESHOLD_DAYS: i64 = 7;
+/// Graduated re-learning steps for lapsed cards (in days)
+const RELEARN_STEPS: [i64; 3] = [1, 3, 7];
 
 /// Calculate next review date using an improved SM-2 algorithm.
 /// quality: 0-5 (0-2 = fail, 3-5 = pass)
@@ -31,10 +33,19 @@ pub fn update_spaced_repetition(
 
     let (new_ease, new_interval) = if quality >= 3 {
         if is_lapsed {
-            // Lapsed card: reduce interval but don't fully reset
-            let reduced_interval = (interval as f64 * 0.5).max(1.0).round() as i64;
+            // Graduated re-learning: pick a step based on how far along the
+            // user is in recovery. Use the current interval to determine
+            // which re-learning step to assign.
+            let step_interval = if interval <= RELEARN_STEPS[0] {
+                RELEARN_STEPS[1] // advance to step 2
+            } else if interval <= RELEARN_STEPS[1] {
+                RELEARN_STEPS[2] // advance to step 3
+            } else {
+                // Beyond re-learning: restore to reduced interval
+                (interval as f64 * 0.5).max(RELEARN_STEPS[2] as f64).round() as i64
+            };
             let new_ease = (ease - 0.15).max(MIN_EASE);
-            (new_ease, reduced_interval.min(MAX_INTERVAL))
+            (new_ease, step_interval.min(MAX_INTERVAL))
         } else {
             // Normal correct answer — standard SM-2 graduation
             let new_interval = match interval {
@@ -122,6 +133,43 @@ pub fn get_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String)>, r
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
     rows.collect()
+}
+
+/// Calculate review urgency score. Higher = more urgent.
+/// Factors: how overdue, ease factor (lower = more fragile), lapsed status.
+pub fn review_urgency(conn: &Connection, topic_id: i64) -> f64 {
+    let result: Option<(f64, i64, Option<String>)> = conn
+        .query_row(
+            "SELECT ease_factor, interval_days, next_review FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+
+    match result {
+        Some((ease, interval, Some(_next_review))) => {
+            // Overdue ratio: how many intervals overdue
+            let overdue_days: f64 = conn
+                .query_row(
+                    "SELECT CAST(julianday('now') - julianday(next_review) AS REAL)
+                     FROM user_progress WHERE topic_id = ?1",
+                    [topic_id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0.0);
+
+            if overdue_days <= 0.0 {
+                return 0.0; // Not due yet
+            }
+
+            let overdue_ratio = overdue_days / (interval.max(1) as f64);
+            let ease_penalty = (3.0 - ease).max(0.0); // Lower ease = higher urgency
+            let lapsed_bonus = if is_card_lapsed(conn, topic_id) { 2.0 } else { 0.0 };
+
+            overdue_ratio + ease_penalty + lapsed_bonus
+        }
+        _ => 0.0,
+    }
 }
 
 /// Get a topic's memory strength as a descriptive string.
@@ -270,6 +318,41 @@ mod tests {
         assert_eq!(memory_strength(10, 2.0), "Growing 🌱");
         assert_eq!(memory_strength(4, 2.0), "Fragile 🔨");
         assert_eq!(memory_strength(1, 2.0), "New 🌱");
+    }
+
+    #[test]
+    fn test_review_urgency_not_due() {
+        let conn = db::init_memory_db().unwrap();
+        // No progress = no urgency
+        assert_eq!(review_urgency(&conn, 1), 0.0);
+    }
+
+    #[test]
+    fn test_review_urgency_overdue() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review)
+             VALUES (1, 80.0, 3, 2, 2.5, 5, datetime('now', '-3 days'))", []
+        ).unwrap();
+        let urgency = review_urgency(&conn, 1);
+        assert!(urgency > 0.0, "Overdue topic should have positive urgency, got {}", urgency);
+    }
+
+    #[test]
+    fn test_graduated_relearning() {
+        let conn = db::init_memory_db().unwrap();
+        // Create a lapsed card (overdue by 10+ days)
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review)
+             VALUES (1, 80.0, 5, 4, 2.5, 1, datetime('now', '-10 days'))", []
+        ).unwrap();
+        // Review it — should get re-learning step, not full reset
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(interval, 3, "Lapsed card at step 1 should advance to step 2 (3 days)");
     }
 
     #[test]
