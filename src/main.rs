@@ -63,6 +63,11 @@ enum Commands {
     },
     /// Show your personalized daily learning plan
     Daily,
+    /// Reset your learning progress (optionally for a specific subject)
+    Reset {
+        /// Subject to reset (omit to reset everything)
+        subject: Option<String>,
+    },
 }
 
 fn main() {
@@ -87,6 +92,7 @@ fn main() {
         Commands::Stats => commands::stats::run(&conn),
         Commands::Search { query } => commands::search::run(&conn, &query),
         Commands::Daily => commands::daily::run(&conn),
+        Commands::Reset { subject } => commands::reset::run(&conn, &subject),
     };
 
     if let Err(e) = result {

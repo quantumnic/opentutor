@@ -4,6 +4,7 @@ pub mod learn;
 pub mod path;
 pub mod progress;
 pub mod quiz;
+pub mod reset;
 pub mod review;
 pub mod search;
 pub mod stats;

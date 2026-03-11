@@ -12,6 +12,19 @@ const RELEARN_STEPS: [i64; 3] = [1, 3, 7];
 const STREAK_BONUS_THRESHOLD: i64 = 3;
 /// Maximum streak multiplier
 const MAX_STREAK_BONUS: f64 = 1.3;
+/// Maximum fuzz percentage applied to intervals (±5%)
+const FUZZ_FACTOR: f64 = 0.05;
+
+/// Apply a small random fuzz to an interval to prevent review clustering.
+/// For intervals >= 4 days, adds ±FUZZ_FACTOR jitter (at least ±1 day).
+fn fuzz_interval(interval: i64) -> i64 {
+    if interval < 4 {
+        return interval; // Don't fuzz very short intervals
+    }
+    let jitter_range = ((interval as f64) * FUZZ_FACTOR).max(1.0).round() as i64;
+    let jitter = (rand::random::<u64>() % (2 * jitter_range as u64 + 1)) as i64 - jitter_range;
+    (interval + jitter).clamp(1, MAX_INTERVAL)
+}
 
 /// Calculate next review date using an improved SM-2 algorithm.
 /// quality: 0-5 (0-2 = fail, 3-5 = pass)
@@ -87,6 +100,9 @@ pub fn update_spaced_repetition(
         (new_ease, 1)
     };
 
+    // Apply interval fuzzing to prevent review clustering on the same day
+    let final_interval = fuzz_interval(new_interval);
+
     conn.execute(
         "INSERT INTO user_progress (topic_id, ease_factor, interval_days, next_review, last_reviewed)
          VALUES (?1, ?2, ?3, datetime('now', '+' || ?3 || ' days'), datetime('now'))
@@ -95,7 +111,7 @@ pub fn update_spaced_repetition(
            interval_days = ?3,
            next_review = datetime('now', '+' || ?3 || ' days'),
            last_reviewed = datetime('now')",
-        rusqlite::params![topic_id, new_ease, new_interval],
+        rusqlite::params![topic_id, new_ease, final_interval],
     )?;
     Ok(())
 }
@@ -289,13 +305,13 @@ mod tests {
         ).unwrap();
         assert_eq!(interval, 3, "Second review: 3 days");
 
-        // Third: interval grows by ease factor
+        // Third: interval grows by ease factor (with possible fuzz)
         update_spaced_repetition(&conn, 1, 4).unwrap();
         let interval: i64 = conn.query_row(
             "SELECT interval_days FROM user_progress WHERE topic_id = 1",
             [], |r| r.get(0)
         ).unwrap();
-        assert!(interval >= 7, "Third review should be ~7+ days, got {}", interval);
+        assert!(interval >= 6, "Third review should be ~7+ days (±fuzz), got {}", interval);
     }
 
     #[test]
@@ -432,6 +448,33 @@ mod tests {
         ).unwrap();
         let streak = calculate_streak(&conn);
         assert!(streak >= 1, "Should have at least 1 day streak, got {}", streak);
+    }
+
+    #[test]
+    fn test_fuzz_interval_short_unchanged() {
+        // Intervals < 4 should not be fuzzed
+        assert_eq!(fuzz_interval(1), 1);
+        assert_eq!(fuzz_interval(2), 2);
+        assert_eq!(fuzz_interval(3), 3);
+    }
+
+    #[test]
+    fn test_fuzz_interval_long_within_range() {
+        // For interval=100, fuzz should be ±5 (5%), so result in [95, 105]
+        for _ in 0..50 {
+            let fuzzed = fuzz_interval(100);
+            assert!(fuzzed >= 95 && fuzzed <= 105,
+                "Fuzzed interval {} out of expected range [95, 105]", fuzzed);
+        }
+    }
+
+    #[test]
+    fn test_fuzz_interval_never_exceeds_max() {
+        for _ in 0..50 {
+            let fuzzed = fuzz_interval(MAX_INTERVAL);
+            assert!(fuzzed <= MAX_INTERVAL,
+                "Fuzzed interval {} exceeds MAX_INTERVAL {}", fuzzed, MAX_INTERVAL);
+        }
     }
 
     #[test]

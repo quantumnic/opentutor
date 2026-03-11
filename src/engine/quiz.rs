@@ -63,14 +63,26 @@ pub fn get_questions(
         .unwrap_or(false);
 
     if has_progress && questions.len() > count {
-        // Assign weights: harder question types and less-practiced questions get higher weight
+        // Assign weights based on question type AND user's ease factor
+        // Topics with lower ease factor get more weight (user is struggling)
+        let ease: f64 = conn
+            .query_row(
+                "SELECT COALESCE(ease_factor, 2.5) FROM user_progress WHERE topic_id = ?1",
+                [topic_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(2.5);
+
+        // Lower ease → higher difficulty multiplier (range ~1.0 – 2.0)
+        let difficulty_mult = (3.0 - ease).clamp(1.0, 2.0);
+
         let weights: Vec<f64> = questions
             .iter()
             .map(|q| {
                 let type_weight = match q.question_type.as_str() {
-                    "fill_in_blank" => 1.5, // Harder question type
-                    "true_false" => 0.8,     // Easier
-                    _ => 1.0,
+                    "fill_in_blank" => 1.5 * difficulty_mult, // Harder type, scale up if struggling
+                    "true_false" => 0.8,                      // Easy type stays accessible
+                    _ => 1.0 * difficulty_mult,
                 };
                 type_weight
             })

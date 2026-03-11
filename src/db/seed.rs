@@ -33,6 +33,7 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Economics", "How societies produce, distribute, and consume goods and services."),
         ("Psychology", "Understanding the mind — how we think, feel, behave, and interact with others."),
         ("Environmental Science", "Exploring ecosystems, climate, pollution, and sustainability."),
+        ("Creative Writing", "Crafting stories, poems, and essays — finding your voice through words."),
     ];
     for (name, desc) in &subjects {
         conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
@@ -104,6 +105,11 @@ fn seed_topics(conn: &Connection) -> Result<(), rusqlite::Error> {
         (13, "Climate Change", "beginner", 2),
         (13, "Pollution & Waste", "intermediate", 3),
         (13, "Conservation & Sustainability", "intermediate", 4),
+        // Creative Writing (subject_id=14)
+        (14, "Story Structure", "beginner", 1),
+        (14, "Character Development", "beginner", 2),
+        (14, "Dialogue & Voice", "intermediate", 3),
+        (14, "Poetry Fundamentals", "intermediate", 4),
     ];
     for (sid, name, diff, order) in &topics {
         conn.execute(
@@ -219,6 +225,18 @@ fn seed_lessons(conn: &Connection) -> Result<(), rusqlite::Error> {
         // Economics — Economic Systems (topic_id=41)
         (41, "Types of Economic Systems", "How societies organize production and distribution:\n\nMarket Economy (Capitalism):\n  Private ownership. Prices set by supply/demand.\n  Pros: innovation, efficiency, freedom.\n  Cons: inequality, market failures.\n  Examples: USA, Switzerland, Singapore.\n\nCommand Economy (Planned):\n  Government controls production and prices.\n  Pros: can ensure equality, direct resources.\n  Cons: inefficiency, lack of innovation, reduced freedom.\n  Historical: Soviet Union, Maoist China.\n\nMixed Economy: combines market and government involvement.\n  Most modern economies are mixed.\n  Examples: Germany, Sweden, Japan.\n\nTraditional Economy: based on customs and traditions.\n  Found in some indigenous communities.", 1),
         (41, "GDP and Economic Indicators", "GDP (Gross Domestic Product): total value of all goods and services produced in a country in a year.\n  Nominal GDP: measured in current prices.\n  Real GDP: adjusted for inflation.\n  GDP per capita: GDP ÷ population (standard of living).\n\nOther key indicators:\n  Unemployment rate: % of workforce without jobs.\n  Inflation rate: % increase in prices per year.\n  CPI (Consumer Price Index): tracks price of a basket of goods.\n\nBusiness cycle: expansion → peak → recession → trough → recovery.\n  Recession: two consecutive quarters of declining GDP.\n\nHDI (Human Development Index): combines income, education, and life expectancy.", 2),
+        // Creative Writing — Story Structure (topic_id=50)
+        (50, "The Three-Act Structure", "Most stories follow three acts:\n\nAct 1 — Setup (25%): introduce characters, setting, and the inciting incident.\n  The inciting incident disrupts the character's normal world.\n\nAct 2 — Confrontation (50%): rising action, obstacles, and complications.\n  The midpoint raises the stakes. The character faces their greatest challenge.\n\nAct 3 — Resolution (25%): climax and denouement.\n  The climax is the turning point. The denouement ties up loose ends.\n\nExample: In The Wizard of Oz:\n  Act 1: Dorothy arrives in Oz (inciting incident: tornado).\n  Act 2: She travels to Emerald City, faces the Witch.\n  Act 3: She defeats the Witch and returns home.", 1),
+        (50, "Narrative Arcs and Conflict", "Every story needs conflict — a problem that drives the plot.\n\nTypes of conflict:\n- Person vs. Person: hero vs. villain.\n- Person vs. Self: internal struggle (fear, doubt).\n- Person vs. Nature: survival against the elements.\n- Person vs. Society: challenging norms or injustice.\n- Person vs. Technology: AI, machines, progress.\n\nKurt Vonnegut's story shapes:\n- Rags to Riches: steady rise (Cinderella).\n- Riches to Rags: steady fall (tragedy).\n- Man in a Hole: fall then rise (most adventure stories).\n- Icarus: rise then fall (cautionary tales).\n\nThe best stories combine external conflict with internal growth.", 2),
+        // Creative Writing — Character Development (topic_id=51)
+        (51, "Building Memorable Characters", "Great characters feel real because they have:\n\n1. Desire: what they want (external goal).\n2. Need: what they actually need (often different from desire).\n3. Flaw: a weakness that creates obstacles.\n4. Backstory: past experiences that shape them.\n\nShow, don't tell:\n  BAD: 'Sarah was brave.'\n  GOOD: 'Sarah stepped between the snarling dog and the trembling child.'\n\nCharacter arc: how a character changes over the story.\n  Positive arc: flawed → grows (most protagonists).\n  Negative arc: good → corrupted (tragedy).\n  Flat arc: stays the same, changes the world around them (mentor figures).", 1),
+        (51, "Character Motivation and Backstory", "Motivation answers: Why does this character do what they do?\n\nMaslow's hierarchy applies to characters too:\n- Survival stories: physiological/safety needs.\n- Romance: belonging needs.\n- Coming-of-age: esteem and self-actualization.\n\nIceberg technique (Hemingway): know 10× more about your character than appears on the page. The depth shows through.\n\nCharacter questionnaire starters:\n- What is their greatest fear?\n- What would they die for?\n- What do they lie about?\n- What habit do they have when nervous?\n- What's in their pockets right now?\n\nContradiction makes characters interesting:\n  A tough soldier who writes poetry. A shy librarian who's a fierce negotiator.", 2),
+        // Creative Writing — Dialogue & Voice (topic_id=52)
+        (52, "Writing Natural Dialogue", "Good dialogue does double duty — it reveals character AND advances the plot.\n\nRules of thumb:\n1. Each character should sound distinct. Remove the name tags — can you tell who's speaking?\n2. People rarely say exactly what they mean. Subtext is key.\n3. Read dialogue aloud. If it sounds stiff, rewrite it.\n4. Use contractions (don't, won't, can't) — people speak casually.\n5. Avoid 'said bookisms': he exclaimed, she articulated. 'Said' is invisible.\n\nSubtext example:\n  She asked: 'How's the new job?'\n  What she meant: 'Are you going to be able to pay me back?'\n\nDialogue tags: 'said' and 'asked' are enough 90% of the time.\nAction beats replace tags: 'He slammed the door. \"We're done.\"'", 1),
+        (52, "Finding Your Voice", "Voice is your unique writing fingerprint — the rhythm, word choice, and personality.\n\nNarrative voice types:\n- First person (I/me): intimate, limited perspective.\n- Third person limited (she/he): follows one character's thoughts.\n- Third person omniscient: knows everything, all characters.\n- Second person (you): rare, immersive (used in Choose Your Own Adventure).\n\nDeveloping voice:\n- Write a lot. Voice emerges through practice.\n- Read widely. Notice what you're drawn to.\n- Write like you talk, then refine.\n- Break grammar rules deliberately (fragments. For effect.)\n\nTone vs. voice:\n  Voice is WHO is speaking. Tone is HOW they feel about the subject.\n  Same voice can have different tones (humorous, serious, nostalgic).", 2),
+        // Creative Writing — Poetry Fundamentals (topic_id=53)
+        (53, "Poetry Forms and Devices", "Poetry compresses language for maximum emotional impact.\n\nCommon forms:\n- Free verse: no fixed meter or rhyme. Most modern poetry.\n- Sonnet: 14 lines, iambic pentameter. Shakespeare, Petrarch.\n- Haiku: 3 lines (5-7-5 syllables). Captures a moment.\n- Limerick: 5 lines (AABBA). Humorous.\n- Villanelle: 19 lines with repeating lines. ('Do Not Go Gentle' — Dylan Thomas).\n\nSound devices:\n- Alliteration: same starting sound (Peter Piper picked).\n- Assonance: repeated vowel sounds (the rain in Spain).\n- Onomatopoeia: words that sound like their meaning (buzz, crash, whisper).\n- Rhyme: end rhyme, internal rhyme, slant rhyme.", 1),
+        (53, "Imagery and Figurative Language", "Imagery engages the five senses:\n- Visual: 'The crimson leaves carpeted the path.'\n- Auditory: 'The creek whispered over smooth stones.'\n- Tactile: 'Sandpaper rough under her fingertips.'\n- Olfactory: 'The kitchen smelled of cinnamon and burnt toast.'\n- Gustatory: 'The lemon was sharp enough to make her wince.'\n\nFigurative language:\n- Simile: comparison using like/as. 'Life is like a box of chocolates.'\n- Metaphor: direct comparison. 'Time is a thief.'\n- Personification: giving human traits to non-human things. 'The wind howled.'\n- Hyperbole: exaggeration. 'I've told you a million times.'\n- Symbolism: an object represents something larger. A rose = love.\n\nRule: use figurative language to clarify, not to show off.", 2),
         // Additional lessons for previously under-served topics
         // Reading Comprehension (topic_id=11) — add a second lesson
         (11, "Inference and Context Clues", "Inference means drawing conclusions from evidence, not just what's directly stated.\n\nTypes of context clues:\n- Definition: the word is defined in the sentence.\n- Synonym: a similar word appears nearby.\n- Antonym: an opposite word provides contrast.\n- Example: examples help clarify meaning.\n\nPractice:\n'The arid desert received less than 10cm of rain per year.'\n  Clue: desert, little rain → arid means very dry.\n\nMaking inferences:\n- What does the author imply but not say?\n- What evidence supports your conclusion?\n- Could there be another interpretation?", 2),
@@ -311,6 +329,11 @@ fn seed_explanations(conn: &Connection) -> Result<(), rusqlite::Error> {
         (47, "climate change", "Climate change is the long-term shift in global temperatures and weather patterns, largely driven by human activities.", Some("Imagine Earth wearing a blanket (the atmosphere). Greenhouse gases are making that blanket thicker — great for staying warm, but we're now overheating under it!"), Some("What's one thing you could do this week to reduce your carbon footprint?")),
         (48, "pollution", "Pollution is the introduction of harmful substances into the environment.", Some("Pollution is like putting the wrong fuel in an engine — the machine still runs for a while, but eventually things start breaking down. Earth is that engine!"), Some("Where does your garbage go after it leaves your house?")),
         (49, "sustainability", "Sustainability means using resources in a way that meets current needs without preventing future generations from meeting theirs.", Some("Sustainability is like eating from a fruit tree — if you pick all the fruit AND cut down the tree, there's nothing for next year. Smart harvesting keeps the tree alive forever!"), Some("If you could redesign one everyday product to be more sustainable, what would it be?")),
+        // Creative Writing
+        (50, "story structure", "Story structure is the framework that organizes a narrative — beginning, middle, and end.", Some("Think of story structure like a roller coaster: the slow climb builds tension (setup), the big drop is the climax, and the gentle return to the station is the resolution. No one rides a flat roller coaster!"), Some("What's the inciting incident in your favorite movie?")),
+        (51, "characters", "Characters are the people (or creatures) whose experiences drive a story forward.", Some("A character without a flaw is like a diamond without facets — technically perfect but not very interesting to look at. Flaws catch the light!"), Some("Think of a character you love — what's their biggest flaw, and why do you love them anyway?")),
+        (52, "dialogue", "Dialogue is the spoken words of characters in a story — it reveals personality, advances plot, and creates tension.", Some("Good dialogue is like an iceberg — what characters say is the tip above water, but what they really mean is the massive shape hiding underneath."), Some("Try rewriting 'I'm angry at you' without using the word 'angry' — how would a character SHOW it?")),
+        (53, "poetry", "Poetry is the art of compressing language to its most powerful, musical, and evocative form.", Some("Poetry is like a photograph of language — it freezes a single moment or feeling and lets you study every detail. Prose is the movie; poetry is the still frame that takes your breath away."), Some("Can you write a haiku (5-7-5 syllables) about something you see right now?")),
     ];
     for (tid, concept, explanation, analogy, follow_up) in &explanations {
         conn.execute(
@@ -472,6 +495,22 @@ fn seed_quiz_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         (49, "What does the acronym HIPPO stand for in conservation?", "multiple_choice", "Habitat loss, Invasive species, Pollution, Population, Overexploitation", Some("Heat, Ice, Pollution, People, Oceans"), Some("Habitat loss, Invasive species, Pollution, Population, Overexploitation"), Some("Hunting, Industry, Plastic, Poverty, Oil"), Some("Hurricanes, Ice, Pollution, Population, Ozone"), Some("The main threats to biodiversity"), "HIPPO: Habitat loss, Invasive species, Pollution, Population growth, Overexploitation — the five main threats to biodiversity."),
         (49, "How many UN Sustainable Development Goals are there?", "multiple_choice", "17", Some("10"), Some("15"), Some("17"), Some("20"), Some("Targets for 2030"), "There are 17 UN Sustainable Development Goals (SDGs) set for achievement by 2030."),
         (49, "True or false: The number one threat to biodiversity is climate change.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Think about what directly destroys species' homes"), "False. Habitat loss is the #1 threat to biodiversity. Climate change is a growing but secondary factor."),
+        // Creative Writing — Story Structure
+        (50, "In the three-act structure, the inciting incident occurs in which act?", "multiple_choice", "Act 1", Some("Act 1"), Some("Act 2"), Some("Act 3"), Some("The climax"), Some("It disrupts the character's normal world"), "The inciting incident occurs in Act 1 (Setup) — it's the event that kicks the story into motion."),
+        (50, "Which type of conflict involves a character struggling against their own fears?", "multiple_choice", "Person vs. Self", Some("Person vs. Person"), Some("Person vs. Self"), Some("Person vs. Nature"), Some("Person vs. Society"), Some("It's internal, not external"), "Person vs. Self is an internal conflict — the character battles their own doubts, fears, or desires."),
+        (50, "True or false: The climax occurs in Act 2 of the three-act structure.", "true_false", "false", Some("true"), Some("false"), None, None, Some("The climax is the turning point near the end"), "False. The climax occurs in Act 3 (Resolution). Act 2 contains rising action and the midpoint."),
+        // Creative Writing — Character Development
+        (51, "The 'iceberg technique' in character writing was associated with which author?", "multiple_choice", "Hemingway", Some("Dickens"), Some("Hemingway"), Some("Tolkien"), Some("Austen"), Some("A famously sparse writer"), "Ernest Hemingway advocated knowing far more about your characters than you reveal — the depth shows through."),
+        (51, "A character who starts flawed and grows over the story has a ___ arc.", "fill_in_blank", "positive", None, None, None, None, Some("They improve and overcome"), "A positive character arc shows a flawed character who grows, learns, and overcomes their weakness."),
+        (51, "Which is an example of 'show, don't tell'?", "multiple_choice", "Her hands trembled as she opened the letter", Some("She was very nervous"), Some("Her hands trembled as she opened the letter"), Some("She felt scared and anxious"), Some("She was worried about the news"), Some("Actions reveal emotions better than labels"), "'Her hands trembled' shows nervousness through physical action rather than telling with an emotion label."),
+        // Creative Writing — Dialogue & Voice
+        (52, "Which word is recommended for most dialogue tags?", "multiple_choice", "said", Some("exclaimed"), Some("said"), Some("articulated"), Some("declared"), Some("It's invisible to the reader"), "'Said' is nearly invisible to readers, keeping focus on the dialogue itself rather than the tag."),
+        (52, "True or false: Good dialogue should sound exactly like real speech, including all the 'ums' and 'ahs'.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Fiction dialogue is polished"), "False. Good dialogue captures the feel of natural speech but is more focused and purposeful than real conversation."),
+        (52, "First-person narration uses which pronoun?", "multiple_choice", "I", Some("He/She"), Some("I"), Some("You"), Some("They"), Some("The narrator is telling their own story"), "First-person uses 'I/me' — the narrator is a character in the story telling it from their perspective."),
+        // Creative Writing — Poetry
+        (53, "A haiku has how many syllables in total?", "multiple_choice", "17", Some("14"), Some("17"), Some("20"), Some("10"), Some("5 + 7 + 5"), "A haiku has 17 syllables: 5 in the first line, 7 in the second, 5 in the third."),
+        (53, "Which device gives human qualities to non-human things?", "multiple_choice", "Personification", Some("Simile"), Some("Metaphor"), Some("Personification"), Some("Alliteration"), Some("The wind 'howled' — can wind really howl?"), "Personification attributes human characteristics to non-human things (the wind howled, time marches on)."),
+        (53, "'Life is like a box of chocolates' is an example of a ___.", "fill_in_blank", "simile", None, None, None, None, Some("It uses 'like' or 'as'"), "A simile compares two things using 'like' or 'as'. A metaphor would say 'Life IS a box of chocolates.'"),
     ];
     for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
         conn.execute(
@@ -526,6 +565,10 @@ fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("planet earth", 2, 47, "Climate change — our warming world"),
         ("planet earth", 3, 48, "Pollution & waste — the cost of progress"),
         ("planet earth", 4, 49, "Conservation & sustainability — protecting our future"),
+        ("creative writing", 1, 50, "Story structure — the skeleton of every narrative"),
+        ("creative writing", 2, 51, "Character development — breathing life into people on the page"),
+        ("creative writing", 3, 52, "Dialogue & voice — making characters speak and finding your style"),
+        ("creative writing", 4, 53, "Poetry fundamentals — the art of compressed language"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -548,7 +591,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 13);
+        assert_eq!(count, 14);
     }
 
     #[test]
@@ -558,7 +601,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 13);
+        assert_eq!(count, 14);
     }
 
     #[test]
@@ -703,6 +746,22 @@ mod tests {
             ).unwrap();
             assert!(lesson_count >= 8, "{} should have at least 8 lessons, got {}", name, lesson_count);
         }
+    }
+
+    #[test]
+    fn test_creative_writing_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let cw: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Creative Writing'", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(cw, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Creative Writing'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
     }
 
     #[test]
