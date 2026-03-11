@@ -1,3 +1,4 @@
+pub mod daily;
 pub mod explain;
 pub mod learn;
 pub mod path;

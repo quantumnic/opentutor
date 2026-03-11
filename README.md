@@ -13,10 +13,11 @@ Every child deserves access to a patient, knowledgeable tutor — regardless of 
 ## ✨ Features
 
 - **Adaptive Learning** — Tracks what you know and what you need to review
-- **Spaced Repetition** — Uses the SM-2 algorithm to optimize review timing
-- **Multiple Subjects** — Mathematics, Science, Language, History, Health, Computer Science, Geography
-- **Quiz System** — Multiple-choice and true/false questions with hints and explanations
-- **Review Command** — Dedicated spaced repetition review for due topics
+- **Spaced Repetition** — Enhanced SM-2 algorithm with streak bonuses and graduated re-learning
+- **13 Subjects** — Mathematics, Science, Language, History, Health, Computer Science, Geography, Music, Art, Philosophy, Economics, Psychology, Environmental Science
+- **Quiz System** — Multiple-choice, true/false, and fill-in-the-blank questions with hints and explanations
+- **Daily Plan** — Personalized daily learning combining reviews + new material suggestions
+- **Review Command** — Dedicated spaced repetition review with urgency-based prioritization
 - **Learning Paths** — Step-by-step guides toward mastery goals
 - **Offline-First** — Everything stored locally in SQLite, no internet needed
 - **Free Forever** — Open source, no ads, no tracking
@@ -37,6 +38,9 @@ opentutor explain "photosynthesis"    # Get a simple explanation
 opentutor progress                    # Check your progress
 opentutor path "algebra"              # See a learning path
 opentutor review                      # Review due topics (spaced repetition)
+opentutor daily                       # Your personalized daily learning plan
+opentutor stats                       # Detailed learning statistics
+opentutor search "gravity"            # Search across all content
 ```
 
 ## 📖 Commands
@@ -50,6 +54,9 @@ opentutor review                      # Review due topics (spaced repetition)
 | `opentutor subjects` | List all available subjects and topics |
 | `opentutor path <goal>` | Show a step-by-step learning path |
 | `opentutor review` | Review due topics using spaced repetition |
+| `opentutor daily` | Personalized daily plan: reviews + new material |
+| `opentutor stats` | Detailed learning statistics and streaks |
+| `opentutor search <query>` | Search across all content |
 
 ## 📚 Subjects & Topics
 
@@ -92,6 +99,42 @@ opentutor review                      # Review due topics (spaced repetition)
 - Maps & Navigation (reading maps, latitude/longitude)
 - Natural Resources (renewable vs non-renewable)
 
+### Music
+- Musical Notes & Scales (staff, clefs, major/minor)
+- Rhythm & Time Signatures (note values, tempo)
+- Musical Instruments (orchestra families, keyboards)
+- Music History (classical periods, popular genres)
+
+### Art
+- Color Theory (color wheel, properties, schemes)
+- Elements of Art (line, shape, form, color, value, texture, space)
+- Art History (ancient to modern movements)
+- Composition & Design (rule of thirds, visual hierarchy)
+
+### Philosophy
+- Logic & Reasoning (arguments, fallacies)
+- Ethics & Morality (consequentialism, deontology, virtue ethics)
+- Famous Philosophers (Socrates to de Beauvoir)
+- Thought Experiments (Plato's Cave, Ship of Theseus, Chinese Room)
+
+### Economics
+- Supply & Demand (equilibrium, elasticity)
+- Money & Banking (functions of money, interest, central banks)
+- Trade & Globalization (comparative advantage, tariffs)
+- Economic Systems (market, command, mixed, GDP)
+
+### Psychology
+- Introduction to Psychology (branches, history, nature vs nurture)
+- Memory & Learning (encoding, storage, retrieval, conditioning)
+- Emotions & Motivation (Ekman, Maslow, growth mindset)
+- Social Psychology (conformity, obedience, cognitive biases)
+
+### Environmental Science
+- Ecosystems & Biomes (food webs, energy flow, major biomes)
+- Climate Change (greenhouse effect, impacts, solutions)
+- Pollution & Waste (air, water, soil pollution, plastics)
+- Conservation & Sustainability (biodiversity, SDGs, circular economy)
+
 ## 🧠 How It Works
 
 ### Adaptive Learning
@@ -101,7 +144,11 @@ opentutor tracks your performance on each topic. As you answer questions correct
 - **Advanced** → mastery-level challenges
 
 ### Spaced Repetition
-Using a simplified SM-2 algorithm (the same principle behind Anki), opentutor schedules reviews at optimal intervals. Topics you struggle with come back sooner; topics you've mastered appear less frequently.
+Using an enhanced SM-2 algorithm (the same principle behind Anki), opentutor schedules reviews at optimal intervals. Topics you struggle with come back sooner; topics you've mastered appear less frequently. Improvements include:
+- **Streak bonus** — Consistent daily learners earn longer intervals (up to 30% bonus)
+- **Graduated re-learning** — Lapsed cards go through recovery steps instead of full reset
+- **Urgency scoring** — Reviews are prioritized by how overdue they are and ease factor
+- **Quality-based bonuses** — Perfect scores earn interval boosts
 
 ### Socratic Method
 Rather than just presenting facts, opentutor asks follow-up questions to encourage deeper thinking. The goal is understanding, not memorization.

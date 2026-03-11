@@ -61,6 +61,8 @@ enum Commands {
         /// Search query
         query: String,
     },
+    /// Show your personalized daily learning plan
+    Daily,
 }
 
 fn main() {
@@ -84,6 +86,7 @@ fn main() {
         Commands::Review { count } => commands::review::run(&conn, count),
         Commands::Stats => commands::stats::run(&conn),
         Commands::Search { query } => commands::search::run(&conn, &query),
+        Commands::Daily => commands::daily::run(&conn),
     };
 
     if let Err(e) = result {

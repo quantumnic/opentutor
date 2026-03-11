@@ -31,6 +31,8 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Art", "Visual creativity — color, form, composition, and art history."),
         ("Philosophy", "Thinking about thinking — logic, ethics, and the big questions of life."),
         ("Economics", "How societies produce, distribute, and consume goods and services."),
+        ("Psychology", "Understanding the mind — how we think, feel, behave, and interact with others."),
+        ("Environmental Science", "Exploring ecosystems, climate, pollution, and sustainability."),
     ];
     for (name, desc) in &subjects {
         conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
@@ -92,6 +94,16 @@ fn seed_topics(conn: &Connection) -> Result<(), rusqlite::Error> {
         (11, "Money & Banking", "beginner", 2),
         (11, "Trade & Globalization", "intermediate", 3),
         (11, "Economic Systems", "intermediate", 4),
+        // Psychology (subject_id=12)
+        (12, "Introduction to Psychology", "beginner", 1),
+        (12, "Memory & Learning", "beginner", 2),
+        (12, "Emotions & Motivation", "beginner", 3),
+        (12, "Social Psychology", "intermediate", 4),
+        // Environmental Science (subject_id=13)
+        (13, "Ecosystems & Biomes", "beginner", 1),
+        (13, "Climate Change", "beginner", 2),
+        (13, "Pollution & Waste", "intermediate", 3),
+        (13, "Conservation & Sustainability", "intermediate", 4),
     ];
     for (sid, name, diff, order) in &topics {
         conn.execute(
@@ -220,6 +232,30 @@ fn seed_lessons(conn: &Connection) -> Result<(), rusqlite::Error> {
         (15, "Germ Theory and Disease Prevention", "Before germ theory, people blamed illness on bad air ('miasma').\n\nKey figures:\n- Louis Pasteur (1860s): proved microorganisms cause disease.\n- Joseph Lister: introduced antiseptic surgery.\n- Robert Koch: identified bacteria causing tuberculosis and cholera.\n\nHow diseases spread:\n- Airborne: coughing, sneezing (flu, COVID).\n- Contact: touching contaminated surfaces.\n- Waterborne: contaminated water (cholera).\n- Vector-borne: carried by insects (malaria via mosquitoes).\n\nPrevention: vaccination, sanitation, clean water, hygiene.\nVaccines have saved more lives than any other medical intervention.", 2),
         // Nutrition (topic_id=16) — add a second lesson
         (16, "Reading Food Labels", "Understanding nutrition labels empowers healthy choices.\n\nKey information:\n- Serving size: everything is based on this — check it first!\n- Calories: energy per serving.\n- Macronutrients: carbohydrates, protein, fat.\n- Micronutrients: vitamins and minerals.\n- Daily Value (%DV): how much one serving contributes to daily needs.\n  5% DV or less = low. 20% DV or more = high.\n\nWatch out for:\n- Added sugars (not the same as natural sugars in fruit).\n- Sodium: <2,300 mg/day recommended.\n- Trans fats: avoid entirely.\n\nIngredient list: items listed by weight (most to least).\nIf sugar is in the first 3 ingredients, reconsider.", 2),
+        // Psychology — Introduction (topic_id=42)
+        (42, "What Is Psychology?", "Psychology is the scientific study of mind and behavior.\n\nMajor branches:\n- Clinical: diagnosing and treating mental disorders.\n- Cognitive: how we think, remember, and solve problems.\n- Developmental: how people change across the lifespan.\n- Social: how others influence our behavior.\n- Biological: the brain and nervous system.\n\nHistory:\n- Wilhelm Wundt (1879): opened the first psychology lab.\n- Sigmund Freud: the unconscious mind.\n- B.F. Skinner: behaviorism — observable actions.\n- Carl Rogers: humanistic psychology — personal growth.\n\nPsychology uses the scientific method: observe, hypothesize, test, conclude.", 1),
+        (42, "Nature vs. Nurture", "One of psychology's oldest debates: are we shaped by genes (nature) or environment (nurture)?\n\nNature (genetics):\n- Eye color, height, temperament tendencies.\n- Twin studies: identical twins raised apart still share traits.\n\nNurture (environment):\n- Language, values, skills, fears.\n- Culture shapes what we consider 'normal.'\n\nModern view: it's BOTH. Genes provide potential; environment shapes expression.\n- Epigenetics: environment can turn genes on or off.\n- Example: a child may inherit musical talent (nature) but needs practice to develop it (nurture).\n\nNeither alone explains human behavior.", 2),
+        // Psychology — Memory & Learning (topic_id=43)
+        (43, "How Memory Works", "Memory has three stages:\n\n1. Encoding: taking in information.\n   - Visual (images), acoustic (sounds), semantic (meaning).\n   - Deeper processing = better memory.\n\n2. Storage:\n   - Sensory memory: <1 second (sights, sounds).\n   - Short-term/Working memory: ~20 seconds, 7±2 items.\n   - Long-term memory: unlimited capacity, can last a lifetime.\n\n3. Retrieval: accessing stored information.\n   - Recall: producing information (essay question).\n   - Recognition: identifying information (multiple choice).\n\nForgetting curve (Ebbinghaus): we forget ~50% within an hour without review.\nSpaced repetition fights this by reviewing at optimal intervals.", 1),
+        (43, "Learning Theories", "How do we learn? Major theories:\n\nClassical Conditioning (Pavlov):\n  Pair a stimulus with a response. Dog hears bell → gets food → salivates.\n  Eventually: bell alone → salivation.\n\nOperant Conditioning (Skinner):\n  Behavior shaped by consequences.\n  - Positive reinforcement: reward increases behavior (treat for good grades).\n  - Negative reinforcement: removing something unpleasant increases behavior.\n  - Punishment: decreases behavior.\n\nObservational Learning (Bandura):\n  Learn by watching others. Children imitate adults (Bobo doll experiment).\n\nConstructivism (Piaget):\n  Learners actively build knowledge from experience.\n  Stages: sensorimotor → preoperational → concrete → formal.", 2),
+        // Psychology — Emotions & Motivation (topic_id=44)
+        (44, "Understanding Emotions", "Emotions are complex reactions involving:\n- Physiological responses (heart rate, sweating).\n- Subjective feelings (happiness, fear).\n- Behavioral expressions (smiling, fleeing).\n\nBasic emotions (Paul Ekman): happiness, sadness, fear, anger, surprise, disgust.\nThese are universal across cultures.\n\nTheories:\n- James-Lange: body reacts first, then we feel emotion. (We feel sad because we cry.)\n- Cannon-Bard: body and feeling happen simultaneously.\n- Schachter-Singer: arousal + cognitive label = emotion.\n\nEmotional intelligence (Goleman): ability to recognize, understand, and manage emotions — in yourself and others. Predicts success as well as IQ.", 1),
+        (44, "Motivation", "Motivation is what drives us to act.\n\nIntrinsic motivation: doing something for its own sake (curiosity, enjoyment).\nExtrinsic motivation: doing something for external rewards (money, grades).\n\nMaslow's Hierarchy of Needs (bottom to top):\n1. Physiological: food, water, sleep.\n2. Safety: shelter, security.\n3. Belonging: love, friendship.\n4. Esteem: achievement, respect.\n5. Self-actualization: reaching your full potential.\n\nSelf-Determination Theory (Deci & Ryan):\nThree core needs: autonomy, competence, relatedness.\nWhen met, intrinsic motivation flourishes.\n\nGrowth mindset (Carol Dweck): believing abilities can improve through effort leads to more persistence and success.", 2),
+        // Psychology — Social Psychology (topic_id=45)
+        (45, "How Others Influence Us", "Social psychology studies how people affect each other's thoughts and behaviors.\n\nConformity (Asch, 1951):\n  People agree with a group even when the group is clearly wrong.\n  ~75% conformed at least once. Why? Social pressure.\n\nObedience (Milgram, 1963):\n  65% of participants gave what they believed were dangerous electric shocks\n  when ordered by an authority figure.\n\nBystander Effect:\n  The more people present, the less likely anyone helps.\n  Diffusion of responsibility: 'someone else will do it.'\n\nGroupthink: groups make worse decisions when they prioritize harmony over critical thinking.", 1),
+        (45, "Cognitive Biases", "Our brains take mental shortcuts (heuristics) that can lead to errors.\n\nConfirmation bias: we seek information that confirms what we already believe.\nAnchoring: the first number we see influences our judgment.\nAvailability heuristic: we judge likelihood by how easily examples come to mind.\n  Shark attacks feel common (dramatic news) but are extremely rare.\nDunning-Kruger effect: beginners overestimate their ability; experts underestimate theirs.\nHalo effect: one positive trait (attractiveness) makes us assume others (intelligence).\nSunk cost fallacy: continuing something because of past investment, not future value.\n\nAwareness of biases is the first step to better thinking.\nSlowing down and thinking deliberately (System 2) helps counter them.", 2),
+        // Environmental Science — Ecosystems & Biomes (topic_id=46)
+        (46, "What Is an Ecosystem?", "An ecosystem is a community of living organisms interacting with their non-living environment.\n\nComponents:\n- Biotic: plants, animals, fungi, bacteria.\n- Abiotic: water, sunlight, temperature, soil, minerals.\n\nEnergy flow:\n  Sun → producers (plants) → primary consumers (herbivores) → secondary consumers (carnivores) → decomposers.\n  Only ~10% of energy transfers between levels (10% rule).\n\nFood web: interconnected food chains in an ecosystem.\n\nBiodiversity: the variety of life in an ecosystem.\n  Higher biodiversity = more resilient ecosystem.\n  A forest with 500 species recovers better from disturbance than one with 50.", 1),
+        (46, "Major Biomes", "Biomes are large regions with similar climate, plants, and animals.\n\nTerrestrial biomes:\n- Tropical rainforest: hot, wet. Greatest biodiversity. Amazon, Congo.\n- Desert: very dry (<25 cm rain/year). Sahara, Gobi.\n- Grassland/Savanna: grasses dominate. Serengeti, Great Plains.\n- Temperate forest: four seasons. Deciduous trees. Europe, eastern USA.\n- Boreal forest (Taiga): cold, coniferous trees. Canada, Russia.\n- Tundra: freezing, treeless, permafrost. Arctic.\n\nAquatic biomes:\n- Freshwater: rivers, lakes, wetlands.\n- Marine: oceans, coral reefs, deep sea.\n- Estuaries: where rivers meet the sea. Extremely productive.", 2),
+        // Environmental Science — Climate Change (topic_id=47)
+        (47, "The Greenhouse Effect", "The greenhouse effect is natural and essential — without it, Earth would be -18°C!\n\nHow it works:\n1. Sunlight passes through the atmosphere and warms Earth's surface.\n2. Earth radiates heat (infrared radiation) back toward space.\n3. Greenhouse gases (CO₂, methane, water vapor, N₂O) trap some of this heat.\n4. This keeps Earth warm enough for life (~15°C average).\n\nThe problem: human activities have increased greenhouse gas concentrations.\n- CO₂: burning fossil fuels, deforestation. Up 50% since 1750.\n- Methane: livestock, rice paddies, landfills. 80× more potent than CO₂ (short-term).\n- N₂O: agriculture, fertilizers.\n\nResult: enhanced greenhouse effect → global warming.", 1),
+        (47, "Impacts of Climate Change", "Observed and projected effects:\n\nTemperature: Earth has warmed ~1.1°C since pre-industrial times.\n  Goal: limit to 1.5°C (Paris Agreement).\n\nSea level rise: thermal expansion + ice melt.\n  ~20 cm rise since 1900. Could reach 1 m by 2100.\n\nExtreme weather: more intense heatwaves, droughts, hurricanes, flooding.\n\nEcosystems: coral bleaching, species migration, extinction risk.\n  ~1 million species at risk.\n\nHuman impact: food security, water scarcity, climate refugees.\n\nSolutions:\n- Mitigation: reduce emissions (renewables, efficiency, carbon capture).\n- Adaptation: prepare for changes (sea walls, drought-resistant crops).\n- Individual actions: reduce, reuse, recycle; eat less meat; use public transport.", 2),
+        // Environmental Science — Pollution & Waste (topic_id=48)
+        (48, "Types of Pollution", "Pollution: harmful substances introduced into the environment.\n\nAir pollution:\n- Sources: vehicles, factories, power plants, wildfires.\n- Effects: respiratory disease, smog, acid rain.\n- Key pollutants: particulate matter (PM2.5), ozone, CO, SO₂, NOx.\n\nWater pollution:\n- Sources: industrial waste, agricultural runoff, sewage, plastics.\n- Effects: unsafe drinking water, dead zones, ecosystem damage.\n- 2 billion people lack safe drinking water.\n\nSoil pollution:\n- Sources: pesticides, heavy metals, industrial waste, landfills.\n- Effects: reduced crop yields, contaminated food chain.\n\nNoise and light pollution: often overlooked but affect health and wildlife.", 1),
+        (48, "The Plastic Problem", "Plastic production: 400+ million tonnes per year. Only 9% is recycled.\n\nWhere it goes:\n- Landfills: takes 400-1000 years to decompose.\n- Oceans: 8 million tonnes enter oceans annually.\n  Great Pacific Garbage Patch: 1.6 million km² (3× the size of France).\n\nMicroplastics: tiny fragments (<5 mm) found everywhere.\n  In water, soil, air, food, and even human blood.\n\nImpact on wildlife:\n- Entanglement: sea turtles, seabirds, marine mammals.\n- Ingestion: animals mistake plastic for food.\n- 100,000+ marine animals die from plastic annually.\n\nSolutions:\n- Reduce single-use plastics.\n- Improve recycling infrastructure.\n- Biodegradable alternatives.\n- Extended producer responsibility.", 2),
+        // Environmental Science — Conservation & Sustainability (topic_id=49)
+        (49, "Biodiversity and Conservation", "Biodiversity: the variety of life at genetic, species, and ecosystem levels.\n\nWhy it matters:\n- Ecosystem services: pollination, water purification, carbon storage.\n- Medicine: 25% of drugs derived from plants.\n- Food security: genetic diversity protects crops from disease.\n- Resilience: diverse ecosystems recover faster from disturbance.\n\nThreats (HIPPO):\n- Habitat loss: #1 threat. Deforestation, urbanization.\n- Invasive species: outcompete native species.\n- Pollution: poisons ecosystems.\n- Population growth: more resources needed.\n- Overexploitation: overfishing, poaching.\n\nConservation strategies:\n- Protected areas (national parks, marine reserves).\n- Habitat restoration.\n- Species breeding programs.\n- Wildlife corridors connecting habitats.", 1),
+        (49, "Sustainability", "Sustainability: meeting present needs without compromising future generations.\n\nThree pillars:\n1. Environmental: protect natural resources and ecosystems.\n2. Social: equity, health, education, community.\n3. Economic: viable economy without depleting resources.\n\nCircular economy: design out waste. Products are reused, repaired, recycled.\n  Linear (take-make-dispose) → Circular (reduce-reuse-recycle).\n\nUN Sustainable Development Goals (SDGs): 17 goals for 2030.\n  No poverty, zero hunger, clean energy, climate action, life below water, etc.\n\nIndividual actions:\n- Reduce consumption and waste.\n- Choose renewable energy.\n- Support sustainable businesses.\n- Eat locally and seasonally.\n- Educate others — knowledge multiplies impact.", 2),
     ];
     for (tid, title, content, order) in &lessons {
         conn.execute(
@@ -265,6 +301,16 @@ fn seed_explanations(conn: &Connection) -> Result<(), rusqlite::Error> {
         (39, "money", "Money is anything widely accepted as payment — it solves the problem of bartering.", Some("Imagine trading a piano for groceries — money is the middleman that makes exchange possible!"), Some("Why can't a country just print more money to make everyone rich?")),
         (40, "trade", "International trade allows countries to specialize in what they do best and exchange with others.", Some("Trade between countries is like trading lunch items at school — everyone ends up happier when they can swap for what they really want!"), Some("Can you think of something you use daily that was made in another country?")),
         (41, "economic systems", "An economic system is how a society organizes the production and distribution of goods and services.", Some("Economic systems are like different recipes for running a country — same ingredients (land, labor, capital) but very different results!"), Some("What do you think is the government's role in the economy?")),
+        // Psychology
+        (42, "psychology", "Psychology is the scientific study of the mind and behavior.", Some("Psychology is like being a detective of the mind — instead of crime scenes, you investigate thoughts, feelings, and behaviors to understand why people do what they do!"), Some("Can you think of a time your brain tricked you into believing something that wasn't true?")),
+        (43, "memory", "Memory is the process of encoding, storing, and retrieving information.", Some("Your memory is like a library — encoding is writing the book, storage is putting it on the shelf, and retrieval is finding it again. The problem? Our librarian is sometimes lazy!"), Some("Why do you think you can remember your 5th birthday party but not what you had for lunch last Tuesday?")),
+        (44, "emotions", "Emotions are complex psychological and physical responses that influence how we think and behave.", Some("Emotions are like the weather inside your mind — sometimes sunny, sometimes stormy, but always changing. And just like weather, you can't always control them, but you can prepare for them!"), Some("Do you think animals experience emotions the same way humans do?")),
+        (45, "social psychology", "Social psychology studies how people's thoughts, feelings, and behaviors are influenced by others.", Some("Social psychology reveals that we're all actors on a stage — changing our performance depending on the audience. Sometimes we don't even realize we're doing it!"), Some("Have you ever changed your opinion just because everyone around you disagreed?")),
+        // Environmental Science
+        (46, "ecosystems", "An ecosystem is a community of living and non-living things that work together.", Some("An ecosystem is like a web where everything is connected — pull one thread and the whole thing shifts. Remove bees and flowers can't reproduce; remove wolves and deer overpopulate!"), Some("Can you name three living and three non-living things in an ecosystem near you?")),
+        (47, "climate change", "Climate change is the long-term shift in global temperatures and weather patterns, largely driven by human activities.", Some("Imagine Earth wearing a blanket (the atmosphere). Greenhouse gases are making that blanket thicker — great for staying warm, but we're now overheating under it!"), Some("What's one thing you could do this week to reduce your carbon footprint?")),
+        (48, "pollution", "Pollution is the introduction of harmful substances into the environment.", Some("Pollution is like putting the wrong fuel in an engine — the machine still runs for a while, but eventually things start breaking down. Earth is that engine!"), Some("Where does your garbage go after it leaves your house?")),
+        (49, "sustainability", "Sustainability means using resources in a way that meets current needs without preventing future generations from meeting theirs.", Some("Sustainability is like eating from a fruit tree — if you pick all the fruit AND cut down the tree, there's nothing for next year. Smart harvesting keeps the tree alive forever!"), Some("If you could redesign one everyday product to be more sustainable, what would it be?")),
     ];
     for (tid, concept, explanation, analogy, follow_up) in &explanations {
         conn.execute(
@@ -393,6 +439,39 @@ fn seed_quiz_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         (41, "Which economic system relies on private ownership and market prices?", "multiple_choice", "Market economy", Some("Command economy"), Some("Market economy"), Some("Traditional economy"), Some("Mixed economy"), Some("Also called capitalism"), "A market economy (capitalism) relies on private ownership and supply/demand to set prices."),
         (41, "GDP stands for Gross ___ Product.", "fill_in_blank", "Domestic", None, None, None, None, Some("It measures a country's output"), "GDP = Gross Domestic Product — the total value of goods and services produced within a country."),
         (41, "A recession is defined as ___ consecutive quarters of declining GDP.", "fill_in_blank", "2", None, None, None, None, Some("A common rule of thumb"), "A recession is commonly defined as two consecutive quarters of negative GDP growth."),
+        // Psychology — Introduction
+        (42, "Who opened the first psychology laboratory?", "multiple_choice", "Wilhelm Wundt", Some("Sigmund Freud"), Some("Wilhelm Wundt"), Some("B.F. Skinner"), Some("Carl Rogers"), Some("It was in Leipzig, Germany, in 1879"), "Wilhelm Wundt opened the first psychology lab in Leipzig, Germany, in 1879."),
+        (42, "True or false: The nature vs. nurture debate concludes that genes alone determine behavior.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Modern psychology says it's both"), "False. Modern psychology recognizes both nature (genetics) and nurture (environment) interact."),
+        (42, "The study of how the brain and nervous system affect behavior is called ___ psychology.", "fill_in_blank", "biological", None, None, None, None, Some("Related to biology"), "Biological psychology examines how physical processes in the brain influence behavior and mental states."),
+        // Psychology — Memory & Learning
+        (43, "How many items can short-term memory typically hold?", "multiple_choice", "7 plus or minus 2", Some("3 plus or minus 1"), Some("7 plus or minus 2"), Some("12 plus or minus 3"), Some("Unlimited"), Some("Miller's magic number"), "George Miller found short-term memory holds about 7±2 items."),
+        (43, "Which scientist is famous for classical conditioning with dogs?", "multiple_choice", "Pavlov", Some("Skinner"), Some("Pavlov"), Some("Bandura"), Some("Piaget"), Some("Dogs, bells, and salivation"), "Ivan Pavlov demonstrated classical conditioning — dogs learned to salivate at the sound of a bell."),
+        (43, "True or false: We forget approximately 50% of new information within one hour.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Ebbinghaus discovered this"), "True. Ebbinghaus's forgetting curve shows rapid forgetting without review — about 50% within an hour."),
+        (43, "Operant conditioning was developed by ___.", "fill_in_blank", "Skinner", None, None, None, None, Some("Associated with reinforcement and punishment"), "B.F. Skinner developed operant conditioning — behavior shaped by consequences (reinforcement and punishment)."),
+        // Psychology — Emotions & Motivation
+        (44, "How many basic universal emotions did Paul Ekman identify?", "multiple_choice", "6", Some("4"), Some("6"), Some("8"), Some("10"), Some("Happiness, sadness, fear, anger..."), "Ekman identified 6 basic emotions: happiness, sadness, fear, anger, surprise, and disgust."),
+        (44, "What is at the top of Maslow's hierarchy of needs?", "multiple_choice", "Self-actualization", Some("Safety"), Some("Belonging"), Some("Esteem"), Some("Self-actualization"), Some("Reaching your full potential"), "Self-actualization — reaching your full potential — sits at the top of Maslow's hierarchy."),
+        (44, "True or false: Intrinsic motivation comes from external rewards.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Intrinsic means from within"), "False. Intrinsic motivation comes from within (enjoyment, curiosity). Extrinsic comes from external rewards."),
+        // Psychology — Social Psychology
+        (45, "In Milgram's obedience study, what percentage gave maximum shocks?", "multiple_choice", "65%", Some("10%"), Some("35%"), Some("65%"), Some("90%"), Some("A surprisingly high number"), "65% of participants administered what they believed were maximum shocks when instructed by an authority figure."),
+        (45, "Which bias makes us seek information that confirms what we already believe?", "multiple_choice", "Confirmation bias", Some("Anchoring bias"), Some("Confirmation bias"), Some("Halo effect"), Some("Sunk cost fallacy"), Some("We look for confirming evidence"), "Confirmation bias leads us to seek, interpret, and remember information that confirms our existing beliefs."),
+        (45, "The tendency for individuals to be less likely to help when others are present is called the ___ effect.", "fill_in_blank", "bystander", None, None, None, None, Some("Bystanders watch but don't act"), "The bystander effect: the more people present, the less likely any individual is to help."),
+        // Environmental Science — Ecosystems
+        (46, "Approximately what percentage of energy transfers between trophic levels?", "multiple_choice", "10%", Some("1%"), Some("10%"), Some("50%"), Some("90%"), Some("It's called the 10% rule"), "Only about 10% of energy transfers from one trophic level to the next. The rest is lost as heat."),
+        (46, "Which biome has the greatest biodiversity?", "multiple_choice", "Tropical rainforest", Some("Desert"), Some("Tropical rainforest"), Some("Tundra"), Some("Grassland"), Some("Hot and wet year-round"), "Tropical rainforests contain over 50% of Earth's species despite covering only ~6% of land."),
+        (46, "True or false: Decomposers are an essential part of every ecosystem.", "true_false", "true", Some("true"), Some("false"), None, None, Some("What would happen to dead organisms without them?"), "True. Decomposers break down dead matter and recycle nutrients back into the ecosystem."),
+        // Environmental Science — Climate Change
+        (47, "By how much has Earth's temperature risen since pre-industrial times?", "multiple_choice", "About 1.1°C", Some("About 0.3°C"), Some("About 1.1°C"), Some("About 2.5°C"), Some("About 5°C"), Some("We're trying to stay below 1.5°C"), "Earth has warmed approximately 1.1°C since pre-industrial times (late 1800s)."),
+        (47, "Which greenhouse gas is most abundant from human activities?", "multiple_choice", "Carbon dioxide (CO₂)", Some("Methane"), Some("Carbon dioxide (CO₂)"), Some("Nitrous oxide"), Some("Water vapor"), Some("We produce it by burning fossil fuels"), "CO₂ is the most abundant human-produced greenhouse gas, mainly from burning fossil fuels."),
+        (47, "The Paris Agreement aims to limit warming to ___ °C above pre-industrial levels.", "fill_in_blank", "1.5", None, None, None, None, Some("Less than two degrees"), "The Paris Agreement's ambitious target is 1.5°C, with a fallback limit of 2°C."),
+        // Environmental Science — Pollution
+        (48, "How much plastic enters the oceans annually?", "multiple_choice", "About 8 million tonnes", Some("About 1 million tonnes"), Some("About 8 million tonnes"), Some("About 50 million tonnes"), Some("About 100 million tonnes"), Some("Millions, not billions"), "Approximately 8 million tonnes of plastic enter the world's oceans every year."),
+        (48, "True or false: Only 9% of all plastic ever produced has been recycled.", "true_false", "true", Some("true"), Some("false"), None, None, Some("The recycling rate is shockingly low"), "True. Of all plastic ever produced, only about 9% has been recycled. 12% incinerated, 79% in landfills or environment."),
+        (48, "Tiny plastic fragments smaller than 5mm are called ___.", "fill_in_blank", "microplastics", None, None, None, None, Some("Micro means very small"), "Microplastics are plastic particles smaller than 5mm, found in water, soil, air, and even human blood."),
+        // Environmental Science — Conservation
+        (49, "What does the acronym HIPPO stand for in conservation?", "multiple_choice", "Habitat loss, Invasive species, Pollution, Population, Overexploitation", Some("Heat, Ice, Pollution, People, Oceans"), Some("Habitat loss, Invasive species, Pollution, Population, Overexploitation"), Some("Hunting, Industry, Plastic, Poverty, Oil"), Some("Hurricanes, Ice, Pollution, Population, Ozone"), Some("The main threats to biodiversity"), "HIPPO: Habitat loss, Invasive species, Pollution, Population growth, Overexploitation — the five main threats to biodiversity."),
+        (49, "How many UN Sustainable Development Goals are there?", "multiple_choice", "17", Some("10"), Some("15"), Some("17"), Some("20"), Some("Targets for 2030"), "There are 17 UN Sustainable Development Goals (SDGs) set for achievement by 2030."),
+        (49, "True or false: The number one threat to biodiversity is climate change.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Think about what directly destroys species' homes"), "False. Habitat loss is the #1 threat to biodiversity. Climate change is a growing but secondary factor."),
     ];
     for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
         conn.execute(
@@ -439,6 +518,14 @@ fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("economics basics", 2, 39, "Money & banking — the financial system"),
         ("economics basics", 3, 40, "Trade & globalization — the connected world"),
         ("economics basics", 4, 41, "Economic systems — how societies organize"),
+        ("understanding people", 1, 42, "Introduction to psychology — the science of mind"),
+        ("understanding people", 2, 43, "Memory & learning — how we acquire knowledge"),
+        ("understanding people", 3, 44, "Emotions & motivation — what drives us"),
+        ("understanding people", 4, 45, "Social psychology — how others shape us"),
+        ("planet earth", 1, 46, "Ecosystems & biomes — the web of life"),
+        ("planet earth", 2, 47, "Climate change — our warming world"),
+        ("planet earth", 3, 48, "Pollution & waste — the cost of progress"),
+        ("planet earth", 4, 49, "Conservation & sustainability — protecting our future"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -461,7 +548,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 11);
+        assert_eq!(count, 13);
     }
 
     #[test]
@@ -471,7 +558,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 11);
+        assert_eq!(count, 13);
     }
 
     #[test]
@@ -581,5 +668,57 @@ mod tests {
         ).unwrap();
         assert_eq!(ct, 4);
         assert_eq!(econ, 4);
+    }
+
+    #[test]
+    fn test_psychology_and_envscience_subjects_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let psych: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Psychology'", [], |r| r.get(0)
+        ).unwrap();
+        let env: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Environmental Science'", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(psych, 1);
+        assert_eq!(env, 1);
+    }
+
+    #[test]
+    fn test_new_subjects_have_complete_content() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        for name in &["Psychology", "Environmental Science"] {
+            let topic_count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
+                [name], |r| r.get(0)
+            ).unwrap();
+            assert_eq!(topic_count, 4, "{} should have 4 topics", name);
+
+            let lesson_count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM lessons l JOIN topics t ON t.id = l.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
+                [name], |r| r.get(0)
+            ).unwrap();
+            assert!(lesson_count >= 8, "{} should have at least 8 lessons, got {}", name, lesson_count);
+        }
+    }
+
+    #[test]
+    fn test_learning_paths_include_psychology_and_envscience() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let psych_paths: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'understanding people'",
+            [], |r| r.get(0)
+        ).unwrap();
+        let env_paths: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'planet earth'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(psych_paths, 4);
+        assert_eq!(env_paths, 4);
     }
 }

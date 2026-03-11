@@ -8,6 +8,10 @@ const MAX_INTERVAL: i64 = 180;
 const LAPSE_THRESHOLD_DAYS: i64 = 7;
 /// Graduated re-learning steps for lapsed cards (in days)
 const RELEARN_STEPS: [i64; 3] = [1, 3, 7];
+/// Minimum streak days for a bonus
+const STREAK_BONUS_THRESHOLD: i64 = 3;
+/// Maximum streak multiplier
+const MAX_STREAK_BONUS: f64 = 1.3;
 
 /// Calculate next review date using an improved SM-2 algorithm.
 /// quality: 0-5 (0-2 = fail, 3-5 = pass)
@@ -30,6 +34,16 @@ pub fn update_spaced_repetition(
 
     // Check if the card has lapsed (overdue by more than LAPSE_THRESHOLD_DAYS)
     let is_lapsed = is_card_lapsed(conn, topic_id);
+
+    // Calculate streak bonus: consistent daily practice earns longer intervals
+    let streak = calculate_streak(conn);
+    let streak_bonus = if streak >= STREAK_BONUS_THRESHOLD {
+        // Bonus scales from 1.0 to MAX_STREAK_BONUS over streaks 3-14
+        let bonus = 1.0 + ((streak - STREAK_BONUS_THRESHOLD) as f64 / 11.0) * (MAX_STREAK_BONUS - 1.0);
+        bonus.min(MAX_STREAK_BONUS)
+    } else {
+        1.0
+    };
 
     let (new_ease, new_interval) = if quality >= 3 {
         if is_lapsed {
@@ -54,8 +68,9 @@ pub fn update_spaced_repetition(
                 n => {
                     let calculated = (n as f64 * ease).round() as i64;
                     // Apply a bonus for high quality answers
-                    let bonus = if quality == 5 { 1.1 } else { 1.0 };
-                    (calculated as f64 * bonus).round() as i64
+                    let quality_bonus = if quality == 5 { 1.1 } else { 1.0 };
+                    // Apply streak bonus for consistent learners
+                    (calculated as f64 * quality_bonus * streak_bonus).round() as i64
                 }
             };
             let new_ease = ease + (0.1 - (5.0 - quality as f64) * (0.08 + (5.0 - quality as f64) * 0.02));
@@ -170,6 +185,52 @@ pub fn review_urgency(conn: &Connection, topic_id: i64) -> f64 {
         }
         _ => 0.0,
     }
+}
+
+/// Calculate the current learning streak (consecutive days with activity).
+pub fn calculate_streak(conn: &Connection) -> i64 {
+    let mut stmt = match conn.prepare(
+        "SELECT DISTINCT DATE(timestamp) as day FROM session_log ORDER BY day DESC LIMIT 30",
+    ) {
+        Ok(s) => s,
+        Err(_) => return 0,
+    };
+
+    let days: Vec<String> = stmt
+        .query_map([], |r| r.get(0))
+        .ok()
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default();
+
+    if days.is_empty() {
+        return 0;
+    }
+
+    let today = chrono::Local::now().date_naive();
+    let mut streak = 0i64;
+    let mut expected = today;
+
+    for day_str in &days {
+        if let Ok(day) = chrono::NaiveDate::parse_from_str(day_str, "%Y-%m-%d") {
+            if day == expected {
+                streak += 1;
+                expected = match expected.pred_opt() {
+                    Some(d) => d,
+                    None => break,
+                };
+            } else if streak == 0 && day == today.pred_opt().unwrap_or(today) {
+                streak += 1;
+                expected = match day.pred_opt() {
+                    Some(d) => d,
+                    None => break,
+                };
+            } else {
+                break;
+            }
+        }
+    }
+
+    streak
 }
 
 /// Get a topic's memory strength as a descriptive string.
@@ -353,6 +414,24 @@ mod tests {
             [], |r| r.get(0)
         ).unwrap();
         assert_eq!(interval, 3, "Lapsed card at step 1 should advance to step 2 (3 days)");
+    }
+
+    #[test]
+    fn test_calculate_streak_empty() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(calculate_streak(&conn), 0);
+    }
+
+    #[test]
+    fn test_calculate_streak_with_activity() {
+        let conn = db::init_memory_db().unwrap();
+        // Insert activity for today
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, timestamp) VALUES (1, 'learn', datetime('now'))",
+            [],
+        ).unwrap();
+        let streak = calculate_streak(&conn);
+        assert!(streak >= 1, "Should have at least 1 day streak, got {}", streak);
     }
 
     #[test]
