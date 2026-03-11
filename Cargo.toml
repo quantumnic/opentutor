@@ -1,0 +1,17 @@
+[package]
+name = "opentutor"
+version = "0.1.0"
+edition = "2021"
+description = "Offline AI personal tutor — personalized learning for every child on earth. Free forever."
+license = "MIT"
+repository = "https://github.com/quantumnic/opentutor"
+readme = "README.md"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+rusqlite = { version = "0.31", features = ["bundled"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+colored = "2"
+rand = "0.8"
+chrono = "0.4"
