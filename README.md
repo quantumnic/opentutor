@@ -14,8 +14,9 @@ Every child deserves access to a patient, knowledgeable tutor — regardless of 
 
 - **Adaptive Learning** — Tracks what you know and what you need to review
 - **Spaced Repetition** — Uses the SM-2 algorithm to optimize review timing
-- **Multiple Subjects** — Mathematics, Science, Language, History, Health
-- **Quiz System** — Multiple-choice questions with hints and explanations
+- **Multiple Subjects** — Mathematics, Science, Language, History, Health, Computer Science, Geography
+- **Quiz System** — Multiple-choice and true/false questions with hints and explanations
+- **Review Command** — Dedicated spaced repetition review for due topics
 - **Learning Paths** — Step-by-step guides toward mastery goals
 - **Offline-First** — Everything stored locally in SQLite, no internet needed
 - **Free Forever** — Open source, no ads, no tracking
@@ -35,6 +36,7 @@ opentutor quiz "fractions"            # Test your knowledge
 opentutor explain "photosynthesis"    # Get a simple explanation
 opentutor progress                    # Check your progress
 opentutor path "algebra"              # See a learning path
+opentutor review                      # Review due topics (spaced repetition)
 ```
 
 ## 📖 Commands
@@ -47,6 +49,7 @@ opentutor path "algebra"              # See a learning path
 | `opentutor progress` | View your learning progress and stats |
 | `opentutor subjects` | List all available subjects and topics |
 | `opentutor path <goal>` | Show a step-by-step learning path |
+| `opentutor review` | Review due topics using spaced repetition |
 
 ## 📚 Subjects & Topics
 
@@ -76,6 +79,18 @@ opentutor path "algebra"              # See a learning path
 - Hygiene (hand washing, disease prevention)
 - Nutrition (food groups, healthy eating)
 - First Aid Basics (cuts, burns, choking)
+
+### Computer Science
+- Binary & Data (number systems, data representation)
+- Algorithms (searching, sorting, Big O)
+- Programming Concepts (variables, loops, functions, debugging)
+- Computer Hardware (CPU, RAM, storage, I/O)
+
+### Geography
+- Continents & Oceans (landmasses, major features)
+- Weather & Climate (climate zones, water cycle)
+- Maps & Navigation (reading maps, latitude/longitude)
+- Natural Resources (renewable vs non-renewable)
 
 ## 🧠 How It Works
 

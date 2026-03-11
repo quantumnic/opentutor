@@ -1,6 +1,7 @@
 use colored::*;
 use rusqlite::Connection;
 use crate::display;
+use crate::engine::spaced;
 
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Your Learning Progress");
@@ -71,6 +72,17 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
         println!();
         display::print_hint("Review these topics to strengthen your memory!");
+    }
+
+    // Show total due for review
+    let due_count = spaced::count_due_topics(conn).unwrap_or(0);
+    if due_count > 0 {
+        println!();
+        display::print_info(&format!(
+            "{} topics due for review! Run: {}",
+            due_count,
+            "opentutor review".bright_cyan()
+        ));
     }
 
     if studied == 0 {

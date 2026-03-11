@@ -27,7 +27,7 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
     }
 
     display::print_header(&format!("Quiz: {}", topic_name));
-    println!("  {} questions | Type the answer or letter (a/b/c/d)\n",
+    println!("  {} questions | Type the answer or letter (a/b/c/d) or true/false\n",
         questions.len().to_string().bold());
 
     let mut correct_count = 0;
@@ -35,9 +35,14 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
 
     for (i, q) in questions.iter().enumerate() {
         println!("  {} {}", format!("Q{}.", i + 1).bold().bright_cyan(), q.question.bold());
-        for (j, opt) in q.options.iter().enumerate() {
-            let letter = (b'a' + j as u8) as char;
-            println!("     {} {}", format!("{})", letter).dimmed(), opt);
+        if q.question_type == "true_false" {
+            println!("     {} True", "T)".dimmed());
+            println!("     {} False", "F)".dimmed());
+        } else {
+            for (j, opt) in q.options.iter().enumerate() {
+                let letter = (b'a' + j as u8) as char;
+                println!("     {} {}", format!("{})", letter).dimmed(), opt);
+            }
         }
 
         // In non-interactive mode, show the answer

@@ -71,6 +71,15 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
         return true;
     }
 
+    // For true/false, accept t/f shortcuts
+    if question.question_type == "true_false" {
+        return match answer.as_str() {
+            "t" => correct == "true",
+            "f" => correct == "false",
+            _ => false,
+        };
+    }
+
     // Also check by option letter (a, b, c, d)
     if let Some(idx) = match answer.as_str() {
         "a" => Some(0),
@@ -130,6 +139,24 @@ mod tests {
         assert!(check_answer(&q, "b")); // Paris is at index 1
         assert!(check_answer(&q, "B"));
         assert!(check_answer(&q, "paris"));
+    }
+
+    #[test]
+    fn test_check_answer_true_false() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "True or false: The sky is blue.".into(),
+            question_type: "true_false".into(),
+            correct_answer: "true".into(),
+            options: vec!["true".into(), "false".into()],
+            hint: None,
+            explanation: "Yes, scattering.".into(),
+        };
+        assert!(check_answer(&q, "true"));
+        assert!(check_answer(&q, "True"));
+        assert!(check_answer(&q, "t"));
+        assert!(!check_answer(&q, "false"));
+        assert!(!check_answer(&q, "f"));
     }
 
     #[test]

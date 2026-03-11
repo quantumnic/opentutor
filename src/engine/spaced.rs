@@ -47,6 +47,15 @@ pub fn update_spaced_repetition(
     Ok(())
 }
 
+/// Get count of topics due for review.
+pub fn count_due_topics(conn: &Connection) -> Result<i64, rusqlite::Error> {
+    conn.query_row(
+        "SELECT COUNT(*) FROM user_progress WHERE next_review IS NOT NULL AND next_review <= datetime('now')",
+        [],
+        |r| r.get(0),
+    )
+}
+
 /// Get topics due for review.
 #[allow(dead_code)]
 pub fn get_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String)>, rusqlite::Error> {
@@ -103,6 +112,18 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let due = get_due_topics(&conn).unwrap();
         assert!(due.is_empty());
+    }
+
+    #[test]
+    fn test_count_due_topics() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(count_due_topics(&conn).unwrap(), 0);
+        // Insert a progress entry with past review date
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review)
+             VALUES (1, 80.0, 3, 2, 2.5, 1, datetime('now', '-1 day'))", []
+        ).unwrap();
+        assert_eq!(count_due_topics(&conn).unwrap(), 1);
     }
 
     #[test]

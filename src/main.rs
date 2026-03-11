@@ -48,6 +48,12 @@ enum Commands {
         /// Goal topic (e.g. "algebra", "cells")
         goal: String,
     },
+    /// Review topics due for spaced repetition
+    Review {
+        /// Number of questions per topic
+        #[arg(short, long, default_value = "3")]
+        count: usize,
+    },
 }
 
 fn main() {
@@ -68,6 +74,7 @@ fn main() {
         Commands::Progress => commands::progress::run(&conn),
         Commands::Subjects => commands::subjects::run(&conn),
         Commands::Path { goal } => commands::path::run(&conn, &goal),
+        Commands::Review { count } => commands::review::run(&conn, count),
     };
 
     if let Err(e) = result {
