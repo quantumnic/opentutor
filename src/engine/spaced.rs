@@ -2,8 +2,12 @@ use rusqlite::Connection;
 
 /// SM-2 algorithm parameters
 const MIN_EASE: f64 = 1.3;
+/// Maximum interval in days (cap at ~6 months)
+const MAX_INTERVAL: i64 = 180;
+/// Days overdue before a card is considered lapsed
+const LAPSE_THRESHOLD_DAYS: i64 = 7;
 
-/// Calculate next review date using a simplified SM-2 algorithm.
+/// Calculate next review date using an improved SM-2 algorithm.
 /// quality: 0-5 (0-2 = fail, 3-5 = pass)
 pub fn update_spaced_repetition(
     conn: &Connection,
@@ -12,26 +16,49 @@ pub fn update_spaced_repetition(
 ) -> Result<(), rusqlite::Error> {
     let quality = quality.min(5);
 
-    let (ease, interval): (f64, i64) = conn
+    let current: Option<(f64, i64, Option<String>)> = conn
         .query_row(
-            "SELECT ease_factor, interval_days FROM user_progress WHERE topic_id = ?1",
+            "SELECT ease_factor, interval_days, next_review FROM user_progress WHERE topic_id = ?1",
             [topic_id],
-            |r| Ok((r.get(0)?, r.get(1)?)),
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
         )
-        .unwrap_or((2.5, 1));
+        .ok();
+
+    let (ease, interval, _next_review) = current.unwrap_or((2.5, 0, None));
+
+    // Check if the card has lapsed (overdue by more than LAPSE_THRESHOLD_DAYS)
+    let is_lapsed = is_card_lapsed(conn, topic_id);
 
     let (new_ease, new_interval) = if quality >= 3 {
-        // Correct answer
-        let new_interval = match interval {
-            0 | 1 => 1,
-            2 => 6,
-            n => (n as f64 * ease).round() as i64,
-        };
-        let new_ease = ease + (0.1 - (5.0 - quality as f64) * (0.08 + (5.0 - quality as f64) * 0.02));
-        (new_ease.max(MIN_EASE), new_interval)
+        if is_lapsed {
+            // Lapsed card: reduce interval but don't fully reset
+            let reduced_interval = (interval as f64 * 0.5).max(1.0).round() as i64;
+            let new_ease = (ease - 0.15).max(MIN_EASE);
+            (new_ease, reduced_interval.min(MAX_INTERVAL))
+        } else {
+            // Normal correct answer — standard SM-2 graduation
+            let new_interval = match interval {
+                0 => 1,     // First review: 1 day
+                1 => 3,     // Second review: 3 days
+                n => {
+                    let calculated = (n as f64 * ease).round() as i64;
+                    // Apply a bonus for high quality answers
+                    let bonus = if quality == 5 { 1.1 } else { 1.0 };
+                    (calculated as f64 * bonus).round() as i64
+                }
+            };
+            let new_ease = ease + (0.1 - (5.0 - quality as f64) * (0.08 + (5.0 - quality as f64) * 0.02));
+            (new_ease.max(MIN_EASE), new_interval.min(MAX_INTERVAL))
+        }
     } else {
-        // Incorrect — reset interval
-        (ease.max(MIN_EASE), 1)
+        // Incorrect — reset interval but penalize ease less for near-misses
+        let ease_penalty = match quality {
+            2 => 0.10,
+            1 => 0.15,
+            _ => 0.20,
+        };
+        let new_ease = (ease - ease_penalty).max(MIN_EASE);
+        (new_ease, 1)
     };
 
     conn.execute(
@@ -47,10 +74,37 @@ pub fn update_spaced_repetition(
     Ok(())
 }
 
+/// Check if a card has lapsed (overdue by more than the lapse threshold).
+pub fn is_card_lapsed(conn: &Connection, topic_id: i64) -> bool {
+    conn.query_row(
+        "SELECT COUNT(*) > 0 FROM user_progress
+         WHERE topic_id = ?1
+           AND next_review IS NOT NULL
+           AND next_review <= datetime('now', ?2)",
+        rusqlite::params![topic_id, format!("-{} days", LAPSE_THRESHOLD_DAYS)],
+        |r| r.get(0),
+    )
+    .unwrap_or(false)
+}
+
 /// Get count of topics due for review.
 pub fn count_due_topics(conn: &Connection) -> Result<i64, rusqlite::Error> {
     conn.query_row(
         "SELECT COUNT(*) FROM user_progress WHERE next_review IS NOT NULL AND next_review <= datetime('now')",
+        [],
+        |r| r.get(0),
+    )
+}
+
+/// Get count of lapsed topics (overdue by more than threshold).
+pub fn count_lapsed_topics(conn: &Connection) -> Result<i64, rusqlite::Error> {
+    conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM user_progress
+             WHERE next_review IS NOT NULL
+               AND next_review <= datetime('now', '-{} days')",
+            LAPSE_THRESHOLD_DAYS
+        ),
         [],
         |r| r.get(0),
     )
@@ -70,6 +124,22 @@ pub fn get_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String)>, r
     rows.collect()
 }
 
+/// Get a topic's memory strength as a descriptive string.
+#[allow(dead_code)]
+pub fn memory_strength(interval_days: i64, ease_factor: f64) -> &'static str {
+    if interval_days >= 60 && ease_factor >= 2.3 {
+        "Strong 💪"
+    } else if interval_days >= 21 {
+        "Good 🌟"
+    } else if interval_days >= 7 {
+        "Growing 🌱"
+    } else if interval_days >= 3 {
+        "Fragile 🔨"
+    } else {
+        "New 🌱"
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -78,7 +148,6 @@ mod tests {
     #[test]
     fn test_spaced_repetition_correct() {
         let conn = db::init_memory_db().unwrap();
-        // First insert a progress entry
         conn.execute(
             "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
              VALUES (1, 100.0, 1, 1, 2.5, 1)", []
@@ -89,7 +158,35 @@ mod tests {
             [], |r| Ok((r.get(0)?, r.get(1)?))
         ).unwrap();
         assert!(ease >= 2.4);
-        assert!(interval >= 1);
+        assert_eq!(interval, 3, "Second review should be 3 days");
+    }
+
+    #[test]
+    fn test_spaced_repetition_graduation() {
+        let conn = db::init_memory_db().unwrap();
+        // First: interval 0 -> 1
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(interval, 1, "First review: 1 day");
+
+        // Second: interval 1 -> 3
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(interval, 3, "Second review: 3 days");
+
+        // Third: interval grows by ease factor
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert!(interval >= 7, "Third review should be ~7+ days, got {}", interval);
     }
 
     #[test]
@@ -108,6 +205,21 @@ mod tests {
     }
 
     #[test]
+    fn test_interval_capped_at_max() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 100.0, 10, 10, 3.0, 170)", []
+        ).unwrap();
+        update_spaced_repetition(&conn, 1, 5).unwrap();
+        let interval: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert!(interval <= MAX_INTERVAL, "Interval should be capped at {}, got {}", MAX_INTERVAL, interval);
+    }
+
+    #[test]
     fn test_get_due_topics_empty() {
         let conn = db::init_memory_db().unwrap();
         let due = get_due_topics(&conn).unwrap();
@@ -118,12 +230,22 @@ mod tests {
     fn test_count_due_topics() {
         let conn = db::init_memory_db().unwrap();
         assert_eq!(count_due_topics(&conn).unwrap(), 0);
-        // Insert a progress entry with past review date
         conn.execute(
             "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review)
              VALUES (1, 80.0, 3, 2, 2.5, 1, datetime('now', '-1 day'))", []
         ).unwrap();
         assert_eq!(count_due_topics(&conn).unwrap(), 1);
+    }
+
+    #[test]
+    fn test_count_lapsed_topics() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(count_lapsed_topics(&conn).unwrap(), 0);
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review)
+             VALUES (1, 80.0, 3, 2, 2.5, 1, datetime('now', '-10 days'))", []
+        ).unwrap();
+        assert_eq!(count_lapsed_topics(&conn).unwrap(), 1);
     }
 
     #[test]
@@ -139,5 +261,40 @@ mod tests {
             [], |r| r.get(0)
         ).unwrap();
         assert!(ease >= 1.3, "Ease factor should never go below 1.3");
+    }
+
+    #[test]
+    fn test_memory_strength() {
+        assert_eq!(memory_strength(90, 2.5), "Strong 💪");
+        assert_eq!(memory_strength(30, 2.0), "Good 🌟");
+        assert_eq!(memory_strength(10, 2.0), "Growing 🌱");
+        assert_eq!(memory_strength(4, 2.0), "Fragile 🔨");
+        assert_eq!(memory_strength(1, 2.0), "New 🌱");
+    }
+
+    #[test]
+    fn test_quality_5_bonus() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 100.0, 5, 5, 2.5, 10)", []
+        ).unwrap();
+        update_spaced_repetition(&conn, 1, 5).unwrap();
+        let interval_q5: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+
+        // Reset and try quality 4
+        conn.execute(
+            "UPDATE user_progress SET ease_factor = 2.5, interval_days = 10 WHERE topic_id = 1", []
+        ).unwrap();
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval_q4: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+
+        assert!(interval_q5 >= interval_q4, "Quality 5 should give equal or longer interval than quality 4");
     }
 }

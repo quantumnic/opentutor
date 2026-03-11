@@ -85,6 +85,15 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         ));
     }
 
+    // Show lapsed topics warning
+    let lapsed_count = spaced::count_lapsed_topics(conn).unwrap_or(0);
+    if lapsed_count > 0 {
+        display::print_hint(&format!(
+            "⚠️  {} topics are lapsed (overdue 7+ days) — review soon to prevent forgetting!",
+            lapsed_count
+        ));
+    }
+
     if studied == 0 {
         println!();
         display::print_info("You haven't started yet! Try: opentutor learn <subject>");

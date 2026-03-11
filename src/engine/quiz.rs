@@ -80,6 +80,11 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
         };
     }
 
+    // For fill-in-the-blank, only exact match (already checked above)
+    if question.question_type == "fill_in_blank" {
+        return false;
+    }
+
     // Also check by option letter (a, b, c, d)
     if let Some(idx) = match answer.as_str() {
         "a" => Some(0),
@@ -157,6 +162,22 @@ mod tests {
         assert!(check_answer(&q, "t"));
         assert!(!check_answer(&q, "false"));
         assert!(!check_answer(&q, "f"));
+    }
+
+    #[test]
+    fn test_check_answer_fill_in_blank() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "3 + 4 × 2 = ___".into(),
+            question_type: "fill_in_blank".into(),
+            correct_answer: "11".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Order of operations.".into(),
+        };
+        assert!(check_answer(&q, "11"));
+        assert!(!check_answer(&q, "14"));
+        assert!(!check_answer(&q, "a")); // letter shortcuts shouldn't work
     }
 
     #[test]

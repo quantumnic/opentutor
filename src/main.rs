@@ -54,6 +54,8 @@ enum Commands {
         #[arg(short, long, default_value = "3")]
         count: usize,
     },
+    /// Show detailed learning statistics
+    Stats,
 }
 
 fn main() {
@@ -75,6 +77,7 @@ fn main() {
         Commands::Subjects => commands::subjects::run(&conn),
         Commands::Path { goal } => commands::path::run(&conn, &goal),
         Commands::Review { count } => commands::review::run(&conn, count),
+        Commands::Stats => commands::stats::run(&conn),
     };
 
     if let Err(e) = result {

@@ -35,13 +35,19 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
 
     for (i, q) in questions.iter().enumerate() {
         println!("  {} {}", format!("Q{}.", i + 1).bold().bright_cyan(), q.question.bold());
-        if q.question_type == "true_false" {
-            println!("     {} True", "T)".dimmed());
-            println!("     {} False", "F)".dimmed());
-        } else {
-            for (j, opt) in q.options.iter().enumerate() {
-                let letter = (b'a' + j as u8) as char;
-                println!("     {} {}", format!("{})", letter).dimmed(), opt);
+        match q.question_type.as_str() {
+            "true_false" => {
+                println!("     {} True", "T)".dimmed());
+                println!("     {} False", "F)".dimmed());
+            }
+            "fill_in_blank" => {
+                println!("     {}", "(Type your answer)".dimmed());
+            }
+            _ => {
+                for (j, opt) in q.options.iter().enumerate() {
+                    let letter = (b'a' + j as u8) as char;
+                    println!("     {} {}", format!("{})", letter).dimmed(), opt);
+                }
             }
         }
 
@@ -103,5 +109,24 @@ mod tests {
     fn test_quiz_invalid_topic() {
         let conn = db::init_memory_db().unwrap();
         run(&conn, "Nonexistent", 5).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_fill_in_blank() {
+        let conn = db::init_memory_db().unwrap();
+        // Arithmetic has fill_in_blank questions
+        run(&conn, "Arithmetic", 10).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_music_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Musical Notes", 3).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_art_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Color Theory", 3).unwrap();
     }
 }

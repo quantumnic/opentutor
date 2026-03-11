@@ -68,7 +68,10 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     let mut total_questions = 0;
 
     for (topic_id, topic_name, subject_name, ease, interval, _next) in &due_topics {
-        let strength = if *interval >= 30 {
+        let is_lapsed = spaced::is_card_lapsed(conn, *topic_id);
+        let strength = if is_lapsed {
+            "Lapsed ⚠️".bright_red()
+        } else if *interval >= 30 {
             "Strong 💪".bright_green()
         } else if *interval >= 7 {
             "Growing 🌱".yellow()
