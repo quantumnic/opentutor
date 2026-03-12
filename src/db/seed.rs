@@ -24,6 +24,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_sociology(conn)?;
     seed_linguistics(conn)?;
     seed_probability(conn)?;
+    seed_statistics(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -705,7 +706,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 20); // 16 original + Chemistry + Biology + Sociology + Linguistics
+        assert_eq!(count, 21); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data
     }
 
     #[test]
@@ -715,7 +716,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 20);
+        assert_eq!(count, 21);
     }
 
     #[test]
@@ -1466,6 +1467,135 @@ fn seed_probability(conn: &Connection) -> Result<(), rusqlite::Error> {
         "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('probability mastery', 1, ?1, 'Probability basics — understanding chance and likelihood')",
         [prob_id],
     )?;
+
+    Ok(())
+}
+
+fn seed_statistics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Statistics & Data'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Statistics & Data', 'Collecting, analyzing, and interpreting data — the foundation of evidence-based reasoning.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Statistics & Data'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    // Topics
+    let topics = [
+        ("Mean, Median & Mode", "beginner", 1),
+        ("Data Visualization", "beginner", 2),
+        ("Standard Deviation", "intermediate", 3),
+        ("Correlation & Causation", "intermediate", 4),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let mean_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mean, Median & Mode'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let viz_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Visualization'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let stddev_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Standard Deviation'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let corr_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Correlation & Causation'",
+        [subj_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons = [
+        (mean_id, "Measures of Central Tendency", "The **mean** (average) is the sum of all values divided by the count. The **median** is the middle value when data is sorted. The **mode** is the most frequent value.\n\nExample: For {2, 3, 3, 5, 7}:\n- Mean = (2+3+3+5+7)/5 = 4.0\n- Median = 3 (middle value)\n- Mode = 3 (appears twice)\n\nThe mean is sensitive to outliers, while the median is robust. Use the median when data is skewed (e.g., income distributions)."),
+        (viz_id, "Choosing the Right Chart", "Different data types need different visualizations:\n\n- **Bar chart**: Comparing categories (e.g., favorite colors)\n- **Line graph**: Showing trends over time (e.g., temperature)\n- **Pie chart**: Parts of a whole (e.g., budget breakdown)\n- **Histogram**: Distribution of continuous data (e.g., test scores)\n- **Scatter plot**: Relationship between two variables (e.g., height vs. weight)\n\nA misleading chart can distort data — always start axes at zero for bar charts!"),
+        (stddev_id, "Understanding Spread", "**Standard deviation** measures how spread out data is from the mean.\n\n- Low SD → data clustered near the mean\n- High SD → data spread out widely\n\nFormula: σ = √(Σ(x - μ)² / N)\n\nExample: Scores {90, 91, 89, 90, 90} have a tiny SD (~0.6). Scores {50, 70, 90, 100, 40} have a large SD (~22.4).\n\nThe **68-95-99.7 rule**: In a normal distribution, ~68% of data falls within 1 SD of the mean, ~95% within 2 SD, and ~99.7% within 3 SD."),
+        (corr_id, "Correlation Is Not Causation", "**Correlation** measures how two variables move together. A correlation coefficient (r) ranges from -1 to +1:\n\n- r = +1: Perfect positive correlation (both increase together)\n- r = 0: No linear relationship\n- r = -1: Perfect negative correlation (one increases, other decreases)\n\n**Causation** means one variable directly causes the other. Correlation alone cannot prove causation!\n\nFamous example: Ice cream sales correlate with drowning deaths. Does ice cream cause drowning? No — both increase in summer (confounding variable)."),
+    ];
+    for (tid, title, content) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, 1)",
+            rusqlite::params![tid, title, content],
+        )?;
+    }
+
+    // Explanations
+    let explanations = [
+        (mean_id, "mean", "The mean is the arithmetic average — add up all values and divide by how many there are.", Some("Think of it like splitting a pizza equally: if 3 people eat 2, 4, and 6 slices, the mean is 4 slices each."), Some("When would the mean be misleading?")),
+        (viz_id, "histogram", "A histogram groups continuous data into bins and shows frequency. Unlike a bar chart, the bars touch because the data is continuous.", Some("Imagine sorting all test scores into buckets of 10 points each (0-10, 10-20, ...) and stacking blocks for each score."), Some("What is the difference between a histogram and a bar chart?")),
+        (stddev_id, "standard deviation", "Standard deviation tells you how far typical values are from the average. A small SD means values are clustered; a large SD means they are spread out.", Some("Think of darts on a dartboard: a small SD means all darts are near the bullseye; a large SD means they are scattered everywhere."), Some("What happens to the standard deviation if every value is the same?")),
+        (corr_id, "confounding variable", "A confounding variable is a hidden factor that influences both variables being studied, creating a false impression of a direct relationship.", Some("It is like blaming the rooster for the sunrise — the rooster crows and the sun rises, but neither causes the other."), Some("Can you think of another confounding variable example?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        (mean_id, "What is the mean of {4, 8, 6, 2, 10}?", "multiple_choice", "6", Some("4"), Some("6"), Some("8"), Some("5"), "Add them up and divide by 5.", "Sum = 30, Count = 5, Mean = 30/5 = 6."),
+        (mean_id, "What is the median of {1, 3, 7, 9, 11}?", "multiple_choice", "7", Some("3"), Some("7"), Some("9"), Some("5"), "Sort the values and find the middle one.", "The sorted list is {1, 3, 7, 9, 11}. The middle (3rd) value is 7."),
+        (mean_id, "The mode is the value that appears most often in a dataset.", "true_false", "true", Some("true"), Some("false"), None, None, "Think about the word 'mode' — like fashion, it is what is most popular.", "The mode is defined as the most frequently occurring value."),
+        (mean_id, "The mean of {10, 20, 30} is ___.", "fill_in_blank", "20", None, None, None, None, "Add them up and divide by the count.", "(10+20+30)/3 = 60/3 = 20."),
+        (viz_id, "Which chart type is best for showing change over time?", "multiple_choice", "Line graph", Some("Pie chart"), Some("Line graph"), Some("Bar chart"), Some("Scatter plot"), "Think about what connects points across a timeline.", "Line graphs connect data points in time order, making trends visible."),
+        (viz_id, "A pie chart shows parts of a whole.", "true_false", "true", Some("true"), Some("false"), None, None, "Think about slicing a pizza.", "Pie charts display proportions of categories within a total."),
+        (viz_id, "Which chart uses dots to show the relationship between two variables?", "multiple_choice", "Scatter plot", Some("Bar chart"), Some("Histogram"), Some("Line graph"), Some("Scatter plot"), "Each data point is a pair of values.", "Scatter plots plot individual (x, y) data points to reveal correlations."),
+        (stddev_id, "If all values in a dataset are the same, the standard deviation is ___.", "fill_in_blank", "0", None, None, None, None, "If nothing deviates from the mean, the deviation is...", "When all values equal the mean, every squared difference is 0, so SD = 0."),
+        (stddev_id, "In a normal distribution, approximately what percentage of data falls within 1 standard deviation of the mean?", "multiple_choice", "68%", Some("50%"), Some("68%"), Some("95%"), Some("99.7%"), "Think of the 68-95-99.7 rule.", "The empirical rule: ~68% within 1 SD, ~95% within 2 SD, ~99.7% within 3 SD."),
+        (stddev_id, "A larger standard deviation means data is more spread out.", "true_false", "true", Some("true"), Some("false"), None, None, "Deviation means distance from the center.", "Higher SD = more variability around the mean."),
+        (corr_id, "A correlation coefficient of -0.9 indicates:", "multiple_choice", "A strong negative relationship", Some("No relationship"), Some("A weak positive relationship"), Some("A strong negative relationship"), Some("A perfect positive relationship"), "Negative means inverse; closer to -1 means stronger.", "r = -0.9 is close to -1, indicating a strong inverse linear relationship."),
+        (corr_id, "Correlation implies causation.", "true_false", "false", Some("true"), Some("false"), None, None, "This is one of the most important lessons in statistics!", "Correlation shows association, not causation. Confounding variables may explain the link."),
+        (corr_id, "What is a confounding variable?", "multiple_choice", "A hidden variable affecting both measured variables", Some("A variable that stays constant"), Some("A hidden variable affecting both measured variables"), Some("The dependent variable"), Some("A variable you can control"), "Think about what could secretly influence the results.", "A confounding variable is an unmeasured third factor that distorts the apparent relationship."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Ordering question
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+         VALUES (?1, 'Order these measures from most to least affected by outliers:', 'ordering', 'Mean,Mode,Median', 'Median', 'Mean', 'Mode', NULL, 'Which measure uses all values in its calculation?', 'The mean uses every value so outliers pull it; the mode only counts frequency; the median is the middle value and is fairly robust.')",
+        [mean_id],
+    )?;
+
+    // Learning path
+    let path_topics = [
+        (mean_id, "Learn measures of central tendency — mean, median, and mode"),
+        (viz_id, "Master data visualization — choosing the right chart"),
+        (stddev_id, "Understand variability with standard deviation"),
+        (corr_id, "Distinguish correlation from causation"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('statistics mastery', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
 
     Ok(())
 }

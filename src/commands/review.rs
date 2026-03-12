@@ -41,6 +41,10 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
     });
 
+    // Sibling burying: interleave subjects so the same subject doesn't
+    // appear twice in a row (better for memory consolidation)
+    due_topics = interleave_subjects(due_topics);
+
     if due_topics.is_empty() {
         display::print_header("Spaced Repetition Review");
         display::print_success("Nothing due for review! You're all caught up. 🎉");
@@ -204,6 +208,35 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     Ok(())
 }
 
+/// Interleave topics by subject to avoid reviewing the same subject twice in
+/// a row ("sibling burying"). This improves memory consolidation by forcing
+/// context switches between subjects.
+fn interleave_subjects(
+    topics: Vec<(i64, String, String, f64, i64, String)>,
+) -> Vec<(i64, String, String, f64, i64, String)> {
+    if topics.len() <= 2 {
+        return topics;
+    }
+
+    let mut result = Vec::with_capacity(topics.len());
+    let mut remaining = topics;
+    let mut last_subject = String::new();
+
+    while !remaining.is_empty() {
+        // Find the first topic with a different subject than the last one
+        let idx = remaining
+            .iter()
+            .position(|t| t.2 != last_subject)
+            .unwrap_or(0); // If all same subject, just take the first
+
+        let topic = remaining.remove(idx);
+        last_subject.clone_from(&topic.2);
+        result.push(topic);
+    }
+
+    result
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -229,6 +262,36 @@ mod tests {
         )
         .unwrap();
         run(&conn, 2).unwrap();
+    }
+
+    #[test]
+    fn test_interleave_subjects() {
+        let topics = vec![
+            (1, "T1".into(), "Math".into(), 2.5, 5, "d".into()),
+            (2, "T2".into(), "Math".into(), 2.5, 5, "d".into()),
+            (3, "T3".into(), "Science".into(), 2.5, 5, "d".into()),
+            (4, "T4".into(), "Science".into(), 2.5, 5, "d".into()),
+        ];
+        let result = interleave_subjects(topics);
+        // No two consecutive topics should have the same subject (when possible)
+        for w in result.windows(2) {
+            if w[0].2 == w[1].2 {
+                // Only ok if there's no alternative left
+                // In this case with 2 Math + 2 Science, we should always interleave
+                panic!("Adjacent topics have same subject: {} and {}", w[0].1, w[1].1);
+            }
+        }
+    }
+
+    #[test]
+    fn test_interleave_single_subject() {
+        // All same subject — should not panic, just return in order
+        let topics = vec![
+            (1, "T1".into(), "Math".into(), 2.5, 5, "d".into()),
+            (2, "T2".into(), "Math".into(), 2.5, 5, "d".into()),
+        ];
+        let result = interleave_subjects(topics);
+        assert_eq!(result.len(), 2);
     }
 
     #[test]

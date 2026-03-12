@@ -33,6 +33,9 @@ enum Commands {
         /// Number of questions
         #[arg(short, long, default_value = "5")]
         count: usize,
+        /// Filter by difficulty (easy, medium, hard)
+        #[arg(short, long)]
+        difficulty: Option<String>,
     },
     /// Get a simple explanation of a concept
     Explain {
@@ -96,6 +99,8 @@ enum Commands {
         #[arg(short, long, default_value = "20")]
         limit: usize,
     },
+    /// Show your learning streak and daily practice stats
+    Streak,
     /// View or change configuration (retention target, daily goal, etc.)
     Config {
         /// Config key to view or set
@@ -118,7 +123,7 @@ fn main() {
 
     let result = match cli.command {
         Commands::Learn { subject } => commands::learn::run(&conn, &subject),
-        Commands::Quiz { topic, count } => commands::quiz::run(&conn, &topic, count),
+        Commands::Quiz { topic, count, difficulty } => commands::quiz::run(&conn, &topic, count, difficulty.as_deref()),
         Commands::Explain { concept } => commands::explain::run(&conn, &concept),
         Commands::Progress => commands::progress::run(&conn),
         Commands::Subjects => commands::subjects::run(&conn),
@@ -136,6 +141,7 @@ fn main() {
         Commands::Leech => commands::leech::run(&conn),
         Commands::Summary => commands::summary::run(&conn),
         Commands::History { limit } => commands::history::run(&conn, limit),
+        Commands::Streak => commands::streak::run(&conn),
         Commands::Config { key, value } => commands::config::run(&conn, &key, &value),
     };
 

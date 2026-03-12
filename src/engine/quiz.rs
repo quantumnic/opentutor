@@ -134,6 +134,59 @@ pub fn get_questions(
     Ok(questions)
 }
 
+/// Fetch quiz questions for a topic with optional difficulty filter.
+/// Delegates to get_questions after filtering.
+pub fn get_questions_filtered(
+    conn: &Connection,
+    topic_id: i64,
+    count: usize,
+    difficulty: Option<&str>,
+) -> Result<Vec<QuizQuestion>, rusqlite::Error> {
+    match difficulty {
+        Some(diff) => {
+            let diff = diff.to_lowercase();
+            let mut stmt = conn.prepare(
+                "SELECT id, topic_id, question, question_type, correct_answer,
+                        option_a, option_b, option_c, option_d, hint, explanation, difficulty
+                 FROM quiz_questions WHERE topic_id = ?1 AND LOWER(difficulty) = ?2",
+            )?;
+            let mut questions: Vec<QuizQuestion> = stmt
+                .query_map(rusqlite::params![topic_id, diff], |r| {
+                    let options: Vec<String> = [
+                        r.get::<_, Option<String>>(5)?,
+                        r.get::<_, Option<String>>(6)?,
+                        r.get::<_, Option<String>>(7)?,
+                        r.get::<_, Option<String>>(8)?,
+                    ]
+                    .into_iter()
+                    .flatten()
+                    .collect();
+                    Ok(QuizQuestion {
+                        id: r.get(0)?,
+                        topic_id: r.get(1)?,
+                        question: r.get(2)?,
+                        question_type: r.get(3)?,
+                        difficulty: r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "medium".to_string()),
+                        correct_answer: r.get(4)?,
+                        options,
+                        hint: r.get(9)?,
+                        explanation: r.get(10)?,
+                    })
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+
+            let mut rng = rand::thread_rng();
+            questions.shuffle(&mut rng);
+            questions.truncate(count);
+            for q in &mut questions {
+                q.options.shuffle(&mut rng);
+            }
+            Ok(questions)
+        }
+        None => get_questions(conn, topic_id, count),
+    }
+}
+
 /// Check if an answer is correct (case-insensitive, trimmed).
 #[allow(dead_code)]
 pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {

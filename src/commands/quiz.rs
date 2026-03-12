@@ -4,7 +4,7 @@ use crate::display;
 use crate::commands::achievements;
 use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
-pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
     // Find topic (case-insensitive, partial match)
     let topic_row: Result<(i64, String), _> = conn.query_row(
         "SELECT id, name FROM topics WHERE LOWER(name) LIKE '%' || LOWER(?1) || '%'",
@@ -21,7 +21,7 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
         }
     };
 
-    let questions = quiz_engine::get_questions(conn, topic_id, count)?;
+    let questions = quiz_engine::get_questions_filtered(conn, topic_id, count, difficulty)?;
     if questions.is_empty() {
         display::print_info(&format!("No quiz questions available for '{}'.", topic_name));
         return Ok(());
@@ -118,37 +118,48 @@ mod tests {
     #[test]
     fn test_quiz_valid_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Arithmetic", 3).unwrap();
+        run(&conn, "Arithmetic", 3, None).unwrap();
     }
 
     #[test]
     fn test_quiz_partial_match() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "fraction", 2).unwrap();
+        run(&conn, "fraction", 2, None).unwrap();
     }
 
     #[test]
     fn test_quiz_invalid_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Nonexistent", 5).unwrap();
+        run(&conn, "Nonexistent", 5, None).unwrap();
     }
 
     #[test]
     fn test_quiz_fill_in_blank() {
         let conn = db::init_memory_db().unwrap();
-        // Arithmetic has fill_in_blank questions
-        run(&conn, "Arithmetic", 10).unwrap();
+        run(&conn, "Arithmetic", 10, None).unwrap();
     }
 
     #[test]
     fn test_quiz_music_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Musical Notes", 3).unwrap();
+        run(&conn, "Musical Notes", 3, None).unwrap();
     }
 
     #[test]
     fn test_quiz_art_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Color Theory", 3).unwrap();
+        run(&conn, "Color Theory", 3, None).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_difficulty_filter() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Arithmetic", 3, Some("easy")).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_difficulty_hard() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Arithmetic", 3, Some("hard")).unwrap();
     }
 }

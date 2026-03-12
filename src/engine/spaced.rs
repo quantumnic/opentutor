@@ -12,7 +12,7 @@ const RELEARN_STEPS: [i64; 3] = [1, 3, 7];
 /// Minimum streak days for a bonus
 const STREAK_BONUS_THRESHOLD: i64 = 3;
 /// Maximum streak multiplier
-const MAX_STREAK_BONUS: f64 = 1.3;
+pub const MAX_STREAK_BONUS: f64 = 1.3;
 /// Maximum fuzz percentage applied to intervals (±5%)
 const FUZZ_FACTOR: f64 = 0.05;
 /// Consecutive failures before a card is marked as a leech
