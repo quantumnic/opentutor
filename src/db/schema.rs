@@ -68,6 +68,8 @@ pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             next_review TEXT,
             ease_factor REAL NOT NULL DEFAULT 2.5,
             interval_days INTEGER NOT NULL DEFAULT 1,
+            leech_count INTEGER NOT NULL DEFAULT 0,
+            consecutive_fails INTEGER NOT NULL DEFAULT 0,
             UNIQUE(topic_id)
         );
 

@@ -14,6 +14,8 @@ const STREAK_BONUS_THRESHOLD: i64 = 3;
 const MAX_STREAK_BONUS: f64 = 1.3;
 /// Maximum fuzz percentage applied to intervals (±5%)
 const FUZZ_FACTOR: f64 = 0.05;
+/// Consecutive failures before a card is marked as a leech
+const LEECH_THRESHOLD: i64 = 4;
 
 /// Apply a small random fuzz to an interval to prevent review clustering.
 /// For intervals >= 4 days, adds ±FUZZ_FACTOR jitter (at least ±1 day).
@@ -44,6 +46,15 @@ pub fn update_spaced_repetition(
         .ok();
 
     let (ease, interval, _next_review) = current.unwrap_or((2.5, 0, None));
+
+    // Track consecutive failures for leech detection
+    let (consecutive_fails, leech_count): (i64, i64) = conn
+        .query_row(
+            "SELECT consecutive_fails, leech_count FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .unwrap_or((0, 0));
 
     // Check if the card has lapsed (overdue by more than LAPSE_THRESHOLD_DAYS)
     let is_lapsed = is_card_lapsed(conn, topic_id);
@@ -103,15 +114,30 @@ pub fn update_spaced_repetition(
     // Apply interval fuzzing to prevent review clustering on the same day
     let final_interval = fuzz_interval(new_interval);
 
+    // Update leech tracking
+    let (new_consecutive_fails, new_leech_count) = if quality < 3 {
+        let new_fails = consecutive_fails + 1;
+        let new_leeches = if new_fails >= LEECH_THRESHOLD && (new_fails - LEECH_THRESHOLD) % LEECH_THRESHOLD == 0 {
+            leech_count + 1
+        } else {
+            leech_count
+        };
+        (new_fails, new_leeches)
+    } else {
+        (0, leech_count) // Reset consecutive fails on success, but keep leech count
+    };
+
     conn.execute(
-        "INSERT INTO user_progress (topic_id, ease_factor, interval_days, next_review, last_reviewed)
-         VALUES (?1, ?2, ?3, datetime('now', '+' || ?3 || ' days'), datetime('now'))
+        "INSERT INTO user_progress (topic_id, ease_factor, interval_days, next_review, last_reviewed, consecutive_fails, leech_count)
+         VALUES (?1, ?2, ?3, datetime('now', '+' || ?3 || ' days'), datetime('now'), ?4, ?5)
          ON CONFLICT(topic_id) DO UPDATE SET
            ease_factor = ?2,
            interval_days = ?3,
            next_review = datetime('now', '+' || ?3 || ' days'),
-           last_reviewed = datetime('now')",
-        rusqlite::params![topic_id, new_ease, final_interval],
+           last_reviewed = datetime('now'),
+           consecutive_fails = ?4,
+           leech_count = ?5",
+        rusqlite::params![topic_id, new_ease, final_interval, new_consecutive_fails, new_leech_count],
     )?;
     Ok(())
 }
@@ -283,6 +309,41 @@ pub fn estimate_retention(conn: &Connection, topic_id: i64) -> f64 {
         }
         _ => 0.0, // No progress data
     }
+}
+
+/// Check if a topic is a leech (repeatedly failed).
+pub fn is_leech(conn: &Connection, topic_id: i64) -> bool {
+    conn.query_row(
+        "SELECT leech_count > 0 FROM user_progress WHERE topic_id = ?1",
+        [topic_id],
+        |r| r.get(0),
+    )
+    .unwrap_or(false)
+}
+
+/// Get leech count for a topic.
+#[allow(dead_code)]
+pub fn get_leech_count(conn: &Connection, topic_id: i64) -> i64 {
+    conn.query_row(
+        "SELECT leech_count FROM user_progress WHERE topic_id = ?1",
+        [topic_id],
+        |r| r.get(0),
+    )
+    .unwrap_or(0)
+}
+
+/// Get all leech topics.
+pub fn get_leeches(conn: &Connection) -> Result<Vec<(i64, String, String, i64)>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT t.id, t.name, s.name, p.leech_count
+         FROM user_progress p
+         JOIN topics t ON t.id = p.topic_id
+         JOIN subjects s ON s.id = t.subject_id
+         WHERE p.leech_count > 0
+         ORDER BY p.leech_count DESC"
+    )?;
+    let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
+    rows.collect()
 }
 
 /// Get a topic's memory strength as a descriptive string.
@@ -514,6 +575,45 @@ mod tests {
     }
 
     #[test]
+    fn test_leech_detection() {
+        let conn = db::init_memory_db().unwrap();
+        // Create progress
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        assert!(!is_leech(&conn, 1));
+
+        // Fail 4 times consecutively to trigger leech
+        for _ in 0..4 {
+            update_spaced_repetition(&conn, 1, 1).unwrap();
+        }
+        assert!(is_leech(&conn, 1), "Should be a leech after 4 consecutive failures");
+        assert_eq!(get_leech_count(&conn, 1), 1);
+    }
+
+    #[test]
+    fn test_leech_resets_on_success() {
+        let conn = db::init_memory_db().unwrap();
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+
+        // Fail 3 times then succeed — should NOT become a leech
+        for _ in 0..3 {
+            update_spaced_repetition(&conn, 1, 1).unwrap();
+        }
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let fails: i64 = conn.query_row(
+            "SELECT consecutive_fails FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(fails, 0, "Consecutive fails should reset on success");
+    }
+
+    #[test]
+    fn test_get_leeches_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let leeches = get_leeches(&conn).unwrap();
+        assert!(leeches.is_empty());
+    }
+
+    #[test]
     fn test_quality_5_bonus() {
         let conn = db::init_memory_db().unwrap();
         conn.execute(
@@ -539,3 +639,5 @@ mod tests {
         assert!(interval_q5 >= interval_q4, "Quality 5 should give equal or longer interval than quality 4");
     }
 }
+
+

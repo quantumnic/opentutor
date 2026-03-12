@@ -35,6 +35,7 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Environmental Science", "Exploring ecosystems, climate, pollution, and sustainability."),
         ("Creative Writing", "Crafting stories, poems, and essays — finding your voice through words."),
         ("Astronomy", "Exploring space — stars, planets, galaxies, and the vast universe beyond Earth."),
+        ("Physics", "The fundamental science of matter, energy, forces, and motion — understanding how the universe works."),
     ];
     for (name, desc) in &subjects {
         conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
@@ -116,6 +117,11 @@ fn seed_topics(conn: &Connection) -> Result<(), rusqlite::Error> {
         (15, "Stars & Stellar Evolution", "beginner", 2),
         (15, "Galaxies & the Universe", "intermediate", 3),
         (15, "Space Exploration", "intermediate", 4),
+        // Physics (subject_id=16)
+        (16, "Electricity & Magnetism", "beginner", 1),
+        (16, "Thermodynamics", "intermediate", 2),
+        (16, "Waves & Sound", "beginner", 3),
+        (16, "Nuclear Physics", "intermediate", 4),
     ];
     for (sid, name, diff, order) in &topics {
         conn.execute(
@@ -255,6 +261,18 @@ fn seed_lessons(conn: &Connection) -> Result<(), rusqlite::Error> {
         // Astronomy — Space Exploration (topic_id=57)
         (57, "History of Space Exploration", "Key milestones:\n\n1957: Sputnik 1 — first artificial satellite (USSR).\n1961: Yuri Gagarin — first human in space (USSR).\n1969: Apollo 11 — Neil Armstrong and Buzz Aldrin walk on the Moon (USA).\n1971: First space station (Salyut 1, USSR).\n1977: Voyager 1 & 2 launched — still sending data from interstellar space.\n1990: Hubble Space Telescope launched.\n1998: International Space Station (ISS) construction begins.\n2012: Curiosity rover lands on Mars.\n2019: First image of a black hole (M87*).\n2021: James Webb Space Telescope launched.\n2022: DART mission successfully redirects an asteroid.\n\nThe Space Race (1957-1975) between USA and USSR drove rapid advancement.", 1),
         (57, "The Future of Space", "Current and future missions:\n\nMars exploration:\n- NASA's Perseverance rover searching for ancient life.\n- SpaceX Starship: aims for crewed Mars missions in the 2030s.\n- Challenges: 6-9 month journey, radiation, thin atmosphere, no return plan yet.\n\nArtemis program: returning humans to the Moon. Gateway lunar station planned.\n\nPrivate spaceflight:\n- SpaceX: reusable rockets, Starlink satellite internet.\n- Blue Origin: space tourism, lunar lander.\n- Virgin Galactic: suborbital flights.\n\nBig questions:\n- Is there life elsewhere? (Europa, Enceladus, Mars, exoplanets)\n- Can we become a multi-planetary species?\n- Will we detect signals from intelligent civilizations?\n\nFermi Paradox: if the universe is so big, where is everyone?", 2),
+        // Physics — Electricity & Magnetism (topic_id=58)
+        (58, "Electric Charge and Current", "Electric charge is a fundamental property of matter. Protons are positive (+), electrons are negative (-).\n\nLike charges repel, opposite charges attract.\n\nElectric current is the flow of charge (electrons) through a conductor.\n- Measured in amperes (A)\n- 1 ampere = 1 coulomb of charge per second\n\nVoltage (V): the 'push' that drives current. Like water pressure in a pipe.\nResistance (Ω): opposition to current flow. Like a narrow pipe.\n\nOhm's Law: V = I × R\n  Voltage = Current × Resistance\n  12V = 2A × 6Ω\n\nDirect Current (DC): flows one direction (batteries).\nAlternating Current (AC): reverses direction (wall outlets, 50/60 Hz).", 1),
+        (58, "Magnetism and Electromagnetism", "Magnets have north and south poles. Like poles repel, opposite attract.\n\nMagnetic fields: invisible lines of force from north to south pole.\n\nKey discovery (Ørsted, 1820): electric current creates a magnetic field!\n\nElectromagnets: coil of wire + current = controllable magnet.\n  Used in: motors, speakers, MRI machines, maglev trains.\n\nFaraday's Law: a changing magnetic field induces electric current.\n  This is how generators work — spin a magnet near a coil → electricity.\n\nThe relationship between electricity and magnetism (electromagnetism) is one of physics' greatest unifications. Maxwell's equations describe it all in four elegant formulas.", 2),
+        // Physics — Thermodynamics (topic_id=59)
+        (59, "Heat and Temperature", "Temperature measures average kinetic energy of particles.\n  Celsius: 0°C = water freezes, 100°C = water boils\n  Kelvin: absolute scale. 0 K = absolute zero (-273.15°C)\n  Fahrenheit: 32°F = freezing, 212°F = boiling\n\nHeat is energy transferred between objects of different temperatures.\n  Flows from hot → cold (never the reverse spontaneously)\n\nHeat transfer mechanisms:\n1. Conduction: through direct contact (metal spoon in hot soup)\n2. Convection: through fluid movement (hot air rising)\n3. Radiation: through electromagnetic waves (sunlight)\n\nSpecific heat capacity: energy needed to raise 1 kg by 1°C.\n  Water has very high specific heat (4,186 J/kg·°C) — why oceans moderate climate.", 1),
+        (59, "Laws of Thermodynamics", "Four laws that govern energy and entropy:\n\nZeroth Law: If A is in thermal equilibrium with B, and B with C, then A is with C.\n  (This is why thermometers work!)\n\nFirst Law: Energy cannot be created or destroyed, only transformed.\n  ΔU = Q - W (internal energy change = heat added - work done)\n  This is conservation of energy.\n\nSecond Law: Entropy (disorder) of an isolated system always increases.\n  Heat flows hot → cold. You can't unscramble an egg.\n  Efficiency of any heat engine < 100%.\n\nThird Law: As temperature approaches absolute zero, entropy approaches a minimum.\n  You can never reach exactly 0 K.\n\nEntropy explains the arrow of time — why we remember the past but not the future.", 2),
+        // Physics — Waves & Sound (topic_id=60)
+        (60, "Properties of Waves", "A wave transfers energy without transferring matter.\n\nTwo main types:\n- Transverse: oscillation perpendicular to direction (light, water surface)\n- Longitudinal: oscillation parallel to direction (sound, compression springs)\n\nWave properties:\n- Wavelength (λ): distance between two crests\n- Frequency (f): waves per second (Hz)\n- Amplitude: height of wave (relates to energy/loudness)\n- Speed: v = f × λ\n\nWave behaviors:\n- Reflection: bouncing off a surface (echo, mirror)\n- Refraction: bending when entering a new medium (straw in water looks bent)\n- Diffraction: spreading around obstacles\n- Interference: waves combining (constructive = louder, destructive = quieter)", 1),
+        (60, "Sound", "Sound is a longitudinal wave — compressions and rarefactions in a medium.\n\nSpeed of sound:\n- In air (~20°C): 343 m/s\n- In water: ~1,480 m/s\n- In steel: ~5,960 m/s\n- Cannot travel through vacuum (no medium)\n\nPitch: determined by frequency.\n  Human hearing: 20 Hz to 20,000 Hz\n  Middle C on piano: 262 Hz\n  Infrasound: < 20 Hz (elephants communicate with it)\n  Ultrasound: > 20,000 Hz (bats, medical imaging)\n\nLoudness: determined by amplitude. Measured in decibels (dB).\n  Whisper: ~30 dB, Conversation: ~60 dB, Rock concert: ~110 dB\n  >85 dB can cause hearing damage over time.\n\nDoppler effect: pitch changes when source moves relative to listener.\n  Ambulance siren sounds higher approaching, lower receding.", 2),
+        // Physics — Nuclear Physics (topic_id=61)
+        (61, "Atomic Structure and Radioactivity", "The atom: nucleus (protons + neutrons) surrounded by electron cloud.\n  Protons: positive charge, define the element (atomic number)\n  Neutrons: neutral, add mass. Isotopes = same element, different neutrons\n  Electrons: negative charge, determine chemical behavior\n\nNucleus is tiny: if atom were a stadium, nucleus would be a marble at center.\n  But contains 99.95% of the atom's mass!\n\nRadioactivity: unstable nuclei emit radiation to become stable.\n  Alpha (α): 2 protons + 2 neutrons (helium nucleus). Stopped by paper.\n  Beta (β): electron or positron. Stopped by aluminum.\n  Gamma (γ): high-energy photon. Needs lead or thick concrete.\n\nHalf-life: time for half the radioactive atoms to decay.\n  Carbon-14: 5,730 years (used for dating ancient objects)\n  Uranium-238: 4.5 billion years (dating rocks)", 1),
+        (61, "Fission, Fusion, and E=mc²", "Einstein's famous equation: E = mc²\n  Energy = mass × speed of light squared\n  A tiny amount of mass converts to enormous energy.\n  1 kg of matter = ~90 petajoules (≈ 21 megatons of TNT)\n\nNuclear Fission: splitting heavy atoms (uranium, plutonium).\n  Used in: nuclear power plants, atomic bombs.\n  Chain reaction: one split releases neutrons that split more atoms.\n  Nuclear power provides ~10% of world's electricity. No CO₂ during operation.\n  Challenge: radioactive waste, meltdown risk.\n\nNuclear Fusion: combining light atoms (hydrogen → helium).\n  Powers the Sun and all stars.\n  Potential for virtually unlimited clean energy on Earth.\n  Challenge: requires 100+ million °C. Containment is incredibly difficult.\n  Active research: ITER (France), NIF (USA), private ventures.\n  'Fusion is always 30 years away' — but real progress is being made.", 2),
         // Additional lessons for previously under-served topics
         // Reading Comprehension (topic_id=11) — add a second lesson
         (11, "Inference and Context Clues", "Inference means drawing conclusions from evidence, not just what's directly stated.\n\nTypes of context clues:\n- Definition: the word is defined in the sentence.\n- Synonym: a similar word appears nearby.\n- Antonym: an opposite word provides contrast.\n- Example: examples help clarify meaning.\n\nPractice:\n'The arid desert received less than 10cm of rain per year.'\n  Clue: desert, little rain → arid means very dry.\n\nMaking inferences:\n- What does the author imply but not say?\n- What evidence supports your conclusion?\n- Could there be another interpretation?", 2),
@@ -357,6 +375,11 @@ fn seed_explanations(conn: &Connection) -> Result<(), rusqlite::Error> {
         (51, "characters", "Characters are the people (or creatures) whose experiences drive a story forward.", Some("A character without a flaw is like a diamond without facets — technically perfect but not very interesting to look at. Flaws catch the light!"), Some("Think of a character you love — what's their biggest flaw, and why do you love them anyway?")),
         (52, "dialogue", "Dialogue is the spoken words of characters in a story — it reveals personality, advances plot, and creates tension.", Some("Good dialogue is like an iceberg — what characters say is the tip above water, but what they really mean is the massive shape hiding underneath."), Some("Try rewriting 'I'm angry at you' without using the word 'angry' — how would a character SHOW it?")),
         (53, "poetry", "Poetry is the art of compressing language to its most powerful, musical, and evocative form.", Some("Poetry is like a photograph of language — it freezes a single moment or feeling and lets you study every detail. Prose is the movie; poetry is the still frame that takes your breath away."), Some("Can you write a haiku (5-7-5 syllables) about something you see right now?")),
+        // Physics
+        (58, "electromagnetism", "Electromagnetism is the unified force combining electricity and magnetism — a changing electric field creates a magnetic field, and vice versa.", Some("Think of electricity and magnetism as dance partners — when one moves, the other follows. Together they create light, radio waves, and everything in between!"), Some("If you spin a magnet near a coil of wire, what happens?")),
+        (59, "entropy", "Entropy is a measure of disorder in a system — the Second Law of Thermodynamics says it always increases in isolated systems.", Some("Think of your bedroom — it naturally gets messy (high entropy) and takes effort to clean up (decrease entropy). The universe is the same, just on a cosmic scale!"), Some("Can you think of a process that seems to decrease entropy? What energy input makes it possible?")),
+        (60, "doppler effect", "The Doppler effect is the change in frequency of a wave when the source or observer is moving.", Some("An ambulance siren sounds higher as it approaches and lower as it drives away — the sound waves are getting squished or stretched!"), Some("Could the Doppler effect work with light too? (Hint: redshift!)")),
+        (61, "nuclear fusion", "Nuclear fusion combines light atomic nuclei into heavier ones, releasing enormous energy — it's how stars shine.", Some("Fusion is like smashing two Lego pieces together so hard they become one new piece AND release a burst of energy. The Sun does this with hydrogen atoms 600 million tons per second!"), Some("Why do you think we haven't built a working fusion power plant yet?")),
     ];
     for (tid, concept, explanation, analogy, follow_up) in &explanations {
         conn.execute(
@@ -559,6 +582,30 @@ fn seed_quiz_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         (57, "Which space telescope launched in 2021?", "multiple_choice", "James Webb Space Telescope", Some("Hubble"), Some("James Webb Space Telescope"), Some("Spitzer"), Some("Kepler"), Some("Named after a NASA administrator"), "The James Webb Space Telescope (JWST) launched on December 25, 2021, as Hubble's successor for infrared astronomy."),
         (57, "True or false: Voyager 1 has left the solar system.", "true_false", "true", Some("true"), Some("false"), None, None, Some("It entered interstellar space in 2012"), "True. Voyager 1 crossed into interstellar space in August 2012, becoming the first human-made object to do so."),
         (57, "The Fermi Paradox asks: if the universe is so big, where is ___?", "fill_in_blank", "everyone", None, None, None, None, Some("Where are all the aliens?"), "The Fermi Paradox highlights the contradiction between the high probability of alien civilizations and the lack of evidence for them."),
+        // Physics — Electricity & Magnetism (topic_id=58)
+        (58, "What does Ohm's Law state?", "multiple_choice", "V = I × R", Some("V = I + R"), Some("V = I × R"), Some("V = I / R"), Some("V = I² × R"), Some("Voltage, current, resistance"), "Ohm's Law states that voltage equals current times resistance: V = I × R."),
+        (58, "What type of current do batteries produce?", "multiple_choice", "Direct Current (DC)", Some("Alternating Current (AC)"), Some("Direct Current (DC)"), Some("Pulsed Current"), Some("Static Current"), Some("Flows in one direction"), "Batteries produce Direct Current (DC), which flows in one constant direction."),
+        (58, "True or false: A changing magnetic field can induce an electric current.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Faraday's discovery"), "True. This is Faraday's Law of electromagnetic induction, the principle behind generators."),
+        (58, "Electric current is measured in ___.", "fill_in_blank", "amperes", None, None, None, None, Some("Named after André-Marie Ampère"), "Electric current is measured in amperes (A), where 1 ampere = 1 coulomb per second."),
+        (58, "Who discovered that electric current creates a magnetic field?", "multiple_choice", "Ørsted", Some("Faraday"), Some("Ørsted"), Some("Maxwell"), Some("Tesla"), Some("Danish physicist, 1820"), "Hans Christian Ørsted discovered in 1820 that electric current creates a magnetic field."),
+        // Physics — Thermodynamics (topic_id=59)
+        (59, "What is absolute zero?", "multiple_choice", "-273.15°C (0 K)", Some("-100°C"), Some("-273.15°C (0 K)"), Some("-459°F"), Some("0°C"), Some("Lowest possible temperature"), "Absolute zero is 0 Kelvin (-273.15°C), the lowest theoretically possible temperature."),
+        (59, "The First Law of Thermodynamics is essentially the law of ___.", "fill_in_blank", "conservation of energy", None, None, None, None, Some("Energy cannot be created or destroyed"), "The First Law states that energy is conserved — it can change form but cannot be created or destroyed."),
+        (59, "Which heat transfer mechanism does NOT require a medium?", "multiple_choice", "Radiation", Some("Conduction"), Some("Convection"), Some("Radiation"), Some("All require a medium"), Some("How the sun heats Earth through space"), "Radiation transfers heat via electromagnetic waves and can travel through the vacuum of space."),
+        (59, "True or false: The entropy of an isolated system always decreases.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Second Law of Thermodynamics"), "False. The Second Law states that entropy (disorder) of an isolated system always increases or stays the same."),
+        (59, "Water has a notably ___ specific heat capacity.", "fill_in_blank", "high", None, None, None, None, Some("This is why oceans moderate climate"), "Water has a very high specific heat capacity (4,186 J/kg·°C), which is why it moderates climate."),
+        // Physics — Waves & Sound (topic_id=60)
+        (60, "What is the speed of sound in air at 20°C?", "multiple_choice", "343 m/s", Some("300 m/s"), Some("343 m/s"), Some("500 m/s"), Some("1,000 m/s"), Some("About 1,235 km/h"), "Sound travels at approximately 343 meters per second in air at 20°C."),
+        (60, "True or false: Sound can travel through a vacuum.", "true_false", "false", Some("true"), Some("false"), None, None, Some("In space, no one can hear you scream"), "False. Sound requires a medium (solid, liquid, or gas) — it cannot travel through a vacuum."),
+        (60, "The Doppler effect causes a change in perceived ___.", "fill_in_blank", "pitch", None, None, None, None, Some("Think of an ambulance siren passing by"), "The Doppler effect changes the perceived pitch (frequency) when the source or observer is moving."),
+        (60, "What type of wave is sound?", "multiple_choice", "Longitudinal", Some("Transverse"), Some("Longitudinal"), Some("Surface"), Some("Electromagnetic"), Some("Compressions and rarefactions"), "Sound is a longitudinal wave — particles oscillate parallel to the wave's direction of travel."),
+        (60, "Human hearing range is approximately ___ Hz to 20,000 Hz.", "fill_in_blank", "20", None, None, None, None, Some("Below this is infrasound"), "Humans can typically hear frequencies from about 20 Hz to 20,000 Hz."),
+        // Physics — Nuclear Physics (topic_id=61)
+        (61, "What does E = mc² mean?", "multiple_choice", "Energy equals mass times the speed of light squared", Some("Energy equals mass times velocity"), Some("Energy equals mass times the speed of light squared"), Some("Entropy equals mass times constant"), Some("Energy equals momentum times charge"), Some("Einstein's most famous equation"), "E = mc² shows that mass and energy are interchangeable; a small mass yields enormous energy."),
+        (61, "What is nuclear fission?", "multiple_choice", "Splitting heavy atoms", Some("Combining light atoms"), Some("Splitting heavy atoms"), Some("Electron capture"), Some("Neutron decay"), Some("Used in nuclear power plants"), "Fission splits heavy nuclei (like uranium) into lighter ones, releasing large amounts of energy."),
+        (61, "True or false: Nuclear fusion powers the Sun.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Hydrogen → Helium"), "True. The Sun fuses hydrogen nuclei into helium, releasing enormous energy via E = mc²."),
+        (61, "The half-life of Carbon-14 is approximately ___ years.", "fill_in_blank", "5730", None, None, None, None, Some("Used for radiocarbon dating"), "Carbon-14 has a half-life of about 5,730 years, making it useful for dating organic materials up to ~50,000 years old."),
+        (61, "Which type of radiation is stopped by a sheet of paper?", "multiple_choice", "Alpha particles", Some("Alpha particles"), Some("Beta particles"), Some("Gamma rays"), Some("Neutron radiation"), Some("Heaviest type of radiation"), "Alpha particles (2 protons + 2 neutrons) are large and can be stopped by paper or even skin."),
     ];
     for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
         conn.execute(
@@ -621,6 +668,10 @@ fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("space and astronomy", 2, 55, "Stars — the life and death of suns"),
         ("space and astronomy", 3, 56, "Galaxies — island universes of stars"),
         ("space and astronomy", 4, 57, "Space exploration — humanity's journey beyond Earth"),
+        ("physics fundamentals", 1, 58, "Electricity & magnetism — charges, currents, and fields"),
+        ("physics fundamentals", 2, 60, "Waves & sound — how energy travels through space and matter"),
+        ("physics fundamentals", 3, 59, "Thermodynamics — heat, energy, and entropy"),
+        ("physics fundamentals", 4, 61, "Nuclear physics — atoms, radioactivity, and E=mc²"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -643,7 +694,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 15);
+        assert_eq!(count, 16);
     }
 
     #[test]
@@ -653,7 +704,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 15);
+        assert_eq!(count, 16);
     }
 
     #[test]

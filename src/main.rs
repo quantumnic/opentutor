@@ -84,6 +84,10 @@ enum Commands {
     Achievements,
     /// Show a 7-day review forecast
     Forecast,
+    /// Get personalized study recommendations based on your retention
+    Recommend,
+    /// Show leech cards (topics you're repeatedly struggling with)
+    Leech,
 }
 
 fn main() {
@@ -113,6 +117,8 @@ fn main() {
         Commands::Challenge { count } => commands::challenge::run(&conn, count),
         Commands::Achievements => commands::achievements::run(&conn),
         Commands::Forecast => commands::forecast::run(&conn),
+        Commands::Recommend => commands::recommend::run(&conn),
+        Commands::Leech => commands::leech::run(&conn),
     };
 
     if let Err(e) = result {

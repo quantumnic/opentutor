@@ -141,6 +141,20 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Phase 2.5: Leech warnings
+    let leeches = spaced::get_leeches(conn).unwrap_or_default();
+    if !leeches.is_empty() {
+        display::print_section("🩹 Leech Cards");
+        println!("    These topics need extra attention — try re-reading the lessons:\n");
+        for (_id, name, subject, count) in &leeches {
+            println!("    🩹 {} ({}) — {} leeches",
+                name.bold().bright_yellow(), subject.dimmed(), count);
+        }
+        println!();
+        display::print_hint("Use 'opentutor explain <concept>' for alternative explanations.");
+        println!();
+    }
+
     // Phase 3: Quick stats
     display::print_divider();
     let total_studied: i64 = conn.query_row(

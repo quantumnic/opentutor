@@ -82,7 +82,10 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
 
     for (topic_id, topic_name, subject_name, ease, interval, _next) in &due_topics {
         let is_lapsed = spaced::is_card_lapsed(conn, *topic_id);
-        let strength = if is_lapsed {
+        let is_leech = spaced::is_leech(conn, *topic_id);
+        let strength = if is_leech {
+            "Leech 🩹".bright_red()
+        } else if is_lapsed {
             "Lapsed ⚠️".bright_red()
         } else if *interval >= 30 {
             "Strong 💪".bright_green()
