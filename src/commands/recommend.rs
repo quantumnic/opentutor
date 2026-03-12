@@ -1,5 +1,6 @@
 use colored::*;
 use rusqlite::Connection;
+use crate::commands::config;
 use crate::display;
 use crate::engine::spaced;
 
@@ -73,16 +74,22 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         Ok((r.get(0)?, r.get(1)?, r.get(2)?))
     })?.collect::<Result<Vec<_>, _>>()?;
 
+    let desired_ret = config::get_desired_retention(conn);
+    let low_threshold = (desired_ret - 0.15).max(0.3); // flag topics well below target
+
     let mut low_retention = Vec::new();
     for (tid, tname, sname) in &retention_topics {
         let ret = spaced::estimate_retention(conn, *tid);
-        if ret < 0.7 {
+        if ret < low_threshold {
             low_retention.push((tid, tname, sname, ret));
         }
     }
 
     if low_retention.is_empty() {
-        display::print_success("All studied topics have good retention (≥70%)!");
+        display::print_success(&format!(
+            "All studied topics have good retention (≥{}%)!",
+            (low_threshold * 100.0).round()
+        ));
     } else {
         for (_, tname, sname, ret) in &low_retention {
             let pct = (*ret * 100.0) as u32;

@@ -136,6 +136,12 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
                         println!("       • {}", opt);
                     }
                 }
+                "ordering" => {
+                    println!("       {}", "(Put these in the correct order)".dimmed());
+                    for (j, opt) in q.options.iter().enumerate() {
+                        println!("       {} {}", format!("{}.", j + 1).dimmed(), opt);
+                    }
+                }
                 _ => {
                     for (j, opt) in q.options.iter().enumerate() {
                         let letter = (b'a' + j as u8) as char;

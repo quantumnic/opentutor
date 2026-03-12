@@ -1,7 +1,7 @@
 use rusqlite::Connection;
 
 /// SM-2 algorithm parameters with FSRS-inspired enhancements
-const DEFAULT_DESIRED_RETENTION: f64 = 0.85;
+pub const DEFAULT_DESIRED_RETENTION: f64 = 0.85;
 const MIN_EASE: f64 = 1.3;
 /// Maximum interval in days (cap at ~6 months)
 const MAX_INTERVAL: i64 = 180;

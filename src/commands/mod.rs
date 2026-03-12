@@ -1,5 +1,6 @@
 pub mod achievements;
 pub mod challenge;
+pub mod config;
 pub mod daily;
 pub mod explain;
 pub mod export;

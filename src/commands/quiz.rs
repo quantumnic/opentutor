@@ -44,6 +44,12 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
             "fill_in_blank" => {
                 println!("     {}", "(Type your answer)".dimmed());
             }
+            "ordering" => {
+                println!("     {}", "(Put these in the correct order)".dimmed());
+                for (j, opt) in q.options.iter().enumerate() {
+                    println!("     {} {}", format!("{}.", j + 1).dimmed(), opt);
+                }
+            }
             _ => {
                 for (j, opt) in q.options.iter().enumerate() {
                     let letter = (b'a' + j as u8) as char;

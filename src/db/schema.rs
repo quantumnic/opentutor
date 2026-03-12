@@ -88,6 +88,11 @@ pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             category TEXT NOT NULL,
             unlocked_at TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS user_config (
+            key TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         ",
     )?;
     Ok(())

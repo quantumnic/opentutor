@@ -96,6 +96,13 @@ enum Commands {
         #[arg(short, long, default_value = "20")]
         limit: usize,
     },
+    /// View or change configuration (retention target, daily goal, etc.)
+    Config {
+        /// Config key to view or set
+        key: Option<String>,
+        /// Value to set (omit to view current value)
+        value: Option<String>,
+    },
 }
 
 fn main() {
@@ -129,6 +136,7 @@ fn main() {
         Commands::Leech => commands::leech::run(&conn),
         Commands::Summary => commands::summary::run(&conn),
         Commands::History { limit } => commands::history::run(&conn, limit),
+        Commands::Config { key, value } => commands::config::run(&conn, &key, &value),
     };
 
     if let Err(e) = result {

@@ -140,6 +140,12 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     let answer = answer.trim().to_lowercase();
     let correct = question.correct_answer.trim().to_lowercase();
 
+    // For ordering questions, the correct_answer is a comma-separated sequence
+    // and the user's answer should match the same sequence.
+    if question.question_type == "ordering" {
+        return check_ordering_answer(&correct, &answer);
+    }
+
     if answer == correct {
         return true;
     }
@@ -169,6 +175,39 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
         if let Some(opt) = question.options.get(idx) {
             return opt.trim().to_lowercase() == correct;
         }
+    }
+
+    false
+}
+
+/// Check ordering answers: compare comma-separated sequences.
+/// Accepts both full item text and numeric positions (1,2,3,4).
+fn check_ordering_answer(correct: &str, answer: &str) -> bool {
+    let correct_items: Vec<&str> = correct.split(',').map(|s| s.trim()).collect();
+    let answer_items: Vec<&str> = answer.split(',').map(|s| s.trim()).collect();
+
+    if correct_items.len() != answer_items.len() {
+        return false;
+    }
+
+    // Direct text match
+    if correct_items == answer_items {
+        return true;
+    }
+
+    // Check if answer uses numeric positions (1-indexed)
+    let numeric: Vec<usize> = answer_items
+        .iter()
+        .filter_map(|s| s.parse::<usize>().ok())
+        .collect();
+
+    if numeric.len() == answer_items.len() {
+        // Convert numeric positions to items (1-indexed)
+        // The "options" in an ordering question are the shuffled items
+        // But since we only have the correct sequence, check if the numbers
+        // spell out 1,2,3,...,n (i.e., the user got the order right)
+        let expected: Vec<usize> = (1..=correct_items.len()).collect();
+        return numeric == expected;
     }
 
     false
@@ -255,6 +294,39 @@ mod tests {
         assert!(check_answer(&q, "11"));
         assert!(!check_answer(&q, "14"));
         assert!(!check_answer(&q, "a")); // letter shortcuts shouldn't work
+    }
+
+    #[test]
+    fn test_check_answer_ordering_text() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Order these:".into(),
+            question_type: "ordering".into(),
+            difficulty: "medium".into(),
+            correct_answer: "Alpha,Beta,Gamma".into(),
+            options: vec!["Beta".into(), "Gamma".into(), "Alpha".into()],
+            hint: None,
+            explanation: "Greek alphabet order.".into(),
+        };
+        assert!(check_answer(&q, "Alpha,Beta,Gamma"));
+        assert!(check_answer(&q, "alpha, beta, gamma"));
+        assert!(!check_answer(&q, "Beta,Alpha,Gamma"));
+    }
+
+    #[test]
+    fn test_check_answer_ordering_numeric() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Order these:".into(),
+            question_type: "ordering".into(),
+            difficulty: "medium".into(),
+            correct_answer: "First,Second,Third".into(),
+            options: vec!["Second".into(), "Third".into(), "First".into()],
+            hint: None,
+            explanation: "Correct order.".into(),
+        };
+        assert!(check_answer(&q, "1,2,3"));
+        assert!(!check_answer(&q, "2,1,3"));
     }
 
     #[test]

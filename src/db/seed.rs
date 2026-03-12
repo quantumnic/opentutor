@@ -22,6 +22,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_chemistry(conn)?;
     seed_biology(conn)?;
     seed_sociology(conn)?;
+    seed_linguistics(conn)?;
+    seed_probability(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -44,6 +46,7 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Creative Writing", "Crafting stories, poems, and essays — finding your voice through words."),
         ("Astronomy", "Exploring space — stars, planets, galaxies, and the vast universe beyond Earth."),
         ("Physics", "The fundamental science of matter, energy, forces, and motion — understanding how the universe works."),
+        ("Linguistics", "The scientific study of language — its structure, meaning, sounds, and evolution across cultures."),
     ];
     for (name, desc) in &subjects {
         conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
@@ -702,7 +705,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 19); // 16 original + Chemistry + Biology + Sociology
+        assert_eq!(count, 20); // 16 original + Chemistry + Biology + Sociology + Linguistics
     }
 
     #[test]
@@ -712,7 +715,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 19);
+        assert_eq!(count, 20);
     }
 
     #[test]
@@ -1281,6 +1284,188 @@ pub fn seed_sociology(conn: &Connection) -> Result<(), rusqlite::Error> {
             rusqlite::params![goal, order, tid, desc],
         )?;
     }
+
+    Ok(())
+}
+
+fn seed_linguistics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Linguistics'",
+        [], |r| r.get(0),
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Linguistics', 'The scientific study of language — its structure, meaning, sounds, and evolution across cultures.')",
+        [],
+    )?;
+    let ling_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Linguistics'", [], |r| r.get(0))?;
+
+    let topics = [
+        (ling_id, "Phonetics & Phonology", "beginner", 1),
+        (ling_id, "Morphology & Syntax", "intermediate", 2),
+        (ling_id, "Semantics & Pragmatics", "intermediate", 3),
+        (ling_id, "Language Families & Change", "advanced", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let phon_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Phonetics & Phonology'", [ling_id], |r| r.get(0))?;
+    let morph_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Morphology & Syntax'", [ling_id], |r| r.get(0))?;
+    let sem_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Semantics & Pragmatics'", [ling_id], |r| r.get(0))?;
+    let fam_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Language Families & Change'", [ling_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (phon_id, "Sounds of Language", "Phonetics studies the physical sounds humans produce; phonology studies how languages organize those sounds.\n\nKey concepts:\n- Phone: any speech sound (written in square brackets, e.g. [p]).\n- Phoneme: a sound that distinguishes meaning in a language (written in slashes, e.g. /p/).\n- Minimal pair: two words that differ by exactly one phoneme (e.g. 'bat' vs 'pat').\n\nPlaces of articulation:\n- Bilabial: both lips (p, b, m).\n- Alveolar: tongue on the ridge behind teeth (t, d, n, s).\n- Velar: back of tongue on soft palate (k, g, ŋ).\n- Glottal: vocal folds (h, glottal stop ʔ).\n\nManners of articulation:\n- Stop/Plosive: complete closure then release (p, t, k).\n- Fricative: narrow constriction creating turbulence (f, s, ʃ).\n- Nasal: air through the nose (m, n, ŋ).\n- Approximant: narrowing without friction (w, r, l, j).\n\nVoicing: vocal folds vibrate (voiced: b, d, g) or not (voiceless: p, t, k).\n\nVowels are classified by height (high/mid/low), backness (front/central/back), and rounding.", 1),
+        (phon_id, "Phonological Rules & Processes", "Languages have rules that modify sounds in context:\n\nAssimilation: a sound becomes more like a neighboring sound.\n- 'input' is often pronounced [ɪmpʊt] — /n/ becomes [m] before /p/.\n- Voicing assimilation: 'dogs' [dɔɡz] vs 'cats' [kæts].\n\nDissimilation: sounds become less alike to avoid repetition.\n- Latin 'peregrinus' → 'pilgrim' (r...r → l...r).\n\nDeletion: sounds are dropped.\n- 'comfortable' → [kʌmftəbl] — vowel deletion.\n\nEpenthesis: sounds are inserted.\n- 'something' → [sʌmpθɪŋ] — [p] inserted between [m] and [θ].\n\nMetathesis: sounds swap positions.\n- Old English 'brid' → modern 'bird'.\n\nSuprasegmentals:\n- Stress: which syllable is emphasized ('REcord' noun vs 'reCORD' verb).\n- Tone: pitch distinguishes meaning (Mandarin: mā/má/mǎ/mà — four different words).\n- Intonation: pitch pattern over a sentence (rising = question in English).", 2),
+        (morph_id, "Building Words — Morphology", "Morphology studies the internal structure of words.\n\nMorpheme: the smallest unit of meaning.\n- Free morphemes: can stand alone ('book', 'run', 'happy').\n- Bound morphemes: must attach to another ('un-', '-ness', '-ed').\n\nTypes of bound morphemes:\n- Prefix: before the root ('un-happy', 're-write').\n- Suffix: after the root ('happi-ness', 'teach-er').\n- Infix: inside the root (Tagalog: 'sulat' → 's-um-ulat').\n\nInflection vs. Derivation:\n- Inflection: changes grammatical function without changing category.\n  - 'walk' → 'walks' / 'walked' / 'walking' (still a verb).\n- Derivation: creates a new word, often changing category.\n  - 'happy' (adj) → 'happiness' (noun) → 'unhappiness' (noun).\n\nWord formation processes:\n- Compounding: combining free morphemes ('blackboard', 'sunflower').\n- Blending: merging parts of words ('brunch' = breakfast + lunch).\n- Clipping: shortening ('exam' from 'examination').\n- Acronyms: initials as words ('NASA', 'scuba').\n- Back-formation: removing a supposed affix ('edit' from 'editor').", 1),
+        (morph_id, "Sentence Structure — Syntax", "Syntax studies how words combine into phrases and sentences.\n\nConstituency: words group into phrases.\n- Noun phrase (NP): 'the big red ball'\n- Verb phrase (VP): 'kicked the ball quickly'\n- Prepositional phrase (PP): 'in the park'\n\nPhrase structure rules (simplified):\n- S → NP VP (a sentence is a noun phrase + verb phrase)\n- NP → (Det) (Adj*) N (PP*)\n- VP → V (NP) (PP*) (AdvP*)\n\nTree diagrams: visual representations of hierarchical structure.\n\nRecursion: phrases can contain phrases of the same type.\n- 'The cat [that chased the mouse [that ate the cheese]]'\n- This is what makes human language infinite from finite rules.\n\nUniversal Grammar (Chomsky): all humans are born with an innate language faculty.\n- Explains why children acquire language so quickly.\n- Languages differ on the surface but share deep structural principles.\n\nWord order typology:\n- SVO: English, Spanish, Chinese ('She reads books').\n- SOV: Japanese, Korean, Hindi ('She books reads').\n- VSO: Irish, Arabic, Welsh ('Reads she books').", 2),
+        (sem_id, "Meaning in Language — Semantics", "Semantics studies meaning at the word and sentence level.\n\nLexical relations:\n- Synonymy: similar meaning ('big' / 'large').\n- Antonymy: opposite meaning ('hot' / 'cold', 'alive' / 'dead').\n  - Gradable: 'hot' / 'cold' (degrees exist).\n  - Complementary: 'alive' / 'dead' (no middle ground).\n- Hyponymy: 'rose' is a hyponym of 'flower' (IS-A relation).\n- Meronymy: 'wheel' is a meronym of 'car' (PART-OF relation).\n- Polysemy: one word, multiple related meanings ('bank' of a river / financial bank).\n- Homophony: same sound, different meanings ('bare' / 'bear').\n\nCompositional semantics: meaning of a sentence comes from its parts + structure.\n- 'The dog chased the cat' ≠ 'The cat chased the dog' (same words, different meaning).\n\nEntailment: if A is true, B must be true.\n- 'She murdered him' entails 'He is dead'.\n\nPresupposition: background assumption.\n- 'Have you stopped cheating?' presupposes you were cheating.", 1),
+        (sem_id, "Language in Context — Pragmatics", "Pragmatics studies how context shapes meaning beyond the literal.\n\nSpeech acts (Austin & Searle): utterances that perform actions.\n- Locutionary: the literal meaning ('It's cold in here').\n- Illocutionary: the intended meaning (request to close the window).\n- Perlocutionary: the actual effect (someone closes the window).\n\nGrice's Cooperative Principle: conversations follow implicit rules.\nMaxims:\n- Quantity: say enough, but not too much.\n- Quality: be truthful.\n- Relation: be relevant.\n- Manner: be clear and orderly.\n\nImplicature: what is implied but not literally said.\n- 'Some students passed' → implicates 'not all students passed'.\n- 'Nice weather, isn't it?' (during a storm) → sarcasm via maxim violation.\n\nDeixis: words whose meaning depends on context.\n- Person deixis: 'I', 'you' (who is speaking?).\n- Spatial deixis: 'here', 'there', 'this', 'that'.\n- Temporal deixis: 'now', 'then', 'yesterday'.\n\nPoliteness theory (Brown & Levinson): strategies for face-saving.\n- Positive face: desire to be liked and approved of.\n- Negative face: desire not to be imposed upon.", 2),
+        (fam_id, "Language Families of the World", "Languages are grouped into families descended from common ancestors.\n\nMajor families:\n- Indo-European (~3.2 billion speakers): English, Spanish, Hindi, Russian, Greek, Persian.\n  - Sub-branches: Germanic, Romance, Slavic, Indo-Iranian, Celtic.\n- Sino-Tibetan (~1.3 billion): Mandarin, Cantonese, Burmese, Tibetan.\n- Afro-Asiatic (~500 million): Arabic, Hebrew, Amharic, Hausa, Somali.\n- Niger-Congo (~500 million): Swahili, Yoruba, Zulu, Igbo.\n- Austronesian (~400 million): Malay, Tagalog, Maori, Hawaiian.\n- Dravidian (~250 million): Tamil, Telugu, Kannada, Malayalam.\n- Turkic (~200 million): Turkish, Uzbek, Kazakh, Azerbaijani.\n\nLanguage isolates: no known relatives.\n- Basque (Spain/France), Korean (debated), Ainu (Japan).\n\nThe comparative method: reconstruct proto-languages by finding systematic sound correspondences.\n- Latin 'pater', Sanskrit 'pitar', English 'father' → Proto-Indo-European *ph₂tér.\n\nThere are ~7,000 languages alive today, but ~40% are endangered.", 1),
+        (fam_id, "How Languages Change", "All living languages change constantly.\n\nSound change:\n- Great Vowel Shift (1400-1700): English long vowels systematically raised.\n  - 'bite' was once pronounced like modern 'beet'.\n- Grimm's Law: Proto-Indo-European stops shifted in Germanic languages.\n  - PIE *p → Germanic f (Latin 'pater' → English 'father').\n  - PIE *t → Germanic θ (Latin 'tres' → English 'three').\n\nSemantic change:\n- Broadening: 'dog' once meant a specific breed, now all dogs.\n- Narrowing: 'meat' once meant any food, now only animal flesh.\n- Amelioration: 'knight' meant servant → noble warrior.\n- Pejoration: 'villain' meant peasant → evil person.\n\nGrammaticalization: content words become function words.\n- 'going to' (motion) → 'gonna' (future tense marker).\n\nLanguage contact:\n- Borrowing: English borrowed 'piano' (Italian), 'kindergarten' (German), 'tsunami' (Japanese).\n- Pidgins: simplified contact languages for trade.\n- Creoles: pidgins that become native languages with full grammar.\n\nLanguage death: when the last speaker dies. ~1 language dies every 2 weeks.", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (phon_id, "phoneme", "A phoneme is the smallest unit of sound that can change meaning in a language.", Some("Think of phonemes like letters in a combination lock — each position matters. Changing just one 'click' (sound) gives you a completely different result. 'Bat' vs 'pat' differ by one phoneme, just like changing one digit in a lock opens a different safe."), Some("Can you find a minimal pair — two words in your language that differ by only one sound?")),
+        (morph_id, "morpheme", "A morpheme is the smallest meaningful unit in language — it carries meaning but cannot be broken down further.", Some("Morphemes are like LEGO bricks. Each brick (morpheme) has its own shape and purpose. You can snap them together to build complex structures (words). 'Un-break-able' is three bricks: 'un' (not) + 'break' (smash) + 'able' (capable of)."), Some("How many morphemes can you find in the word 'unhappiness'?")),
+        (sem_id, "implicature", "An implicature is something implied but not literally said — meaning that goes beyond the words.", Some("Implicature is like reading between the lines of a text message. When your friend texts 'I'm fine.' with a period, they're literally saying they're okay — but you know from context they're probably not fine at all."), Some("If someone says 'I have two children', do they necessarily have exactly two?")),
+        (fam_id, "proto-language", "A proto-language is the reconstructed common ancestor of a language family — it was never written down but is inferred from its descendant languages.", Some("A proto-language is like a family tree's root ancestor. You might never meet your great-great-great-grandmother, but by looking at family photos and shared features of living relatives, you can deduce what she probably looked like."), Some("Why do you think English 'father', Latin 'pater', and Sanskrit 'pitar' all look similar?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let questions: &[QuizRow] = &[
+        (phon_id, "What is a minimal pair?", "multiple_choice", "Two words differing by one phoneme", Some("Two words with the same meaning"), Some("Two words differing by one phoneme"), Some("Two sounds that are always interchangeable"), Some("A pair of consonants"), Some("Think 'bat' vs 'pat'"), "A minimal pair consists of two words that differ in exactly one phoneme, proving those sounds are distinct in the language."),
+        (phon_id, "True or false: Voicing refers to whether the vocal folds vibrate during a sound.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Compare 'b' and 'p'"), "True. Voiced sounds (b, d, g) involve vocal fold vibration; voiceless sounds (p, t, k) do not."),
+        (phon_id, "The sounds [p], [t], and [k] are classified as ___.", "fill_in_blank", "stops", None, None, None, None, Some("Complete closure then release"), "Stops (or plosives) are produced by completely blocking airflow and then releasing it."),
+        (phon_id, "Which phonological process occurs when a sound becomes more similar to a neighboring sound?", "multiple_choice", "Assimilation", Some("Dissimilation"), Some("Assimilation"), Some("Metathesis"), Some("Epenthesis"), Some("'input' → [ɪmpʊt]"), "Assimilation: a sound changes to become more like an adjacent sound, e.g. /n/ → [m] before /p/."),
+        (morph_id, "The word 'unhappiness' contains how many morphemes?", "multiple_choice", "3", Some("1"), Some("2"), Some("3"), Some("4"), Some("Break it into meaningful parts"), "'Un-' (not) + 'happy' (root) + '-ness' (state of) = 3 morphemes."),
+        (morph_id, "True or false: An infix is a morpheme inserted inside a root word.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Tagalog uses these"), "True. Infixes are placed inside a root, unlike prefixes (before) or suffixes (after)."),
+        (morph_id, "Creating 'brunch' from 'breakfast' and 'lunch' is an example of ___.", "fill_in_blank", "blending", None, None, None, None, Some("Merging parts of two words"), "Blending combines parts of two words into a new word: breakfast + lunch = brunch."),
+        (morph_id, "Which word order does English primarily use?", "multiple_choice", "SVO", Some("SOV"), Some("VSO"), Some("SVO"), Some("OVS"), Some("She reads books"), "English uses Subject-Verb-Object order: 'She (S) reads (V) books (O)'."),
+        (sem_id, "The relationship between 'rose' and 'flower' is called:", "multiple_choice", "Hyponymy", Some("Synonymy"), Some("Antonymy"), Some("Hyponymy"), Some("Meronymy"), Some("IS-A vs PART-OF"), "'Rose' IS-A type of 'flower' — this IS-A relationship is called hyponymy."),
+        (sem_id, "True or false: Pragmatics studies meaning independent of context.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Context-dependent or not?"), "False. Pragmatics specifically studies how context contributes to meaning beyond the literal."),
+        (sem_id, "Grice's maxim of ___ says speakers should be truthful.", "fill_in_blank", "quality", None, None, None, None, Some("One of four cooperative maxims"), "The maxim of Quality: do not say what you believe to be false or lack evidence for."),
+        (sem_id, "Words like 'here', 'now', and 'I' whose meaning depends on context are called:", "multiple_choice", "Deictic expressions", Some("Presuppositions"), Some("Deictic expressions"), Some("Entailments"), Some("Implicatures"), Some("They point to context"), "Deictic expressions (deixis) are words whose reference depends on the context of utterance."),
+        (fam_id, "Which is the largest language family by number of speakers?", "multiple_choice", "Indo-European", Some("Sino-Tibetan"), Some("Indo-European"), Some("Afro-Asiatic"), Some("Niger-Congo"), Some("~3.2 billion speakers"), "Indo-European has ~3.2 billion speakers, including English, Spanish, Hindi, and Russian."),
+        (fam_id, "True or false: Basque is classified as a language isolate.", "true_false", "true", Some("true"), Some("false"), None, None, Some("No known relatives"), "True. Basque has no proven genetic relationship to any other language — it's a language isolate."),
+        (fam_id, "The systematic shift where PIE *p became Germanic f is known as ___ Law.", "fill_in_blank", "Grimm's", None, None, None, None, Some("Named after a famous fairy tale collector"), "Grimm's Law describes the systematic consonant shift from Proto-Indo-European to Germanic languages."),
+        (fam_id, "When 'meat' changed meaning from 'any food' to 'animal flesh', this is an example of:", "multiple_choice", "Narrowing", Some("Broadening"), Some("Narrowing"), Some("Amelioration"), Some("Pejoration"), Some("The meaning got more specific"), "Semantic narrowing: the meaning becomes more specific over time."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Ordering questions
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+         VALUES (?1, 'Order from smallest to largest unit of language:', 'ordering', 'Phoneme,Morpheme,Word,Phrase', 'Word', 'Phoneme', 'Phrase', 'Morpheme', 'Sound → meaning → standalone → combination', 'Phoneme (single sound) → Morpheme (smallest meaningful unit) → Word (free-standing) → Phrase (group of words).')",
+        [phon_id],
+    )?;
+
+    // Learning paths
+    let paths = [
+        ("linguistics fundamentals", 1, phon_id, "Phonetics & phonology — the sounds of language"),
+        ("linguistics fundamentals", 2, morph_id, "Morphology & syntax — word and sentence structure"),
+        ("linguistics fundamentals", 3, sem_id, "Semantics & pragmatics — meaning and context"),
+        ("linguistics fundamentals", 4, fam_id, "Language families & change — how languages evolve"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_probability(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add a Probability topic to Mathematics
+    let math_id: i64 = match conn.query_row("SELECT id FROM subjects WHERE name = 'Mathematics'", [], |r| r.get(0)) {
+        Ok(id) => id,
+        Err(_) => return Ok(()),
+    };
+
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM topics WHERE subject_id = ?1 AND name = 'Probability'",
+        [math_id], |r| r.get(0),
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Probability', 'intermediate', 6)",
+        [math_id],
+    )?;
+    let prob_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Probability'", [math_id], |r| r.get(0))?;
+
+    let lessons: &[LessonRow] = &[
+        (prob_id, "Introduction to Probability", "Probability measures how likely an event is to occur, on a scale from 0 (impossible) to 1 (certain).\n\nBasic formula: P(event) = favorable outcomes / total outcomes\n\nExample: Rolling a 6 on a fair die → P = 1/6 ≈ 0.167\n\nKey terminology:\n- Experiment: a process with uncertain outcomes (flipping a coin).\n- Sample space (S): all possible outcomes. For a coin: S = {Heads, Tails}.\n- Event: a subset of the sample space (rolling an even number: {2, 4, 6}).\n\nTypes of probability:\n- Theoretical: based on reasoning (fair coin = 50/50).\n- Experimental: based on observed data (flipping a coin 1000 times).\n- Subjective: based on personal judgment ('I think there's a 70% chance of rain').\n\nComplement rule: P(not A) = 1 - P(A)\n- If P(rain) = 0.3, then P(no rain) = 0.7.\n\nProbability of 0 = impossible. Probability of 1 = certain. Most events are somewhere in between.", 1),
+        (prob_id, "Combining Probabilities", "When dealing with multiple events, we use addition and multiplication rules.\n\nAddition rule (OR):\n- Mutually exclusive events: P(A or B) = P(A) + P(B)\n  - P(rolling 1 or 6) = 1/6 + 1/6 = 2/6 = 1/3\n- Not mutually exclusive: P(A or B) = P(A) + P(B) - P(A and B)\n  - P(red card or king) = 26/52 + 4/52 - 2/52 = 28/52\n\nMultiplication rule (AND):\n- Independent events: P(A and B) = P(A) × P(B)\n  - P(heads AND heads) = 1/2 × 1/2 = 1/4\n- Dependent events: P(A and B) = P(A) × P(B|A)\n  - Drawing 2 aces without replacement: P = 4/52 × 3/51 = 12/2652\n\nConditional probability: P(B|A) = P(A and B) / P(A)\n- 'Probability of B given that A has occurred'\n\nBayes' Theorem: P(A|B) = P(B|A) × P(A) / P(B)\n- Lets you update beliefs based on new evidence.\n- Used in medical testing, spam filters, machine learning.", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: &[ExplanationRow] = &[
+        (prob_id, "probability", "Probability is a number between 0 and 1 that measures how likely something is to happen.", Some("Probability is like a weather forecast for events. Just as '30% chance of rain' tells you to maybe bring an umbrella, a probability of 0.3 tells you an event happens about 3 out of 10 times. Zero means 'pack sunscreen', one means 'bring a boat'."), Some("If you flip two coins, what is the probability of getting at least one head?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let questions: &[QuizRow] = &[
+        (prob_id, "What is the probability of rolling a 3 on a fair six-sided die?", "multiple_choice", "1/6", Some("1/2"), Some("1/6"), Some("1/3"), Some("1/12"), Some("How many favorable outcomes out of total?"), "There is 1 favorable outcome (rolling 3) out of 6 total outcomes, so P = 1/6."),
+        (prob_id, "True or false: The probability of any event is between 0 and 1 inclusive.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Can probability be negative?"), "True. Probability ranges from 0 (impossible) to 1 (certain)."),
+        (prob_id, "P(not A) = 1 - P(A) is called the ___ rule.", "fill_in_blank", "complement", None, None, None, None, Some("What's left over"), "The complement rule: the probability of an event NOT happening equals 1 minus the probability of it happening."),
+        (prob_id, "For independent events A and B, P(A and B) equals:", "multiple_choice", "P(A) × P(B)", Some("P(A) + P(B)"), Some("P(A) × P(B)"), Some("P(A) - P(B)"), Some("P(A) / P(B)"), Some("Multiply for AND"), "For independent events, the probability of both occurring is the product of their individual probabilities."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Ordering questions
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+         VALUES (?1, 'Order these probabilities from least to most likely:', 'ordering', 'Rolling a 12 on two dice,Rolling a 6 on one die,Flipping heads,Drawing a red card', 'Flipping heads', 'Rolling a 6 on one die', 'Drawing a red card', 'Rolling a 12 on two dice', 'Think about the number of favorable outcomes', 'P(12 on 2 dice)=1/36, P(6)=1/6, P(heads)=1/2, P(red card)=26/52=1/2. Ordered: 1/36, 1/6, 1/2, 1/2.')",
+        [prob_id],
+    )?;
+
+    // Learning path
+    conn.execute(
+        "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('probability mastery', 1, ?1, 'Probability basics — understanding chance and likelihood')",
+        [prob_id],
+    )?;
 
     Ok(())
 }
