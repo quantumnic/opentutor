@@ -187,7 +187,43 @@ pub fn get_questions_filtered(
     }
 }
 
-/// Check if an answer is correct (case-insensitive, trimmed).
+/// Compute Levenshtein edit distance between two strings.
+#[allow(dead_code)]
+fn levenshtein(a: &str, b: &str) -> usize {
+    let a_chars: Vec<char> = a.chars().collect();
+    let b_chars: Vec<char> = b.chars().collect();
+    let (m, n) = (a_chars.len(), b_chars.len());
+    let mut prev = (0..=n).collect::<Vec<usize>>();
+    let mut curr = vec![0usize; n + 1];
+    for i in 1..=m {
+        curr[0] = i;
+        for j in 1..=n {
+            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
+            curr[j] = (prev[j] + 1)
+                .min(curr[j - 1] + 1)
+                .min(prev[j - 1] + cost);
+        }
+        std::mem::swap(&mut prev, &mut curr);
+    }
+    prev[n]
+}
+
+/// Accept fuzzy matches for fill-in-the-blank answers.
+/// For short answers (≤4 chars): exact match only.
+/// For longer answers: allow 1 edit per 5 characters (max 2 edits).
+#[allow(dead_code)]
+fn fuzzy_match(answer: &str, correct: &str) -> bool {
+    if answer == correct {
+        return true;
+    }
+    let max_len = answer.len().max(correct.len());
+    if max_len <= 4 {
+        return false; // Short answers must be exact
+    }
+    let allowed = (max_len / 5).clamp(1, 2);
+    levenshtein(answer, correct) <= allowed
+}
+
 #[allow(dead_code)]
 pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     let answer = answer.trim().to_lowercase();
@@ -212,9 +248,9 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
         };
     }
 
-    // For fill-in-the-blank, only exact match (already checked above)
+    // For fill-in-the-blank, accept fuzzy matches (small typos)
     if question.question_type == "fill_in_blank" {
-        return false;
+        return fuzzy_match(&answer, &correct);
     }
 
     // Also check by option letter (a, b, c, d)
@@ -235,6 +271,7 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
 
 /// Check ordering answers: compare comma-separated sequences.
 /// Accepts both full item text and numeric positions (1,2,3,4).
+#[allow(dead_code)]
 fn check_ordering_answer(correct: &str, answer: &str) -> bool {
     let correct_items: Vec<&str> = correct.split(',').map(|s| s.trim()).collect();
     let answer_items: Vec<&str> = answer.split(',').map(|s| s.trim()).collect();
@@ -387,5 +424,65 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let qs = get_questions(&conn, 9999, 5).unwrap();
         assert!(qs.is_empty());
+    }
+
+    #[test]
+    fn test_levenshtein_identical() {
+        assert_eq!(levenshtein("hello", "hello"), 0);
+    }
+
+    #[test]
+    fn test_levenshtein_one_edit() {
+        assert_eq!(levenshtein("hello", "helo"), 1);
+        assert_eq!(levenshtein("cat", "bat"), 1);
+    }
+
+    #[test]
+    fn test_levenshtein_empty() {
+        assert_eq!(levenshtein("", "abc"), 3);
+        assert_eq!(levenshtein("abc", ""), 3);
+    }
+
+    #[test]
+    fn test_fuzzy_match_exact() {
+        assert!(fuzzy_match("odysseus", "odysseus"));
+    }
+
+    #[test]
+    fn test_fuzzy_match_one_typo() {
+        // "odysseus" (8 chars) → allowed 1 edit
+        assert!(fuzzy_match("odyseus", "odysseus"));
+    }
+
+    #[test]
+    fn test_fuzzy_match_short_strict() {
+        // Short answers (≤4 chars) must be exact
+        assert!(!fuzzy_match("cat", "car"));
+        assert!(fuzzy_match("1", "1"));
+        assert!(!fuzzy_match("2", "1"));
+        assert!(!fuzzy_match("yes", "no"));
+    }
+
+    #[test]
+    fn test_fuzzy_match_too_many_edits() {
+        assert!(!fuzzy_match("odiseos", "odysseus")); // 3 edits, only 1-2 allowed
+    }
+
+    #[test]
+    fn test_fill_in_blank_fuzzy_acceptance() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "The Odyssey follows ___ on his journey home.".into(),
+            question_type: "fill_in_blank".into(),
+            difficulty: "medium".into(),
+            correct_answer: "Odysseus".into(),
+            options: vec![],
+            hint: None,
+            explanation: "The hero of the Odyssey.".into(),
+        };
+        assert!(check_answer(&q, "Odysseus"));
+        assert!(check_answer(&q, "odysseus")); // case insensitive
+        assert!(check_answer(&q, "Odyseus")); // 1 typo accepted
+        assert!(!check_answer(&q, "Zeus")); // totally wrong
     }
 }

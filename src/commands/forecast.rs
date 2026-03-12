@@ -135,6 +135,24 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
+    // Priority queue: show the most urgent topics based on FSRS retrievability
+    let prioritized = spaced::prioritized_due_topics(conn)?;
+    if !prioritized.is_empty() {
+        println!();
+        display::print_section("Priority Queue (by urgency × forgetting risk)");
+        for (i, (_id, name, subj, score)) in prioritized.iter().take(5).enumerate() {
+            let urgency_bar = "█".repeat(((score * 10.0) as usize).clamp(1, 10));
+            println!(
+                "    {}. {} ({}) — priority {:.1} {}",
+                i + 1,
+                name.bold(),
+                subj,
+                score,
+                urgency_bar.bright_red()
+            );
+        }
+    }
+
     println!();
     display::print_info("Review consistently to keep retention high! 📈");
 

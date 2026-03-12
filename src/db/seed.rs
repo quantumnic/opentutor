@@ -25,6 +25,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_linguistics(conn)?;
     seed_probability(conn)?;
     seed_statistics(conn)?;
+    seed_ethics(conn)?;
+    seed_world_literature(conn)?;
+    seed_trigonometry(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -706,7 +709,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 21); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data
+        assert_eq!(count, 23); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature
     }
 
     #[test]
@@ -716,7 +719,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 21);
+        assert_eq!(count, 23);
     }
 
     #[test]
@@ -1594,6 +1597,328 @@ fn seed_statistics(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('statistics mastery', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_ethics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Ethics'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Ethics', 'Exploring right and wrong — moral reasoning, dilemmas, and frameworks for making good decisions.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Ethics'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Moral Foundations", "beginner", 1),
+        ("Ethical Frameworks", "intermediate", 2),
+        ("Applied Ethics", "intermediate", 3),
+        ("Digital Ethics", "advanced", 4),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let moral_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Moral Foundations'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let frameworks_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Ethical Frameworks'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let applied_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Applied Ethics'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let digital_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Digital Ethics'",
+        [subj_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (moral_id, "What Is Ethics?", "**Ethics** is the branch of philosophy that asks: What is right? What is wrong? And how should we decide?\n\nEthics is not just about following rules — it is about *reasoning* through difficult choices. Every day, you make ethical decisions: Should I share? Is it okay to lie to protect someone? Is it fair?\n\n**Morality** refers to your personal sense of right and wrong. **Ethics** is the systematic study of those beliefs.\n\nThree key questions in ethics:\n1. What makes an action right or wrong?\n2. What kind of person should I be?\n3. What do I owe to others?", 1),
+        (frameworks_id, "Consequentialism vs Deontology", "The two most influential ethical frameworks:\n\n**Consequentialism** (especially Utilitarianism): An action is right if it produces the best overall outcome. 'The ends justify the means.'\n- Example: Lying to save someone's life might be justified if the outcome is good.\n- Key thinker: Jeremy Bentham, John Stuart Mill\n\n**Deontology**: An action is right or wrong based on rules and duties, regardless of consequences. 'Do the right thing because it IS right.'\n- Example: Lying is always wrong, even if it might save someone, because honesty is a duty.\n- Key thinker: Immanuel Kant\n\nNeither framework is perfect — real-world dilemmas often pull us in both directions.", 1),
+        (applied_id, "The Trolley Problem", "The **Trolley Problem** is the most famous thought experiment in ethics:\n\nA runaway trolley is heading toward 5 people on the track. You can pull a lever to divert it to a side track, where it will kill 1 person instead. Do you pull the lever?\n\n- A **consequentialist** says: Yes, saving 5 lives is better than saving 1.\n- A **deontologist** might say: No, pulling the lever makes YOU the cause of someone's death.\n\nVariations make it harder: What if instead of pulling a lever, you had to push a large person off a bridge to stop the trolley? Most people say the lever is okay but pushing is wrong — even though the math is the same. This reveals our moral intuitions are not always consistent.", 1),
+        (digital_id, "AI and Privacy Ethics", "As technology advances, new ethical questions emerge:\n\n**AI Ethics**: Should self-driving cars prioritize passengers or pedestrians? Who is responsible when an AI makes a mistake? Should AI be used in hiring decisions?\n\n**Privacy**: How much data collection is acceptable? Do companies have a duty to protect your information? Is surveillance justified for security?\n\n**Digital Rights**: Is internet access a human right? Should algorithms be transparent? Who owns your online data?\n\nThese questions do not have easy answers — but thinking through them systematically using ethical frameworks helps us make better decisions in an increasingly digital world.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<ExplanationRow> = vec![
+        (moral_id, "morality vs ethics", "Morality is your personal sense of right and wrong. Ethics is the philosophical study of moral principles — it asks WHY something is right or wrong.", Some("Morality is like knowing how to cook by instinct. Ethics is like studying culinary science — understanding the principles behind what makes food taste good."), Some("Can someone be moral without studying ethics?")),
+        (frameworks_id, "utilitarianism", "Utilitarianism says the right action is the one that produces the greatest good for the greatest number of people.", Some("Imagine choosing a restaurant for a group — you pick the one that makes the most people happy, even if it is not your personal favorite."), Some("What are the limits of always choosing the greatest good?")),
+        (applied_id, "trolley problem", "The trolley problem tests whether we judge actions by their outcomes (5 saved vs. 1 lost) or by whether we directly caused harm (pulling the lever makes you responsible).", Some("It is like the difference between not donating to charity (letting harm happen) and stealing from someone (causing harm) — most people feel the second is worse."), Some("Does it matter whether you cause harm directly or indirectly?")),
+        (digital_id, "algorithmic bias", "Algorithmic bias occurs when AI systems reflect or amplify existing prejudices in their training data, leading to unfair outcomes for certain groups.", Some("If you teach a parrot only rude words, it will be rude — not because parrots are rude, but because of what it was taught. AI is similar."), Some("Whose responsibility is it to fix algorithmic bias?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let questions: Vec<QuizRow> = vec![
+        (moral_id, "Ethics is the systematic study of:", "multiple_choice", "Right and wrong", Some("Science"), Some("Right and wrong"), Some("Mathematics"), Some("History"), Some("Think about moral reasoning."), "Ethics is the philosophical study of morality — what is right and wrong."),
+        (moral_id, "Morality and ethics mean exactly the same thing.", "true_false", "false", Some("true"), Some("false"), None, None, Some("One is personal, the other is systematic."), "Morality is your personal sense of right/wrong; ethics is the philosophical study of those principles."),
+        (frameworks_id, "Which framework judges actions by their outcomes?", "multiple_choice", "Consequentialism", Some("Deontology"), Some("Consequentialism"), Some("Virtue ethics"), Some("Nihilism"), Some("Think about consequences."), "Consequentialism evaluates actions based on the results they produce."),
+        (frameworks_id, "Kant is associated with ___ ethics.", "fill_in_blank", "deontological", None, None, None, None, Some("It is about duties and rules."), "Immanuel Kant developed deontological ethics based on moral duties."),
+        (frameworks_id, "A deontologist believes the ends always justify the means.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Deontology is about rules, not outcomes."), "Deontologists believe some actions are inherently right or wrong regardless of outcomes."),
+        (applied_id, "In the classic trolley problem, how many people are on the main track?", "multiple_choice", "5", Some("1"), Some("3"), Some("5"), Some("10"), Some("It is the most common version."), "The classic trolley problem has 5 people on the main track and 1 on the side track."),
+        (applied_id, "The trolley problem reveals that our moral intuitions are always consistent.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Think about the lever vs. the bridge variant."), "Most people approve pulling the lever but not pushing someone — showing inconsistency in our intuitions."),
+        (digital_id, "Algorithmic bias occurs when AI systems:", "multiple_choice", "Reflect prejudices from training data", Some("Run too slowly"), Some("Reflect prejudices from training data"), Some("Use too much memory"), Some("Have syntax errors"), Some("Think about where AI learns its patterns."), "AI systems can inherit and amplify biases present in the data they were trained on."),
+        (digital_id, "Who coined the term 'utilitarianism'?", "multiple_choice", "Jeremy Bentham", Some("Aristotle"), Some("Immanuel Kant"), Some("Jeremy Bentham"), Some("John Rawls"), Some("He wanted to maximize happiness."), "Jeremy Bentham developed utilitarianism, later refined by John Stuart Mill."),
+        (digital_id, "Internet access is universally recognized as a human right by all countries.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Think about international consensus."), "While the UN has passed resolutions on internet access, it is not universally recognized as a human right by all countries."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_topics = [
+        (moral_id, "Understand the foundations of moral reasoning"),
+        (frameworks_id, "Compare consequentialism, deontology, and virtue ethics"),
+        (applied_id, "Apply ethical reasoning to classic dilemmas"),
+        (digital_id, "Explore modern ethical challenges in technology"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('ethics mastery', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_world_literature(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'World Literature'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('World Literature', 'Great stories from around the globe — exploring humanity through fiction, poetry, and drama across cultures and centuries.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'World Literature'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Mythology & Epic Poetry", "beginner", 1),
+        ("Shakespeare & Drama", "intermediate", 2),
+        ("The Novel", "intermediate", 3),
+        ("Poetry & Verse", "beginner", 4),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let myth_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mythology & Epic Poetry'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let shakespeare_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Shakespeare & Drama'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let novel_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'The Novel'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let poetry_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Poetry & Verse'",
+        [subj_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (myth_id, "Epic Tales from the Ancient World", "**Epic poetry** is among the oldest forms of literature. These long narrative poems tell stories of heroes, gods, and the origins of civilizations.\n\n**The Iliad & The Odyssey** (Homer, ~8th century BCE): The Iliad tells of the Trojan War; The Odyssey follows Odysseus on his 10-year journey home.\n\n**The Epic of Gilgamesh** (~2100 BCE, Mesopotamia): The oldest known work of literature. King Gilgamesh seeks immortality after his friend Enkidu dies.\n\n**The Mahabharata** (India, ~400 BCE): One of the longest poems ever written, containing the famous Bhagavad Gita.\n\n**The Aeneid** (Virgil, 19 BCE): Rome's founding myth, following Aeneas from Troy to Italy.\n\nThese stories explore universal themes: mortality, honor, love, duty, and the meaning of being human.", 1),
+        (shakespeare_id, "The Bard of Avon", "**William Shakespeare** (1564–1616) is widely regarded as the greatest writer in the English language. He wrote ~37 plays, 154 sonnets, and several longer poems.\n\nHis works fall into three categories:\n- **Comedies**: A Midsummer Night's Dream, Much Ado About Nothing, Twelfth Night\n- **Tragedies**: Hamlet, Macbeth, Othello, King Lear, Romeo and Juliet\n- **Histories**: Henry V, Richard III\n\nShakespeare invented over 1,700 words we still use today: 'lonely', 'generous', 'assassination', 'eyeball'.\n\nHis plays explore jealousy, ambition, love, betrayal, and power — themes as relevant today as in the 1600s. He wrote for everyone: groundlings (standing audience) and royalty alike.", 1),
+        (novel_id, "The Rise of the Novel", "The **novel** as a literary form emerged in the 17th-18th centuries. Unlike epic poetry, novels are written in prose and typically focus on individual experience.\n\n**Key milestones**:\n- **Don Quixote** (Cervantes, 1605) — Often called the first modern novel\n- **Robinson Crusoe** (Defoe, 1719) — Pioneered realistic fiction\n- **Pride and Prejudice** (Austen, 1813) — Master of social observation\n- **Crime and Punishment** (Dostoevsky, 1866) — Psychological depth\n- **One Hundred Years of Solitude** (Márquez, 1967) — Magical realism\n- **Things Fall Apart** (Achebe, 1958) — African literature on the world stage\n\nThe novel gave voice to ordinary people and interior life in ways poetry and drama could not.", 1),
+        (poetry_id, "The Power of Verse", "**Poetry** compresses language to its most powerful form. Every word matters.\n\n**Key concepts**:\n- **Meter**: The rhythmic pattern (iambic pentameter: da-DUM da-DUM da-DUM da-DUM da-DUM)\n- **Rhyme scheme**: The pattern of end rhymes (ABAB, AABB, etc.)\n- **Free verse**: Poetry without fixed meter or rhyme\n- **Imagery**: Vivid sensory language that creates pictures in the mind\n\n**Famous poets across cultures**:\n- **Rumi** (13th c. Persia): Mystical love poetry\n- **Emily Dickinson** (19th c. USA): Compact, enigmatic verses\n- **Pablo Neruda** (20th c. Chile): Passionate, political poetry\n- **Matsuo Bashō** (17th c. Japan): Master of haiku\n\nPoetry is meant to be read aloud — rhythm and sound are as important as meaning.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<ExplanationRow> = vec![
+        (myth_id, "epic poetry", "Epic poetry is a long narrative poem that tells the story of heroic deeds, often involving gods, monsters, and journeys. It uses elevated language and often begins 'in medias res' (in the middle of things).", Some("An epic poem is like a blockbuster movie franchise — grand scale, a hero's journey, special effects (supernatural elements), and a story that shapes a whole culture's identity."), Some("Why do you think so many ancient cultures independently created epic poems?")),
+        (shakespeare_id, "tragedy", "In Shakespeare's tragedies, a noble character with a fatal flaw (hamartia) makes choices that lead to their downfall and death. The audience feels pity and fear (catharsis).", Some("A Shakespearean tragedy is like watching someone build an incredible tower of blocks, knowing one wrong move will topple everything — and you cannot look away."), Some("What is Hamlet's fatal flaw?")),
+        (novel_id, "magical realism", "Magical realism blends realistic narrative with magical elements that characters treat as normal. It originated in Latin American literature.", Some("Imagine if your grandmother casually told you she floated up to the ceiling yesterday while making dinner, and everyone just nodded. That is magical realism."), Some("How does magical realism differ from fantasy?")),
+        (poetry_id, "haiku", "Haiku is a Japanese poetry form with three lines of 5, 7, and 5 syllables. It traditionally captures a moment in nature and evokes a season.", Some("A haiku is like a photograph in words — it freezes one perfect moment. No backstory, no explanation, just the image."), Some("Can you write a haiku about the current season?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let questions: Vec<QuizRow> = vec![
+        (myth_id, "What is the oldest known work of literature?", "multiple_choice", "The Epic of Gilgamesh", Some("The Iliad"), Some("The Odyssey"), Some("The Epic of Gilgamesh"), Some("The Aeneid"), Some("It comes from Mesopotamia."), "The Epic of Gilgamesh (~2100 BCE) from ancient Mesopotamia is the oldest known literary work."),
+        (myth_id, "Homer wrote The Iliad and The Odyssey.", "true_false", "true", Some("true"), Some("false"), None, None, Some("He is the most famous ancient Greek poet."), "Homer is traditionally credited with both The Iliad and The Odyssey."),
+        (myth_id, "The Odyssey follows ___ on his journey home.", "fill_in_blank", "Odysseus", None, None, None, None, Some("The poem is named after him."), "The Odyssey follows the hero Odysseus on his 10-year journey home from Troy."),
+        (shakespeare_id, "How many plays did Shakespeare write approximately?", "multiple_choice", "37", Some("12"), Some("25"), Some("37"), Some("52"), Some("More than 30, fewer than 40."), "Shakespeare is credited with approximately 37 plays."),
+        (shakespeare_id, "Which of these is a Shakespeare comedy?", "multiple_choice", "A Midsummer Night's Dream", Some("Hamlet"), Some("A Midsummer Night's Dream"), Some("Macbeth"), Some("King Lear"), Some("Think fairies and love potions."), "A Midsummer Night's Dream is one of Shakespeare's most beloved comedies."),
+        (shakespeare_id, "Shakespeare invented the word 'eyeball'.", "true_false", "true", Some("true"), Some("false"), None, None, Some("He coined over 1,700 words."), "Shakespeare first used the word 'eyeball' in A Midsummer Night's Dream."),
+        (novel_id, "Which book is often called the first modern novel?", "multiple_choice", "Don Quixote", Some("Robinson Crusoe"), Some("Don Quixote"), Some("Pride and Prejudice"), Some("Gulliver's Travels"), Some("It was written by Cervantes in 1605."), "Don Quixote by Miguel de Cervantes (1605) is widely considered the first modern novel."),
+        (novel_id, "Who wrote Things Fall Apart?", "multiple_choice", "Chinua Achebe", Some("Wole Soyinka"), Some("Chinua Achebe"), Some("Ngũgĩ wa Thiong'o"), Some("Chimamanda Adichie"), Some("A Nigerian author, published in 1958."), "Chinua Achebe wrote Things Fall Apart, a landmark of African literature."),
+        (novel_id, "Magical realism originated in ___ American literature.", "fill_in_blank", "Latin", None, None, None, None, Some("Think Márquez and Borges."), "Magical realism is most associated with Latin American literature."),
+        (poetry_id, "How many syllables are in the middle line of a haiku?", "multiple_choice", "7", Some("5"), Some("7"), Some("9"), Some("3"), Some("The pattern is 5-?-5."), "A haiku has three lines with 5, 7, and 5 syllables."),
+        (poetry_id, "Iambic pentameter has ___ metrical feet per line.", "fill_in_blank", "5", None, None, None, None, Some("Penta- means five."), "Iambic pentameter has 5 iambs (da-DUM) per line, totaling 10 syllables."),
+        (poetry_id, "Free verse poetry has no fixed meter or rhyme.", "true_false", "true", Some("true"), Some("false"), None, None, Some("The name says it all."), "Free verse abandons traditional rules of meter and rhyme for more natural expression."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Ordering question
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+         VALUES (?1, 'Order these literary works from oldest to newest:', 'ordering', 'The Epic of Gilgamesh,The Iliad,The Aeneid,Don Quixote', 'The Aeneid', 'Don Quixote', 'The Iliad', 'The Epic of Gilgamesh', 'The oldest is from Mesopotamia.', 'Gilgamesh (~2100 BCE), Iliad (~8th c. BCE), Aeneid (19 BCE), Don Quixote (1605 CE).')",
+        [myth_id],
+    )?;
+
+    // Learning path
+    let path_topics = [
+        (myth_id, "Explore the origins of storytelling through epic poetry"),
+        (poetry_id, "Understand the craft of poetry — meter, rhyme, and imagery"),
+        (shakespeare_id, "Study Shakespeare's plays and dramatic techniques"),
+        (novel_id, "Trace the rise of the novel across cultures"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('world literature mastery', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_trigonometry(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let math_id: i64 = match conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Mathematics'",
+        [],
+        |r| r.get(0),
+    ) {
+        Ok(id) => id,
+        Err(_) => return Ok(()),
+    };
+
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM topics WHERE subject_id = ?1 AND name = 'Trigonometry'",
+            [math_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Trigonometry', 'advanced', 6)",
+        [math_id],
+    )?;
+    let trig_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Trigonometry'",
+        [math_id], |r| r.get(0),
+    )?;
+
+    conn.execute(
+        "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, 'Introduction to Trigonometry', \
+        'Trigonometry studies the relationships between the sides and angles of triangles.\n\n\
+        The three primary trig functions for a right triangle:\n\
+        - **sin(θ)** = opposite / hypotenuse\n\
+        - **cos(θ)** = adjacent / hypotenuse\n\
+        - **tan(θ)** = opposite / adjacent = sin(θ)/cos(θ)\n\n\
+        **SOH-CAH-TOA** is the classic mnemonic.\n\n\
+        Key angles to memorize:\n\
+        | Angle | sin | cos | tan |\n\
+        |-------|-----|-----|-----|\n\
+        | 0°    | 0   | 1   | 0   |\n\
+        | 30°   | 1/2 | √3/2 | 1/√3 |\n\
+        | 45°   | √2/2 | √2/2 | 1  |\n\
+        | 60°   | √3/2 | 1/2 | √3  |\n\
+        | 90°   | 1   | 0   | undefined |\n\n\
+        The **unit circle** extends trig to all angles, not just those in right triangles.', 1)",
+        [trig_id],
+    )?;
+
+    conn.execute(
+        "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, \
+        'SOH-CAH-TOA', \
+        'A mnemonic for the three basic trig ratios: Sine = Opposite/Hypotenuse, Cosine = Adjacent/Hypotenuse, Tangent = Opposite/Adjacent.', \
+        'Think of SOH-CAH-TOA as three recipes: each trig function is a different ratio of the same triangle ingredients.', \
+        'If sin(θ) = 0.5, what angle is θ?')",
+        [trig_id],
+    )?;
+
+    #[allow(clippy::type_complexity)]
+    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        (trig_id, "What is sin(30°)?", "multiple_choice", "0.5", Some("0"), Some("0.5"), Some("1"), Some("√3/2"), "It is one of the key angles to memorize.", "sin(30°) = 1/2 = 0.5"),
+        (trig_id, "SOH-CAH-TOA is a mnemonic for:", "multiple_choice", "Trig ratios", Some("Algebraic identities"), Some("Trig ratios"), Some("Calculus rules"), Some("Geometry theorems"), "It helps you remember sine, cosine, and tangent.", "SOH-CAH-TOA stands for Sin=Opp/Hyp, Cos=Adj/Hyp, Tan=Opp/Adj."),
+        (trig_id, "tan(θ) = sin(θ) / cos(θ)", "true_false", "true", Some("true"), Some("false"), None, None, "Think about the definitions.", "By definition, tan(θ) = opposite/adjacent = (opp/hyp)/(adj/hyp) = sin(θ)/cos(θ)."),
+        (trig_id, "cos(0°) = ___", "fill_in_blank", "1", None, None, None, None, "At 0° the adjacent side equals the hypotenuse.", "cos(0°) = adjacent/hypotenuse = 1/1 = 1."),
+        (trig_id, "What is tan(45°)?", "multiple_choice", "1", Some("0"), Some("0.5"), Some("1"), Some("undefined"), "At 45° the opposite and adjacent sides are equal.", "tan(45°) = opposite/adjacent = 1/1 = 1."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
         )?;
     }
 

@@ -87,6 +87,8 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     for (topic_id, topic_name, subject_name, ease, interval, _next) in &due_topics {
         let is_lapsed = spaced::is_card_lapsed(conn, *topic_id);
         let is_leech = spaced::is_leech(conn, *topic_id);
+        let ret = spaced::retrievability(conn, *topic_id);
+        let half_life = spaced::stability_half_life(*interval, *ease);
         let strength = if is_leech {
             "Leech 🩹".bright_red()
         } else if is_lapsed {
@@ -106,12 +108,14 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         let retention = spaced::estimate_retention(conn, *topic_id);
         let ret_pct = (retention * 100.0) as u32;
         let ret_color = if ret_pct >= 80 { "🟢" } else if ret_pct >= 50 { "🟡" } else { "🔴" };
+        let _ret_live = ret; // retrievability from FSRS curve
         println!(
-            "    Ease: {:.1} | Interval: {} days | Retention: {} {}%\n",
+            "    Ease: {:.1} | Interval: {} days | Retention: {} {}% | Half-life: {:.0} days\n",
             ease,
             interval.to_string().bold(),
             ret_color,
-            ret_pct
+            ret_pct,
+            half_life
         );
 
         // Get quiz questions for this topic

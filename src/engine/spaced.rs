@@ -422,6 +422,73 @@ pub fn memory_strength(interval_days: i64, ease_factor: f64) -> &'static str {
     }
 }
 
+/// Calculate the memory stability (half-life in days) using the FSRS power-law model.
+/// Stability represents the interval at which retrievability drops to ~50%.
+/// Higher stability = more durable memory.
+pub fn stability_half_life(interval_days: i64, ease_factor: f64) -> f64 {
+    // Using FSRS-4.5 model: R(t) = (1 + t/(9·S))^(-1)
+    // where S is stability. We approximate stability from the current interval
+    // and ease factor: a card with a longer interval and higher ease has
+    // demonstrated more durable memory.
+    let base_stability = interval_days as f64 * ease_factor / 2.5;
+    // Half-life: time t where R(t) = 0.5
+    // 0.5 = (1 + t/(9·S))^(-1) → t = 9·S·(2^1 - 1) = 9·S
+    // But with decay exponent: t_half = S · (2^(1/FSRS_DECAY) - 1) · FSRS_FACTOR^(-1/FSRS_DECAY)
+    let t_half = base_stability * (2.0_f64.powf(1.0 / FSRS_DECAY) - 1.0) / FSRS_FACTOR.powf(1.0 / FSRS_DECAY);
+    t_half.max(0.5) // at least half a day
+}
+
+/// Compute the expected retrievability (0.0–1.0) given elapsed days since last review.
+/// Uses the FSRS power-law forgetting curve with the card's estimated stability.
+pub fn retrievability(conn: &Connection, topic_id: i64) -> f64 {
+    let data: Option<(f64, i64, Option<String>)> = conn
+        .query_row(
+            "SELECT ease_factor, interval_days, last_reviewed FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+    let (ease, interval, last_reviewed) = match data {
+        Some(d) => d,
+        None => return 0.0,
+    };
+    let elapsed = match last_reviewed {
+        Some(ref dt) => {
+            let reviewed = chrono::NaiveDate::parse_from_str(dt, "%Y-%m-%d")
+                .or_else(|_| {
+                    chrono::NaiveDateTime::parse_from_str(dt, "%Y-%m-%d %H:%M:%S")
+                        .map(|ndt| ndt.date())
+                })
+                .unwrap_or_else(|_| chrono::Local::now().date_naive());
+            let today = chrono::Local::now().date_naive();
+            (today - reviewed).num_days().max(0) as f64
+        }
+        None => 0.0,
+    };
+    let stability = (interval as f64 * ease / 2.5).max(1.0);
+    // FSRS power-law: R(t) = (1 + t / (9·S))^(-1)
+    let r = (1.0 + elapsed / (9.0 * stability)).powf(-1.0);
+    r.clamp(0.0, 1.0)
+}
+
+/// Sort due topics by priority: combine urgency (overdue ratio) with
+/// retrievability to surface the cards most at risk of being forgotten.
+pub fn prioritized_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
+    let topics = get_due_topics(conn)?;
+    let mut scored: Vec<(i64, String, String, f64)> = topics
+        .into_iter()
+        .map(|(id, name, subj)| {
+            let urgency = review_urgency(conn, id);
+            let ret = retrievability(conn, id);
+            // Priority: high urgency + low retrievability = most important
+            let priority = urgency * (1.0 - ret);
+            (id, name, subj, priority)
+        })
+        .collect();
+    scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(scored)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -736,6 +803,53 @@ mod tests {
         ).unwrap();
 
         assert!(interval_q5 >= interval_q4, "Quality 5 should give equal or longer interval than quality 4");
+    }
+
+    #[test]
+    fn test_stability_half_life() {
+        // A card with interval 10 days and ease 2.5 should have a reasonable half-life
+        let hl = stability_half_life(10, 2.5);
+        assert!(hl > 0.5, "Half-life should be positive");
+        // Higher ease → higher half-life
+        let hl_high_ease = stability_half_life(10, 3.0);
+        assert!(hl_high_ease > hl, "Higher ease factor should give longer half-life");
+        // Longer interval → higher half-life
+        let hl_long_interval = stability_half_life(30, 2.5);
+        assert!(hl_long_interval > hl, "Longer interval should give longer half-life");
+    }
+
+    #[test]
+    fn test_stability_half_life_minimum() {
+        // Even tiny intervals should return at least 0.5
+        let hl = stability_half_life(0, 1.3);
+        assert!((hl - 0.5).abs() < f64::EPSILON, "Minimum half-life should be 0.5");
+    }
+
+    #[test]
+    fn test_retrievability_no_progress() {
+        let conn = db::init_memory_db().unwrap();
+        let r = retrievability(&conn, 9999);
+        assert!((r - 0.0).abs() < f64::EPSILON, "No progress should return 0.0");
+    }
+
+    #[test]
+    fn test_retrievability_just_reviewed() {
+        let conn = db::init_memory_db().unwrap();
+        let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 80.0, 3, 2, 2.5, 10, ?1)",
+            [&today],
+        ).unwrap();
+        let r = retrievability(&conn, 1);
+        assert!(r > 0.9, "Just-reviewed card should have high retrievability, got {}", r);
+    }
+
+    #[test]
+    fn test_prioritized_due_topics_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let topics = prioritized_due_topics(&conn).unwrap();
+        assert!(topics.is_empty());
     }
 }
 
