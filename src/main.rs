@@ -90,6 +90,12 @@ enum Commands {
     Leech,
     /// Quick one-screen summary of your learning state
     Summary,
+    /// View your recent session activity history
+    History {
+        /// Number of entries to show
+        #[arg(short, long, default_value = "20")]
+        limit: usize,
+    },
 }
 
 fn main() {
@@ -122,6 +128,7 @@ fn main() {
         Commands::Recommend => commands::recommend::run(&conn),
         Commands::Leech => commands::leech::run(&conn),
         Commands::Summary => commands::summary::run(&conn),
+        Commands::History { limit } => commands::history::run(&conn, limit),
     };
 
     if let Err(e) = result {

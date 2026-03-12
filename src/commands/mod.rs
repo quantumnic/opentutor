@@ -4,6 +4,7 @@ pub mod daily;
 pub mod explain;
 pub mod export;
 pub mod forecast;
+pub mod history;
 pub mod learn;
 pub mod leech;
 pub mod path;

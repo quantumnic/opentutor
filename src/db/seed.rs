@@ -1,5 +1,9 @@
 use rusqlite::Connection;
 
+type LessonRow<'a> = (i64, &'a str, &'a str, i64);
+type ExplanationRow<'a> = (i64, &'a str, &'a str, Option<&'a str>, Option<&'a str>);
+type QuizRow<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str);
+
 pub fn seed_if_empty(conn: &Connection) -> Result<(), rusqlite::Error> {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))?;
     if count > 0 {
@@ -16,6 +20,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_quiz_questions(conn)?;
     seed_learning_paths(conn)?;
     seed_chemistry(conn)?;
+    seed_biology(conn)?;
+    seed_sociology(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -696,7 +702,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 17); // 16 original + Chemistry
+        assert_eq!(count, 19); // 16 original + Chemistry + Biology + Sociology
     }
 
     #[test]
@@ -706,7 +712,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 17);
+        assert_eq!(count, 19);
     }
 
     #[test]
@@ -1056,6 +1062,218 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("chemistry basics", 2, bonds_id, "Chemical bonds — how atoms connect"),
         ("chemistry basics", 3, reactions_id, "Chemical reactions — transforming substances"),
         ("chemistry basics", 4, ph_id, "Acids, bases & pH — the chemistry of solutions"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Biology'", [], |r| r.get(0))
+        .unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Biology', 'The science of life — cells, genetics, evolution, and the diversity of living organisms.')",
+        [],
+    )?;
+    let bio_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Biology'", [], |r| r.get(0))?;
+
+    let topics = [
+        (bio_id, "Cell Biology", "beginner", 1),
+        (bio_id, "Genetics & DNA", "intermediate", 2),
+        (bio_id, "Evolution & Natural Selection", "intermediate", 3),
+        (bio_id, "Human Body Systems", "beginner", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let cell_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cell Biology'", [bio_id], |r| r.get(0))?;
+    let gen_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Genetics & DNA'", [bio_id], |r| r.get(0))?;
+    let evo_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Evolution & Natural Selection'", [bio_id], |r| r.get(0))?;
+    let body_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Human Body Systems'", [bio_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (cell_id, "The Cell — Unit of Life", "All living things are made of cells — the smallest unit that can carry out life processes.\n\nTwo main types:\n- Prokaryotic: no nucleus, simple (bacteria, archaea). DNA floats in cytoplasm.\n- Eukaryotic: have a nucleus and membrane-bound organelles (plants, animals, fungi).\n\nKey organelles in eukaryotic cells:\n- Nucleus: contains DNA, controls cell activities.\n- Mitochondria: 'powerhouses' — produce ATP energy via cellular respiration.\n- Ribosomes: build proteins from mRNA instructions.\n- Endoplasmic reticulum (ER): smooth (lipid synthesis), rough (has ribosomes, protein processing).\n- Golgi apparatus: packages and ships proteins.\n- Cell membrane: phospholipid bilayer, controls what enters and exits.\n\nPlant cells also have:\n- Cell wall: rigid support (cellulose).\n- Chloroplasts: photosynthesis (convert sunlight to glucose).\n- Large central vacuole: stores water, maintains pressure.", 1),
+        (cell_id, "Cell Division: Mitosis & Meiosis", "Cells reproduce by dividing:\n\nMitosis: produces 2 identical daughter cells.\n- For growth, repair, and asexual reproduction.\n- Phases: Prophase → Metaphase → Anaphase → Telophase.\n- Result: 2 diploid cells (2n), genetically identical to parent.\n\nMeiosis: produces 4 genetically unique cells.\n- For sexual reproduction (making gametes: sperm/eggs).\n- Two rounds of division: Meiosis I and Meiosis II.\n- Result: 4 haploid cells (n), each with half the chromosomes.\n- Crossing over in Prophase I creates genetic diversity.\n\nWhy it matters:\n- Mitosis: a cut heals, a child grows.\n- Meiosis: you are genetically unique because of it.\n- Cancer: uncontrolled mitosis.", 2),
+        (gen_id, "DNA — The Blueprint of Life", "DNA (deoxyribonucleic acid) carries genetic instructions for all living organisms.\n\nStructure (Watson & Crick, 1953):\n- Double helix — two strands twisted like a spiral staircase.\n- Sugar-phosphate backbone with nitrogenous base pairs as 'rungs'.\n- Base pairing: A-T (adenine-thymine), C-G (cytosine-guanine).\n\nGene: a segment of DNA that codes for a specific protein.\nChromosome: a long, coiled DNA molecule. Humans have 46 (23 pairs).\nGenome: all of an organism's DNA.\n\nFrom DNA to protein (Central Dogma):\n1. Transcription: DNA → mRNA (in nucleus).\n2. Translation: mRNA → protein (at ribosomes).\n\nMutations: changes in DNA sequence.\n- Can be neutral, harmful (genetic diseases), or beneficial (evolution).\n- Types: substitution, insertion, deletion.", 1),
+        (gen_id, "Heredity & Mendelian Genetics", "Gregor Mendel (1860s) discovered the rules of inheritance using pea plants.\n\nKey concepts:\n- Alleles: different versions of a gene (e.g., B = brown eyes, b = blue eyes).\n- Dominant (B): expressed even with one copy.\n- Recessive (b): only expressed with two copies (bb).\n- Genotype: genetic makeup (BB, Bb, bb).\n- Phenotype: observable trait (brown eyes, blue eyes).\n\nPunnett Squares: predict offspring ratios.\n  Bb × Bb → 1 BB : 2 Bb : 1 bb (3:1 phenotype ratio).\n\nBeyond Mendel:\n- Incomplete dominance: blend (red + white → pink flower).\n- Codominance: both expressed (AB blood type).\n- Polygenic traits: many genes → continuous variation (height, skin color).\n- Sex-linked traits: genes on X chromosome (color blindness, hemophilia).", 2),
+        (evo_id, "Darwin & Natural Selection", "Charles Darwin proposed the theory of evolution by natural selection (1859).\n\nFour conditions for natural selection:\n1. Variation: individuals differ in traits.\n2. Inheritance: traits are passed to offspring.\n3. Overproduction: more offspring than can survive.\n4. Differential survival: traits that help survival and reproduction are passed on more.\n\nExamples:\n- Peppered moths: darker moths survived better on soot-covered trees during industrialization.\n- Darwin's finches: beak shapes adapted to different food sources on Galapagos Islands.\n- Antibiotic resistance: bacteria with resistant mutations survive and multiply.\n\nEvidence for evolution:\n- Fossil record: transitional forms (Archaeopteryx: dinosaur → bird).\n- Homologous structures: same bones, different functions (human arm, whale flipper, bat wing).\n- DNA comparisons: more similar DNA = more closely related.\n- Biogeography: island species resemble nearby mainland species.", 1),
+        (evo_id, "Speciation & the Tree of Life", "Speciation: how one species becomes two or more.\n\nAllopatric speciation: geographic barrier separates populations.\n  Example: Grand Canyon split squirrel populations → two species.\n\nSympatric speciation: new species emerge without physical separation.\n  Example: polyploidy in plants (chromosome doubling).\n\nClassification (taxonomy):\n  Domain → Kingdom → Phylum → Class → Order → Family → Genus → Species\n  Mnemonic: Dear King Philip Came Over For Good Spaghetti.\n\nThree domains of life:\n- Bacteria: prokaryotes, most diverse.\n- Archaea: prokaryotes, extremophiles.\n- Eukarya: eukaryotes (protists, fungi, plants, animals).\n\nPhylogenetic trees: diagrams showing evolutionary relationships.\n  Branches = lineage splits. Closer branches = more closely related.", 2),
+        (body_id, "Major Body Systems", "The human body has 11 organ systems working together:\n\n1. Circulatory: heart pumps blood (oxygen, nutrients) through vessels.\n   - Arteries (away from heart), veins (to heart), capillaries (exchange).\n2. Respiratory: lungs exchange O₂ and CO₂. Diaphragm drives breathing.\n3. Digestive: breaks down food → nutrients. Mouth → esophagus → stomach → intestines.\n4. Nervous: brain + spinal cord + nerves. Processes information, controls responses.\n5. Skeletal: 206 bones provide structure, protect organs, produce blood cells.\n6. Muscular: 600+ muscles enable movement. Skeletal, smooth, and cardiac types.", 1),
+        (body_id, "Immunity & Homeostasis", "The immune system defends against pathogens (bacteria, viruses, fungi).\n\nInnate immunity (non-specific):\n- Skin: physical barrier.\n- Mucus, tears, stomach acid: chemical barriers.\n- White blood cells (phagocytes): engulf invaders.\n- Inflammation: increases blood flow to infected area.\n\nAdaptive immunity (specific):\n- B cells: produce antibodies that target specific pathogens.\n- T cells: kill infected cells directly (killer T) or coordinate response (helper T).\n- Memory cells: remember pathogens for faster future response → basis of vaccination.\n\nHomeostasis: maintaining stable internal conditions.\n- Body temperature: ~37°C. Sweat to cool, shiver to warm.\n- Blood sugar: insulin (lowers) and glucagon (raises).\n- Water balance: kidneys filter blood, adjust urine concentration.\n- Feedback loops: negative (most, stabilizing) and positive (rare, amplifying — e.g., childbirth contractions).", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (cell_id, "cells", "Cells are the basic building blocks of all living things.", Some("A cell is like a tiny factory — the nucleus is the manager's office (holds the plans), mitochondria are the generators (make energy), ribosomes are the assembly lines (build products), and the cell membrane is the security gate (controls what comes in and out)."), Some("Why do you think plant cells need both chloroplasts AND mitochondria?")),
+        (gen_id, "DNA", "DNA is the molecule that carries genetic instructions in all living organisms.", Some("DNA is like a recipe book written in a 4-letter alphabet (A, T, C, G). Each gene is one recipe. Your cells read these recipes to build the proteins that make you — your eye color, height, and how your body works."), Some("If both your parents have brown eyes, is it possible for you to have blue eyes?")),
+        (evo_id, "natural selection", "Natural selection is the process where organisms with favorable traits survive and reproduce more.", Some("Imagine a bowl of M&Ms on a red tablecloth. A bird eats the ones it can see easily. The red M&Ms 'survive' because they blend in. Over many generations of this, you'd end up with mostly red M&Ms — that's natural selection."), Some("Can you think of an animal whose coloring helps it survive in its environment?")),
+        (body_id, "immune system", "The immune system is your body's defense network against disease-causing organisms.", Some("Your immune system is like a castle's defense. The skin is the outer wall, mucus is the moat, white blood cells are the soldiers, and memory cells are the scouts who remember past invaders so the army is ready next time."), Some("Why do you only get chickenpox once, but can catch a cold many times?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let questions: &[QuizRow] = &[
+        (cell_id, "Which organelle is known as the 'powerhouse of the cell'?", "multiple_choice", "Mitochondria", Some("Nucleus"), Some("Mitochondria"), Some("Ribosome"), Some("Golgi apparatus"), Some("It produces ATP energy"), "Mitochondria generate most of the cell's ATP through cellular respiration."),
+        (cell_id, "True or false: Prokaryotic cells have a nucleus.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Bacteria are prokaryotes"), "False. Prokaryotic cells lack a membrane-bound nucleus; their DNA floats freely in the cytoplasm."),
+        (cell_id, "Plant cells have a rigid outer layer made of cellulose called the cell ___.", "fill_in_blank", "wall", None, None, None, None, Some("It provides structural support"), "The cell wall gives plant cells their rigid shape and structural support."),
+        (cell_id, "Mitosis produces how many daughter cells?", "multiple_choice", "2", Some("1"), Some("2"), Some("4"), Some("8"), Some("Identical copies"), "Mitosis produces 2 genetically identical daughter cells."),
+        (cell_id, "Which type of cell division produces gametes?", "multiple_choice", "Meiosis", Some("Mitosis"), Some("Meiosis"), Some("Binary fission"), Some("Budding"), Some("Sperm and eggs"), "Meiosis produces 4 haploid gametes (sex cells) with genetic diversity."),
+        (gen_id, "What does DNA stand for?", "multiple_choice", "Deoxyribonucleic acid", Some("Deoxyribonucleic acid"), Some("Dinitrogen acid"), Some("Dynamic nucleic assembly"), Some("Dual nitrogen acid"), Some("It's a nucleic acid"), "DNA = Deoxyribonucleic acid, the molecule that carries genetic instructions."),
+        (gen_id, "In DNA, adenine (A) always pairs with ___.", "fill_in_blank", "thymine", None, None, None, None, Some("A-T and C-G"), "Adenine pairs with thymine (A-T) via two hydrogen bonds. Cytosine pairs with guanine (C-G)."),
+        (gen_id, "A Bb genotype is described as:", "multiple_choice", "Heterozygous", Some("Homozygous dominant"), Some("Homozygous recessive"), Some("Heterozygous"), Some("Codominant"), Some("Two different alleles"), "Heterozygous means having two different alleles (Bb) for a gene."),
+        (gen_id, "True or false: All mutations are harmful.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Think about evolution"), "False. Mutations can be neutral, harmful, or beneficial. Beneficial mutations drive evolution."),
+        (gen_id, "Humans have ___ pairs of chromosomes.", "fill_in_blank", "23", None, None, None, None, Some("46 total"), "Humans have 23 pairs (46 total) of chromosomes in each body cell."),
+        (evo_id, "Who proposed the theory of evolution by natural selection?", "multiple_choice", "Charles Darwin", Some("Gregor Mendel"), Some("Charles Darwin"), Some("Louis Pasteur"), Some("James Watson"), Some("Published in 1859"), "Charles Darwin published 'On the Origin of Species' in 1859."),
+        (evo_id, "True or false: Evolution means 'survival of the fittest individual'.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Fitness means reproductive success, not physical strength"), "False. In biology, 'fitness' means reproductive success — passing genes to the next generation, not physical strength."),
+        (evo_id, "Structures with the same origin but different functions (like a human arm and whale flipper) are called ___ structures.", "fill_in_blank", "homologous", None, None, None, None, Some("Same bones, different uses"), "Homologous structures share a common evolutionary origin but may serve different functions."),
+        (evo_id, "What type of speciation occurs when a geographic barrier separates populations?", "multiple_choice", "Allopatric", Some("Sympatric"), Some("Allopatric"), Some("Parapatric"), Some("Peripatric"), Some("Think 'allo' = other place"), "Allopatric speciation occurs when populations are geographically isolated from each other."),
+        (body_id, "Which system pumps blood through the body?", "multiple_choice", "Circulatory", Some("Respiratory"), Some("Circulatory"), Some("Digestive"), Some("Nervous"), Some("The heart is the central organ"), "The circulatory system (heart + blood vessels) pumps blood carrying oxygen and nutrients."),
+        (body_id, "True or false: Antibodies are produced by T cells.", "true_false", "false", Some("true"), Some("false"), None, None, Some("B cells or T cells?"), "False. Antibodies are produced by B cells. T cells kill infected cells directly or coordinate immune responses."),
+        (body_id, "The process of maintaining stable internal conditions is called ___.", "fill_in_blank", "homeostasis", None, None, None, None, Some("Body temperature, blood sugar, water balance"), "Homeostasis is the maintenance of a stable internal environment despite external changes."),
+        (body_id, "How many bones are in the adult human skeleton?", "multiple_choice", "206", Some("106"), Some("206"), Some("306"), Some("406"), Some("Just over 200"), "The adult human skeleton has 206 bones."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths = [
+        ("biology fundamentals", 1, cell_id, "Cell biology — the building blocks of life"),
+        ("biology fundamentals", 2, gen_id, "Genetics & DNA — the blueprint of inheritance"),
+        ("biology fundamentals", 3, evo_id, "Evolution — how life changes over time"),
+        ("biology fundamentals", 4, body_id, "Human body systems — how your body works"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_sociology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Sociology'", [], |r| r.get(0))
+        .unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Sociology', 'The study of society — social structures, institutions, inequality, and how groups shape human behavior.')",
+        [],
+    )?;
+    let soc_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Sociology'", [], |r| r.get(0))?;
+
+    let topics = [
+        (soc_id, "Social Structures & Institutions", "beginner", 1),
+        (soc_id, "Culture & Socialization", "beginner", 2),
+        (soc_id, "Social Inequality", "intermediate", 3),
+        (soc_id, "Collective Behavior & Movements", "intermediate", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let struct_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Social Structures & Institutions'", [soc_id], |r| r.get(0))?;
+    let culture_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Culture & Socialization'", [soc_id], |r| r.get(0))?;
+    let ineq_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Social Inequality'", [soc_id], |r| r.get(0))?;
+    let move_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Collective Behavior & Movements'", [soc_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (struct_id, "What is Social Structure?", "Social structure is the organized pattern of relationships and institutions that together form society.\n\nKey concepts:\n- Status: a position in society (student, parent, CEO). Can be ascribed (born into) or achieved (earned).\n- Role: the expected behavior attached to a status. Role conflict: when roles clash (student vs. employee).\n- Groups: primary (close, personal — family, friends) vs. secondary (formal, goal-oriented — coworkers, classmates).\n\nSocial institutions: organized systems that meet society's basic needs.\n- Family: socialization, emotional support, reproduction.\n- Education: knowledge transfer, social integration, sorting.\n- Economy: production and distribution of goods/services.\n- Government: order, laws, collective decision-making.\n- Religion: meaning, moral framework, community.\n- Healthcare: maintaining population health.\n\nBureaucracy (Max Weber): hierarchical organization with clear rules, specialization, and impersonal relationships. Efficient but can become rigid ('iron cage').", 1),
+        (struct_id, "Sociological Perspectives", "Three major theoretical frameworks:\n\n1. Functionalism (Durkheim, Parsons):\n   - Society is a system of interconnected parts working together.\n   - Each institution serves a function for stability.\n   - Dysfunction: when a part fails (e.g., failing schools).\n   - Criticism: overlooks inequality and conflict.\n\n2. Conflict Theory (Marx, Weber):\n   - Society is shaped by struggles between groups for power and resources.\n   - Institutions benefit the powerful at the expense of others.\n   - Focus: class, race, gender inequality.\n   - Criticism: overemphasizes conflict, underestimates cooperation.\n\n3. Symbolic Interactionism (Mead, Goffman):\n   - Society is created through everyday interactions and shared meanings.\n   - People act based on the meanings they assign to things.\n   - Goffman's dramaturgical approach: social life as a stage performance.\n   - Criticism: ignores larger structural forces.", 2),
+        (culture_id, "Culture — The Fabric of Society", "Culture: shared beliefs, values, norms, and material objects of a group.\n\nComponents:\n- Values: abstract ideals (freedom, equality, hard work).\n- Norms: specific rules of behavior.\n  - Folkways: informal customs (saying 'please').\n  - Mores: serious norms with moral significance (honesty).\n  - Taboos: strongly forbidden (incest, cannibalism).\n  - Laws: formally enacted norms with penalties.\n- Symbols: things that carry meaning (flags, words, gestures).\n- Language: Sapir-Whorf hypothesis — language shapes thought.\n\nCultural concepts:\n- Ethnocentrism: judging other cultures by your own standards.\n- Cultural relativism: understanding a culture on its own terms.\n- Subculture: a group within a larger culture with distinct values (gamers, surfers).\n- Counterculture: actively opposes dominant culture (hippies, punks).\n- Culture shock: disorientation when encountering an unfamiliar culture.", 1),
+        (culture_id, "Socialization — Becoming a Person", "Socialization: the lifelong process of learning norms, values, and roles.\n\nAgents of socialization:\n- Family: primary agent; language, values, identity.\n- Peers: conformity, independence, social skills.\n- School: formal knowledge, hidden curriculum (punctuality, obedience).\n- Media: shapes worldview, norms, desires.\n- Religion: moral framework, community belonging.\n- Workplace: professional norms, adult identity.\n\nKey theories:\n- Cooley's 'Looking-Glass Self': we see ourselves through others' reactions.\n  1. We imagine how we appear to others.\n  2. We imagine their judgment.\n  3. We develop feelings about ourselves based on that.\n- Mead's stages: imitation → play (taking one role) → game (understanding multiple roles) → generalized other.\n- Erikson's 8 stages of psychosocial development: trust vs. mistrust through integrity vs. despair.\n\nResocialization: radical change in identity (military boot camp, prison, religious conversion).", 2),
+        (ineq_id, "Social Stratification", "Social stratification: the hierarchical ranking of people into layers based on wealth, power, and prestige.\n\nSystems of stratification:\n- Caste: closed system, status assigned at birth (historical India).\n- Class: open system, based on economic position. Mobility possible.\n- Meritocracy: ideal where position is earned by ability and effort.\n\nSocial class (typical model):\n- Upper class: great wealth, power, influence (~1-5%).\n- Middle class: professionals, managers, moderate comfort.\n- Working class: manual and service labor, less security.\n- Lower class / poverty: limited resources, systemic barriers.\n\nTheories of inequality:\n- Marx: bourgeoisie (owners) vs. proletariat (workers). Class conflict drives history.\n- Weber: class (wealth) + status (prestige) + party (power) — three dimensions.\n- Davis-Moore: inequality motivates people to fill important positions (controversial).\n\nSocial mobility:\n- Intragenerational: within one's lifetime.\n- Intergenerational: compared to parents.\n- Structural: due to economic changes (industrialization creates new middle class).", 1),
+        (ineq_id, "Race, Gender & Intersectionality", "Social inequality operates along multiple axes:\n\nRace & ethnicity:\n- Race: socially constructed categories based on perceived physical differences.\n- Ethnicity: shared cultural heritage (language, religion, customs).\n- Racism: prejudice + power → systemic advantage/disadvantage.\n- Institutional racism: discrimination embedded in laws, policies, practices.\n\nGender:\n- Sex: biological (chromosomes, anatomy).\n- Gender: socially constructed roles, behaviors, expectations.\n- Gender socialization: begins at birth (colors, toys, expectations).\n- Patriarchy: system where men hold primary power.\n- Gender pay gap: women earn less on average for similar work.\n\nIntersectionality (Kimberle Crenshaw, 1989):\n- Multiple identities (race, gender, class, sexuality) intersect.\n- Creates unique experiences of privilege and oppression.\n- A Black woman's experience differs from both a white woman's and a Black man's.\n- Cannot understand inequality by looking at one dimension alone.", 2),
+        (move_id, "Social Movements & Change", "Social movements: organized efforts by groups to promote or resist change.\n\nTypes:\n- Reform: change within existing system (civil rights, labor rights).\n- Revolutionary: overthrow existing system (French Revolution).\n- Resistance/reactionary: oppose change, return to previous state.\n- New social movements: identity and quality of life (environmentalism, LGBTQ+ rights).\n\nStages of a social movement:\n1. Emergence: widespread dissatisfaction, problem recognized.\n2. Coalescence: organized leadership, strategy, collective action.\n3. Bureaucratization: formal organization, professional staff.\n4. Decline: success (institutionalization), failure, co-optation, or repression.\n\nKey concepts:\n- Collective action problem: why join if others will do it? (free rider problem).\n- Resource mobilization theory: movements need resources (money, media, networks).\n- Framing theory: how issues are presented shapes public support.\n- Political opportunity theory: movements succeed when political conditions are favorable.", 1),
+        (move_id, "Deviance & Social Control", "Deviance: behavior that violates social norms (not necessarily illegal).\n\nTheories of deviance:\n- Durkheim: deviance is normal and functional — reinforces norms, promotes social change.\n- Merton's Strain Theory: deviance results from a gap between cultural goals and legitimate means.\n  - Conformity, Innovation, Ritualism, Retreatism, Rebellion.\n- Labeling Theory (Becker): deviance is not inherent — it's a label applied by society.\n  - Primary deviance: initial act. Secondary: identity built around the label.\n- Differential Association (Sutherland): deviance is learned through social interaction.\n\nSocial control: mechanisms society uses to enforce conformity.\n- Informal: gossip, ridicule, praise, ostracism.\n- Formal: laws, police, courts, prisons.\n\nThe criminal justice system:\n- Retribution: punishment proportional to the offense.\n- Deterrence: discouraging future crime.\n- Rehabilitation: reforming offenders.\n- Restorative justice: repairing harm, reconciling offender and victim.", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (struct_id, "social structure", "Social structure is the organized pattern of statuses, roles, groups, and institutions that shape society.", Some("Social structure is like the skeleton of a building — you can't see it from outside, but it determines the shape of everything. The walls (institutions), floors (social classes), and rooms (groups) are all held in place by this invisible framework."), Some("Can you think of a role you play that sometimes conflicts with another role in your life?")),
+        (culture_id, "culture", "Culture is the shared set of beliefs, values, norms, and symbols that define a group's way of life.", Some("Culture is like the operating system of a society — just as Windows or macOS determines how your computer behaves, culture determines how people in a society think, act, and interact. Different societies run different 'operating systems', which is why customs vary so much around the world."), Some("Can you think of something that's completely normal in your culture but might be strange in another?")),
+        (ineq_id, "social inequality", "Social inequality is the unequal distribution of resources, opportunities, and privileges among members of a society.", Some("Social inequality is like a board game where different players start with different amounts of money, different rules apply to different players, and the winners get to make the rules for the next round. Understanding this helps explain why 'just work harder' isn't always sufficient advice."), Some("Why might two equally talented people end up in very different economic situations?")),
+        (move_id, "social movements", "Social movements are organized collective efforts to promote or resist social change.", Some("A social movement is like a river formed from many small streams — individual frustrations and ideas flow together, gaining force until they can reshape the landscape of society. Some rivers carve new paths; others get dammed up."), Some("What social movement in history do you think had the biggest impact on your daily life?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let questions: &[QuizRow] = &[
+        (struct_id, "Which sociological perspective views society as a system of interconnected parts?", "multiple_choice", "Functionalism", Some("Conflict theory"), Some("Functionalism"), Some("Symbolic interactionism"), Some("Postmodernism"), Some("Think Durkheim"), "Functionalism sees society as a system where each part contributes to overall stability."),
+        (struct_id, "True or false: An achieved status is one you are born into.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Ascribed vs. achieved"), "False. An achieved status is earned through effort (doctor, graduate). Ascribed statuses are assigned at birth (race, royal title)."),
+        (struct_id, "Max Weber described bureaucracy as an 'iron ___'.", "fill_in_blank", "cage", None, None, None, None, Some("Efficient but constraining"), "Weber warned that bureaucracy, while efficient, could trap people in an 'iron cage' of rationality and rigid rules."),
+        (struct_id, "Which perspective focuses on how people create meaning through everyday interactions?", "multiple_choice", "Symbolic interactionism", Some("Functionalism"), Some("Conflict theory"), Some("Symbolic interactionism"), Some("Structural functionalism"), Some("Mead and Goffman"), "Symbolic interactionism studies how people construct meaning through their daily social interactions."),
+        (culture_id, "Judging another culture by the standards of your own culture is called:", "multiple_choice", "Ethnocentrism", Some("Cultural relativism"), Some("Ethnocentrism"), Some("Multiculturalism"), Some("Subculture"), Some("A common bias"), "Ethnocentrism is evaluating other cultures according to the norms and values of your own."),
+        (culture_id, "Strongly forbidden norms (like cannibalism) are called ___.", "fill_in_blank", "taboos", None, None, None, None, Some("The strongest type of norm"), "Taboos are the most strongly prohibited norms in any society."),
+        (culture_id, "True or false: The family is the primary agent of socialization.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Where do children first learn norms?"), "True. Family is typically the first and most influential agent of socialization."),
+        (culture_id, "Cooley's theory that we see ourselves through others' reactions is called the:", "multiple_choice", "Looking-glass self", Some("Generalized other"), Some("Looking-glass self"), Some("Dramaturgical approach"), Some("Social identity"), Some("Like a mirror"), "The looking-glass self (Cooley): we imagine how others see us, imagine their judgment, and feel accordingly."),
+        (ineq_id, "Which system of stratification assigns status at birth with no mobility?", "multiple_choice", "Caste", Some("Class"), Some("Meritocracy"), Some("Caste"), Some("Estate"), Some("Historical India"), "Caste systems are closed — status is determined at birth and cannot be changed."),
+        (ineq_id, "The concept of intersectionality was introduced by:", "multiple_choice", "Kimberle Crenshaw", Some("Karl Marx"), Some("Kimberle Crenshaw"), Some("Max Weber"), Some("Emile Durkheim"), Some("1989, focused on race and gender"), "Kimberle Crenshaw coined 'intersectionality' in 1989 to describe how race, gender, and class overlap."),
+        (ineq_id, "True or false: According to Marx, history is driven by class conflict.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Bourgeoisie vs. proletariat"), "True. Marx argued that the struggle between those who own the means of production and workers drives historical change."),
+        (ineq_id, "___ is the socially constructed set of roles and expectations associated with being male or female.", "fill_in_blank", "gender", None, None, None, None, Some("Different from biological sex"), "Gender refers to socially constructed roles and behaviors, as opposed to biological sex."),
+        (move_id, "Which theory says social movements need money, media, and networks to succeed?", "multiple_choice", "Resource mobilization", Some("Framing theory"), Some("Strain theory"), Some("Resource mobilization"), Some("Labeling theory"), Some("Resources matter"), "Resource mobilization theory emphasizes that movements need tangible resources to organize and sustain action."),
+        (move_id, "True or false: Deviance is always illegal.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Norms vs. laws"), "False. Deviance means violating social norms, which may or may not be laws. Burping loudly in public is deviant but not illegal."),
+        (move_id, "Merton's theory that deviance results from a gap between goals and means is called ___ theory.", "fill_in_blank", "strain", None, None, None, None, Some("The pressure to succeed"), "Merton's Strain Theory: when people lack legitimate means to achieve cultural goals, they may turn to deviant behavior."),
+        (move_id, "Which type of social movement seeks to completely overthrow the existing system?", "multiple_choice", "Revolutionary", Some("Reform"), Some("Revolutionary"), Some("Resistance"), Some("Redemptive"), Some("Think French Revolution"), "Revolutionary movements aim to completely replace the existing social or political order."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths = [
+        ("sociology fundamentals", 1, struct_id, "Social structures & institutions — how society is organized"),
+        ("sociology fundamentals", 2, culture_id, "Culture & socialization — how we learn to be social"),
+        ("sociology fundamentals", 3, ineq_id, "Social inequality — why resources are unevenly distributed"),
+        ("sociology fundamentals", 4, move_id, "Social movements — how societies change"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(

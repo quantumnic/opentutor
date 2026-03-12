@@ -1,6 +1,6 @@
 use rusqlite::Connection;
 
-/// SM-2 algorithm parameters
+/// SM-2 algorithm parameters with FSRS-inspired enhancements
 const DEFAULT_DESIRED_RETENTION: f64 = 0.85;
 const MIN_EASE: f64 = 1.3;
 /// Maximum interval in days (cap at ~6 months)
@@ -17,6 +17,10 @@ const MAX_STREAK_BONUS: f64 = 1.3;
 const FUZZ_FACTOR: f64 = 0.05;
 /// Consecutive failures before a card is marked as a leech
 const LEECH_THRESHOLD: i64 = 4;
+/// FSRS-inspired decay constant for the power-law forgetting curve
+const FSRS_DECAY: f64 = 0.5;
+/// Factor relating stability to the 90% retention interval (from FSRS-4.5)
+const FSRS_FACTOR: f64 = 19.0 / 81.0;
 
 /// Apply a small random fuzz to an interval to prevent review clustering.
 /// For intervals >= 4 days, adds ±FUZZ_FACTOR jitter (at least ±1 day).
@@ -276,9 +280,13 @@ pub fn calculate_streak(conn: &Connection) -> i64 {
     streak
 }
 
-/// Estimate current memory retention using the Ebbinghaus forgetting curve.
+/// Estimate current memory retention using an FSRS-inspired power-law forgetting curve.
 /// Returns a value between 0.0 and 1.0 (100% = perfect retention).
-/// Formula: R = e^(-t/S) where t = time since last review, S = stability (derived from interval × ease).
+/// FSRS formula: R = (1 + FACTOR * t/S)^(-1/DECAY)
+/// where t = elapsed days, S = stability (days for retention to drop to ~90%).
+/// This is more accurate than the exponential Ebbinghaus model because real
+/// memory decay follows a power law — memories decline steeply at first, then
+/// plateau, matching empirical findings from Wozniak (SuperMemo) and Ye (FSRS-4.5).
 pub fn estimate_retention(conn: &Connection, topic_id: i64) -> f64 {
     let result: Option<(f64, i64, Option<String>)> = conn
         .query_row(
@@ -298,14 +306,14 @@ pub fn estimate_retention(conn: &Connection, topic_id: i64) -> f64 {
                 )
                 .unwrap_or(0.0);
 
-            // Stability is proportional to the scheduled interval and ease factor
+            // Stability derived from scheduled interval and ease factor
             let stability = (interval as f64) * ease / 2.5;
             if stability <= 0.0 {
                 return 0.0;
             }
 
-            // Ebbinghaus forgetting curve: R = e^(-t/S)
-            let retention = (-days_since / stability).exp();
+            // FSRS power-law forgetting curve
+            let retention = (1.0 + FSRS_FACTOR * days_since / stability).powf(-1.0 / FSRS_DECAY);
             retention.clamp(0.0, 1.0)
         }
         _ => 0.0, // No progress data
@@ -314,8 +322,9 @@ pub fn estimate_retention(conn: &Connection, topic_id: i64) -> f64 {
 
 /// Compute the optimal interval for a desired retention target.
 #[allow(dead_code)]
-/// Uses the inverse of the forgetting curve: t = -S × ln(R)
-/// where S = stability (interval × ease / 2.5), R = desired retention.
+/// Uses the inverse of the FSRS power-law forgetting curve:
+///   t = S / FACTOR × (R^(-DECAY) - 1)
+/// where S = stability, R = desired retention.
 /// Returns None if no progress data exists.
 pub fn optimal_interval_for_retention(
     conn: &Connection,
@@ -335,7 +344,8 @@ pub fn optimal_interval_for_retention(
     if stability <= 0.0 {
         return Some(1);
     }
-    let optimal = (-stability * r.ln()).round() as i64;
+    // Inverse of FSRS power-law: t = S / FACTOR × (R^(-DECAY) - 1)
+    let optimal = (stability / FSRS_FACTOR * (r.powf(-FSRS_DECAY) - 1.0)).round() as i64;
     Some(optimal.clamp(1, MAX_INTERVAL))
 }
 
