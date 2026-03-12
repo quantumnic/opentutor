@@ -88,6 +88,8 @@ enum Commands {
     Recommend,
     /// Show leech cards (topics you're repeatedly struggling with)
     Leech,
+    /// Quick one-screen summary of your learning state
+    Summary,
 }
 
 fn main() {
@@ -119,6 +121,7 @@ fn main() {
         Commands::Forecast => commands::forecast::run(&conn),
         Commands::Recommend => commands::recommend::run(&conn),
         Commands::Leech => commands::leech::run(&conn),
+        Commands::Summary => commands::summary::run(&conn),
     };
 
     if let Err(e) = result {

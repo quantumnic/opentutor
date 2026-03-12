@@ -15,3 +15,4 @@ pub mod review;
 pub mod search;
 pub mod stats;
 pub mod subjects;
+pub mod summary;

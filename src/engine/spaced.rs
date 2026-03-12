@@ -1,6 +1,7 @@
 use rusqlite::Connection;
 
 /// SM-2 algorithm parameters
+const DEFAULT_DESIRED_RETENTION: f64 = 0.85;
 const MIN_EASE: f64 = 1.3;
 /// Maximum interval in days (cap at ~6 months)
 const MAX_INTERVAL: i64 = 180;
@@ -311,6 +312,55 @@ pub fn estimate_retention(conn: &Connection, topic_id: i64) -> f64 {
     }
 }
 
+/// Compute the optimal interval for a desired retention target.
+#[allow(dead_code)]
+/// Uses the inverse of the forgetting curve: t = -S × ln(R)
+/// where S = stability (interval × ease / 2.5), R = desired retention.
+/// Returns None if no progress data exists.
+pub fn optimal_interval_for_retention(
+    conn: &Connection,
+    topic_id: i64,
+    desired_retention: Option<f64>,
+) -> Option<i64> {
+    let (ease, interval): (f64, i64) = conn
+        .query_row(
+            "SELECT ease_factor, interval_days FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?)),
+        )
+        .ok()?;
+
+    let r = desired_retention.unwrap_or(DEFAULT_DESIRED_RETENTION).clamp(0.5, 0.99);
+    let stability = (interval as f64) * ease / 2.5;
+    if stability <= 0.0 {
+        return Some(1);
+    }
+    let optimal = (-stability * r.ln()).round() as i64;
+    Some(optimal.clamp(1, MAX_INTERVAL))
+}
+
+/// Get average retention across all studied topics.
+pub fn average_retention(conn: &Connection) -> f64 {
+    let mut stmt = match conn.prepare(
+        "SELECT topic_id FROM user_progress WHERE last_reviewed IS NOT NULL",
+    ) {
+        Ok(s) => s,
+        Err(_) => return 0.0,
+    };
+    let ids: Vec<i64> = stmt
+        .query_map([], |r| r.get(0))
+        .ok()
+        .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        .unwrap_or_default();
+
+    if ids.is_empty() {
+        return 0.0;
+    }
+
+    let total: f64 = ids.iter().map(|&id| estimate_retention(conn, id)).sum();
+    total / ids.len() as f64
+}
+
 /// Check if a topic is a leech (repeatedly failed).
 pub fn is_leech(conn: &Connection, topic_id: i64) -> bool {
     conn.query_row(
@@ -611,6 +661,45 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let leeches = get_leeches(&conn).unwrap();
         assert!(leeches.is_empty());
+    }
+
+    #[test]
+    fn test_optimal_interval_for_retention() {
+        let conn = db::init_memory_db().unwrap();
+        // No progress → None
+        assert!(optimal_interval_for_retention(&conn, 1, None).is_none());
+
+        // Add progress
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 100.0, 5, 5, 2.5, 10)", []
+        ).unwrap();
+        let interval = optimal_interval_for_retention(&conn, 1, Some(0.85)).unwrap();
+        assert!(interval >= 1, "Should compute a positive interval, got {}", interval);
+        assert!(interval <= MAX_INTERVAL);
+
+        // Higher retention → shorter interval
+        let high = optimal_interval_for_retention(&conn, 1, Some(0.95)).unwrap();
+        let low = optimal_interval_for_retention(&conn, 1, Some(0.70)).unwrap();
+        assert!(high <= low, "Higher retention ({}) should need shorter interval than lower ({})", high, low);
+    }
+
+    #[test]
+    fn test_average_retention_empty() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(average_retention(&conn), 0.0);
+    }
+
+    #[test]
+    fn test_average_retention_with_data() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 100.0, 5, 5, 2.5, 10, datetime('now'))", []
+        ).unwrap();
+        let avg = average_retention(&conn);
+        // Just reviewed → retention should be very high (close to 1.0)
+        assert!(avg > 0.9, "Just-reviewed topic should have high retention, got {}", avg);
     }
 
     #[test]

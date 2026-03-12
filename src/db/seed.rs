@@ -15,6 +15,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_explanations(conn)?;
     seed_quiz_questions(conn)?;
     seed_learning_paths(conn)?;
+    seed_chemistry(conn)?;
+    assign_quiz_difficulties(conn)?;
     Ok(())
 }
 
@@ -694,7 +696,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 16);
+        assert_eq!(count, 17); // 16 original + Chemistry
     }
 
     #[test]
@@ -704,7 +706,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 16);
+        assert_eq!(count, 17);
     }
 
     #[test]
@@ -883,4 +885,184 @@ mod tests {
         assert_eq!(psych_paths, 4);
         assert_eq!(env_paths, 4);
     }
+
+    #[test]
+    fn test_chemistry_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let chem: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Chemistry'", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(chem, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Chemistry'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
+        // Verify learning paths
+        let path_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'chemistry basics'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(path_count, 4);
+    }
+}
+
+/// Assign varied difficulty levels to quiz questions that still have the default 'medium'.
+/// True/false → easy, fill_in_blank → hard, multiple_choice → distributed by id.
+fn assign_quiz_difficulties(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // True/false questions are generally easier
+    conn.execute(
+        "UPDATE quiz_questions SET difficulty = 'easy' WHERE question_type = 'true_false' AND difficulty = 'medium'",
+        [],
+    )?;
+    // Fill-in-the-blank questions are harder (no options to choose from)
+    conn.execute(
+        "UPDATE quiz_questions SET difficulty = 'hard' WHERE question_type = 'fill_in_blank' AND difficulty = 'medium'",
+        [],
+    )?;
+    // For multiple choice, assign roughly 40% easy, 30% medium, 30% hard based on id
+    conn.execute(
+        "UPDATE quiz_questions SET difficulty = 'easy' WHERE question_type = 'multiple_choice' AND difficulty = 'medium' AND id % 10 < 4",
+        [],
+    )?;
+    conn.execute(
+        "UPDATE quiz_questions SET difficulty = 'hard' WHERE question_type = 'multiple_choice' AND difficulty = 'medium' AND id % 10 >= 7",
+        [],
+    )?;
+    Ok(())
+}
+
+// Additional seed function for Chemistry subject (added in improvement pass)
+#[allow(clippy::type_complexity)]
+pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Check if Chemistry already exists
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Chemistry'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Chemistry', 'The science of matter — atoms, molecules, reactions, and the elements that make up everything around us.')",
+        [],
+    )?;
+    let chem_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Chemistry'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    // Topics
+    let topics = [
+        (chem_id, "Atoms & Elements", "beginner", 1),
+        (chem_id, "Chemical Bonds", "beginner", 2),
+        (chem_id, "Chemical Reactions", "intermediate", 3),
+        (chem_id, "Acids, Bases & pH", "intermediate", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    // Get topic IDs
+    let atoms_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Atoms & Elements'",
+        [chem_id], |r| r.get(0),
+    )?;
+    let bonds_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chemical Bonds'",
+        [chem_id], |r| r.get(0),
+    )?;
+    let reactions_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chemical Reactions'",
+        [chem_id], |r| r.get(0),
+    )?;
+    let ph_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Acids, Bases & pH'",
+        [chem_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (atoms_id, "The Building Blocks of Matter", "Everything around you is made of atoms — the smallest unit of an element that retains its chemical identity.\n\nAtomic structure:\n- Protons: positive charge, in the nucleus. Define the element (atomic number).\n- Neutrons: neutral, in the nucleus. Add mass; different counts create isotopes.\n- Electrons: negative charge, orbit the nucleus in shells/energy levels.\n\nThe Periodic Table organizes all 118 known elements by atomic number.\n- Rows (periods): number of electron shells.\n- Columns (groups): similar chemical properties.\n- Metals (left), nonmetals (right), metalloids (staircase line).\n\nKey elements:\n- Hydrogen (H, 1): simplest atom, most abundant in universe.\n- Carbon (C, 6): basis of organic chemistry and all life.\n- Oxygen (O, 8): essential for respiration and combustion.\n- Iron (Fe, 26): core of Earth, essential in blood (hemoglobin).", 1),
+        (atoms_id, "Electron Configuration & the Periodic Table", "Electrons fill shells from lowest energy to highest:\n- 1st shell: max 2 electrons\n- 2nd shell: max 8 electrons\n- 3rd shell: max 18 electrons (but fills 8 first)\n\nValence electrons: electrons in the outermost shell.\n- Determine how an atom bonds with others.\n- Group 1 (alkali metals): 1 valence electron → very reactive.\n- Group 17 (halogens): 7 valence electrons → very reactive.\n- Group 18 (noble gases): 8 valence electrons (full shell) → stable, unreactive.\n\nOctet Rule: atoms tend to gain, lose, or share electrons to have 8 in their outer shell.\n\nTrends across the periodic table:\n- Atomic radius: decreases left→right, increases top→bottom.\n- Electronegativity: increases left→right (fluorine is highest).\n- Ionization energy: increases left→right.", 2),
+        (bonds_id, "How Atoms Connect", "Chemical bonds form when atoms share or transfer electrons to become more stable.\n\nIonic bonds:\n- One atom gives electrons, another takes them.\n- Creates charged ions: cation (+) and anion (-).\n- Opposite charges attract → ionic compound.\n- Example: NaCl (table salt). Na gives 1e⁻ to Cl.\n- Properties: crystalline, high melting point, conduct electricity when dissolved.\n\nCovalent bonds:\n- Atoms share electrons.\n- Single bond: 1 shared pair. Double: 2 pairs. Triple: 3 pairs.\n- Example: H₂O — oxygen shares electrons with two hydrogens.\n- Properties: lower melting points, poor conductors.\n\nMetallic bonds:\n- Metal atoms share a 'sea' of delocalized electrons.\n- Explains conductivity, malleability, and luster.", 1),
+        (bonds_id, "Molecular Shapes & Polarity", "VSEPR Theory: electron pairs around a central atom repel each other, determining molecular shape.\n\nCommon shapes:\n- Linear: 2 bonding pairs, 180° (CO₂)\n- Trigonal planar: 3 bonding pairs, 120° (BF₃)\n- Tetrahedral: 4 bonding pairs, 109.5° (CH₄)\n- Bent: 2 bonding + 1-2 lone pairs (H₂O, 104.5°)\n\nPolarity:\n- Nonpolar: electrons shared equally (O₂, CH₄).\n- Polar: unequal sharing, partial charges (H₂O, HCl).\n- Electronegativity difference determines polarity.\n\nWhy it matters:\n- Water is polar → dissolves salts, enables life.\n- Oil is nonpolar → doesn't mix with water.\n- 'Like dissolves like' — polar solvents dissolve polar solutes.", 2),
+        (reactions_id, "Types of Chemical Reactions", "A chemical reaction rearranges atoms to form new substances.\n\nBalancing equations: atoms in = atoms out (conservation of mass).\n  2H₂ + O₂ → 2H₂O\n\nFive main types:\n1. Synthesis: A + B → AB (iron + sulfur → iron sulfide)\n2. Decomposition: AB → A + B (water → hydrogen + oxygen via electrolysis)\n3. Single replacement: A + BC → AC + B (zinc + hydrochloric acid → zinc chloride + hydrogen)\n4. Double replacement: AB + CD → AD + CB (silver nitrate + sodium chloride → silver chloride + sodium nitrate)\n5. Combustion: fuel + O₂ → CO₂ + H₂O (burning methane)\n\nExothermic: releases heat (combustion, rusting).\nEndothermic: absorbs heat (photosynthesis, melting ice).", 1),
+        (reactions_id, "Reaction Rates & Equilibrium", "Reaction rate: how fast reactants become products.\n\nFactors affecting rate:\n- Temperature: higher → faster (particles move more, collide harder).\n- Concentration: more reactant molecules → more collisions.\n- Surface area: smaller pieces → more exposed surface → faster.\n- Catalysts: speed up reactions without being consumed. Enzymes are biological catalysts.\n\nActivation energy: minimum energy needed to start a reaction.\n  Catalysts lower the activation energy.\n\nChemical equilibrium: forward and reverse reactions occur at equal rates.\n  Le Chatelier's Principle: if you disturb equilibrium, the system shifts to counteract the change.\n  - Add more reactant → shifts toward products.\n  - Increase temperature → shifts toward endothermic direction.\n  - Increase pressure → shifts toward fewer gas molecules.", 2),
+        (ph_id, "The pH Scale", "pH measures how acidic or basic a solution is.\n\nScale: 0 (most acidic) → 7 (neutral) → 14 (most basic/alkaline).\n\nAcids:\n- Taste sour, react with metals, pH < 7.\n- Release H⁺ ions in water.\n- Examples: lemon juice (pH 2), vinegar (pH 3), stomach acid (pH 1.5).\n\nBases (alkalis):\n- Taste bitter, feel slippery, pH > 7.\n- Release OH⁻ ions in water.\n- Examples: baking soda (pH 9), soap (pH 10), bleach (pH 13).\n\nNeutral: pure water (pH 7).\n\nThe pH scale is logarithmic: each step = 10× difference.\n  pH 3 is 10× more acidic than pH 4, and 100× more than pH 5.", 1),
+        (ph_id, "Neutralization & Buffers", "Neutralization: acid + base → salt + water.\n  HCl + NaOH → NaCl + H₂O\n\nApplications:\n- Antacids neutralize stomach acid (Mg(OH)₂ + HCl).\n- Lime (CaO) neutralizes acidic soil for farming.\n- Treating acid rain damage in lakes.\n\nIndicators: substances that change color with pH.\n- Litmus paper: red in acid, blue in base.\n- Universal indicator: rainbow of colors across pH range.\n- Phenolphthalein: colorless in acid, pink in base.\n\nBuffers: solutions that resist pH changes.\n- Made of weak acid + its conjugate base.\n- Blood is buffered at pH 7.35-7.45 — critical for survival.\n- Even small deviations (acidosis/alkalosis) can be life-threatening.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (atoms_id, "atoms", "Atoms are the smallest unit of an element — the building blocks of all matter.", Some("Think of atoms like LEGO bricks — just as every LEGO creation is built from simple bricks, everything in the universe is built from atoms. There are about 118 types of 'bricks' (elements), and by combining them differently, you get water, air, gold, and even you!"), Some("If you could zoom in far enough to see a single atom, what do you think it would look like?")),
+        (bonds_id, "chemical bonds", "Chemical bonds are the forces that hold atoms together to form molecules and compounds.", Some("Chemical bonds are like handshakes between atoms — some atoms share equally (covalent, like a cooperative handshake), some take from the other (ionic, like one person grabbing the other's hand), and metals are like a group high-five where everyone shares!"), Some("Why do you think salt (NaCl) dissolves in water but oil doesn't?")),
+        (reactions_id, "chemical reactions", "A chemical reaction transforms one set of substances into another by rearranging atoms.", Some("A chemical reaction is like cooking — you start with raw ingredients (reactants), apply energy (heat), and end up with something completely new (products). You can't un-bake a cake, just like you can't easily reverse most reactions!"), Some("What happens when you mix baking soda and vinegar? What type of reaction is it?")),
+        (ph_id, "pH", "pH is a scale from 0 to 14 that measures how acidic or basic a solution is.", Some("Think of pH like a temperature scale for sourness vs. slipperiness — lemon juice is very 'sour' (acidic, low pH), soap is very 'slippery' (basic, high pH), and pure water is right in the middle (neutral, pH 7)."), Some("What do you think happens to the pH of water when you add lemon juice?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (atoms_id, "What particle defines which element an atom is?", "multiple_choice", "Proton", Some("Electron"), Some("Proton"), Some("Neutron"), Some("Photon"), Some("It determines the atomic number"), "The number of protons (atomic number) defines the element. Change the protons and you change the element."),
+        (atoms_id, "How many electrons can the first shell hold?", "multiple_choice", "2", Some("2"), Some("4"), Some("8"), Some("16"), Some("The simplest shell"), "The first electron shell can hold a maximum of 2 electrons."),
+        (atoms_id, "Which group of elements is the most unreactive?", "multiple_choice", "Noble gases", Some("Alkali metals"), Some("Halogens"), Some("Noble gases"), Some("Transition metals"), Some("They have full outer shells"), "Noble gases (Group 18) are the most stable and unreactive because they have full valence shells."),
+        (atoms_id, "True or false: Isotopes of an element have different numbers of protons.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Isotopes differ in which subatomic particle?"), "False. Isotopes have the same number of protons but different numbers of neutrons."),
+        (atoms_id, "The element with atomic number 6, essential for all life, is ___.", "fill_in_blank", "Carbon", None, None, None, None, Some("Organic chemistry is based on this element"), "Carbon (C) has 6 protons and is the basis of all known life and organic chemistry."),
+        (bonds_id, "In an ionic bond, atoms ___ electrons.", "multiple_choice", "Transfer", Some("Share"), Some("Transfer"), Some("Destroy"), Some("Absorb"), Some("One gives, one takes"), "In ionic bonds, one atom transfers electrons to another, creating oppositely charged ions."),
+        (bonds_id, "What type of bond does water (H₂O) have?", "multiple_choice", "Covalent", Some("Ionic"), Some("Covalent"), Some("Metallic"), Some("Hydrogen"), Some("The atoms share electrons"), "Water has covalent bonds — oxygen shares electron pairs with two hydrogen atoms."),
+        (bonds_id, "True or false: Metallic bonds explain why metals conduct electricity.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Delocalized electrons are free to move"), "True. The 'sea' of delocalized electrons in metallic bonds can flow, carrying electric current."),
+        (bonds_id, "A molecule where electrons are shared unequally is called ___.", "fill_in_blank", "polar", None, None, None, None, Some("Water is an example"), "A polar molecule has unequal electron sharing, creating partial positive and negative charges."),
+        (reactions_id, "What must be conserved in a balanced chemical equation?", "multiple_choice", "Mass (atoms)", Some("Energy"), Some("Mass (atoms)"), Some("Volume"), Some("Color"), Some("Atoms in = atoms out"), "Conservation of mass: the same number of each type of atom must appear on both sides of the equation."),
+        (reactions_id, "Which reaction type combines two substances into one?", "multiple_choice", "Synthesis", Some("Decomposition"), Some("Synthesis"), Some("Combustion"), Some("Single replacement"), Some("A + B → AB"), "Synthesis (combination) reactions join two or more substances into a single product."),
+        (reactions_id, "A catalyst speeds up a reaction by lowering the ___.", "fill_in_blank", "activation energy", None, None, None, None, Some("The energy barrier to start the reaction"), "Catalysts lower the activation energy, allowing more molecules to react at a given temperature."),
+        (reactions_id, "True or false: Combustion reactions release heat.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Think about fire"), "True. Combustion is exothermic — it releases heat and light energy."),
+        (ph_id, "What is the pH of pure water?", "multiple_choice", "7", Some("0"), Some("5"), Some("7"), Some("14"), Some("Right in the middle"), "Pure water has a pH of 7, which is neutral — neither acidic nor basic."),
+        (ph_id, "Which substance is most acidic?", "multiple_choice", "Stomach acid (pH 1.5)", Some("Stomach acid (pH 1.5)"), Some("Lemon juice (pH 2)"), Some("Coffee (pH 5)"), Some("Milk (pH 6.5)"), Some("Lower pH = more acidic"), "Stomach acid has the lowest pH (1.5) and is therefore the most acidic."),
+        (ph_id, "Acid + base → ___ + water", "fill_in_blank", "salt", None, None, None, None, Some("Neutralization reaction"), "Neutralization: acid + base → salt + water. Example: HCl + NaOH → NaCl + H₂O."),
+        (ph_id, "True or false: The pH scale is linear.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Each step represents a 10× change"), "False. The pH scale is logarithmic — each unit represents a 10-fold change in H⁺ concentration."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths = [
+        ("chemistry basics", 1, atoms_id, "Atoms & elements — the building blocks of all matter"),
+        ("chemistry basics", 2, bonds_id, "Chemical bonds — how atoms connect"),
+        ("chemistry basics", 3, reactions_id, "Chemical reactions — transforming substances"),
+        ("chemistry basics", 4, ph_id, "Acids, bases & pH — the chemistry of solutions"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
 }
