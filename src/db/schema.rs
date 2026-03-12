@@ -78,6 +78,14 @@ pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             score REAL,
             timestamp TEXT NOT NULL DEFAULT (datetime('now'))
         );
+
+        CREATE TABLE IF NOT EXISTS achievements (
+            id TEXT PRIMARY KEY,
+            name TEXT NOT NULL,
+            description TEXT NOT NULL,
+            category TEXT NOT NULL,
+            unlocked_at TEXT
+        );
         ",
     )?;
     Ok(())

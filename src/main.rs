@@ -74,6 +74,16 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
+    /// Cross-topic challenge quiz mixing questions from multiple subjects
+    Challenge {
+        /// Number of questions
+        #[arg(short, long, default_value = "10")]
+        count: usize,
+    },
+    /// View your achievements and badges
+    Achievements,
+    /// Show a 7-day review forecast
+    Forecast,
 }
 
 fn main() {
@@ -100,6 +110,9 @@ fn main() {
         Commands::Daily => commands::daily::run(&conn),
         Commands::Reset { subject } => commands::reset::run(&conn, &subject),
         Commands::Export { output } => commands::export::run(&conn, &output),
+        Commands::Challenge { count } => commands::challenge::run(&conn, count),
+        Commands::Achievements => commands::achievements::run(&conn),
+        Commands::Forecast => commands::forecast::run(&conn),
     };
 
     if let Err(e) = result {

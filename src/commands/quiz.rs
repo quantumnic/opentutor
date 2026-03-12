@@ -1,6 +1,7 @@
 use colored::*;
 use rusqlite::Connection;
 use crate::display;
+use crate::commands::achievements;
 use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
 pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -83,6 +84,21 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
         display::print_info("Good progress! Review the material and try again. 📖");
     } else {
         display::print_info("Keep learning! Use 'opentutor learn' to review. 💪");
+    }
+
+    // Check for perfect quiz achievement
+    if correct_count == total && total >= 5 {
+        if let Ok(Some(name)) = achievements::unlock_perfect_quiz(conn) {
+            println!();
+            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+        }
+    }
+
+    // Check general achievements
+    if let Ok(newly) = achievements::check_achievements(conn) {
+        for name in &newly {
+            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+        }
     }
 
     Ok(())

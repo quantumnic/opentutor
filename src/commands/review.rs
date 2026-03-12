@@ -1,6 +1,7 @@
 use colored::*;
 use rusqlite::Connection;
 use crate::display;
+use crate::commands::achievements;
 use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
 pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -28,11 +29,16 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
-    // Sort by urgency (most urgent first)
+    // Sort by combined urgency + low retention (most critical first)
     due_topics.sort_by(|a, b| {
         let urgency_a = spaced::review_urgency(conn, a.0);
         let urgency_b = spaced::review_urgency(conn, b.0);
-        urgency_b.partial_cmp(&urgency_a).unwrap_or(std::cmp::Ordering::Equal)
+        // Factor in retention: lower retention = higher priority
+        let retention_a = spaced::estimate_retention(conn, a.0);
+        let retention_b = spaced::estimate_retention(conn, b.0);
+        let score_a = urgency_a + (1.0 - retention_a) * 2.0;
+        let score_b = urgency_b + (1.0 - retention_b) * 2.0;
+        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
     });
 
     if due_topics.is_empty() {
@@ -90,10 +96,15 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
             "{} ({}) — {}",
             topic_name, subject_name, strength
         ));
+        let retention = spaced::estimate_retention(conn, *topic_id);
+        let ret_pct = (retention * 100.0) as u32;
+        let ret_color = if ret_pct >= 80 { "🟢" } else if ret_pct >= 50 { "🟡" } else { "🔴" };
         println!(
-            "    Ease: {:.1} | Interval: {} days\n",
+            "    Ease: {:.1} | Interval: {} days | Retention: {} {}%\n",
             ease,
-            interval.to_string().bold()
+            interval.to_string().bold(),
+            ret_color,
+            ret_pct
         );
 
         // Get quiz questions for this topic
@@ -173,6 +184,13 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         due_topics.len().to_string().bold()
     );
     display::print_success("Review schedule updated! See you next time. 📅");
+
+    // Check achievements
+    if let Ok(newly) = achievements::check_achievements(conn) {
+        for name in &newly {
+            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+        }
+    }
 
     Ok(())
 }

@@ -1,6 +1,9 @@
+pub mod achievements;
+pub mod challenge;
 pub mod daily;
 pub mod explain;
 pub mod export;
+pub mod forecast;
 pub mod learn;
 pub mod path;
 pub mod progress;

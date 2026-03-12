@@ -1,6 +1,7 @@
 use colored::*;
 use rusqlite::Connection;
 use crate::display;
+use crate::commands::achievements;
 use crate::engine::adaptive;
 
 pub fn run(conn: &Connection, subject: &str) -> Result<(), Box<dyn std::error::Error>> {
@@ -68,6 +69,13 @@ pub fn run(conn: &Connection, subject: &str) -> Result<(), Box<dyn std::error::E
     display::print_info(&format!("Test yourself: {}",
         "opentutor quiz <topic>".bright_cyan()
     ));
+
+    // Check achievements
+    if let Ok(newly) = achievements::check_achievements(conn) {
+        for name in &newly {
+            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+        }
+    }
 
     Ok(())
 }
