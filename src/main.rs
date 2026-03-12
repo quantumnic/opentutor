@@ -68,6 +68,12 @@ enum Commands {
         /// Subject to reset (omit to reset everything)
         subject: Option<String>,
     },
+    /// Export learning data as JSON
+    Export {
+        /// Output file path (prints to stdout if omitted)
+        #[arg(short, long)]
+        output: Option<String>,
+    },
 }
 
 fn main() {
@@ -93,6 +99,7 @@ fn main() {
         Commands::Search { query } => commands::search::run(&conn, &query),
         Commands::Daily => commands::daily::run(&conn),
         Commands::Reset { subject } => commands::reset::run(&conn, &subject),
+        Commands::Export { output } => commands::export::run(&conn, &output),
     };
 
     if let Err(e) = result {

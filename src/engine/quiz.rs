@@ -8,6 +8,7 @@ pub struct QuizQuestion {
     pub topic_id: i64,
     pub question: String,
     pub question_type: String,
+    pub difficulty: String,
     pub correct_answer: String,
     pub options: Vec<String>,
     pub hint: Option<String>,
@@ -23,7 +24,7 @@ pub fn get_questions(
 ) -> Result<Vec<QuizQuestion>, rusqlite::Error> {
     let mut stmt = conn.prepare(
         "SELECT id, topic_id, question, question_type, correct_answer,
-                option_a, option_b, option_c, option_d, hint, explanation
+                option_a, option_b, option_c, option_d, hint, explanation, difficulty
          FROM quiz_questions WHERE topic_id = ?1",
     )?;
     let mut questions: Vec<QuizQuestion> = stmt
@@ -42,6 +43,7 @@ pub fn get_questions(
                 topic_id: r.get(1)?,
                 question: r.get(2)?,
                 question_type: r.get(3)?,
+                difficulty: r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "medium".to_string()),
                 correct_answer: r.get(4)?,
                 options,
                 hint: r.get(9)?,
@@ -80,11 +82,17 @@ pub fn get_questions(
             .iter()
             .map(|q| {
                 let type_weight = match q.question_type.as_str() {
-                    "fill_in_blank" => 1.5 * difficulty_mult, // Harder type, scale up if struggling
-                    "true_false" => 0.8,                      // Easy type stays accessible
+                    "fill_in_blank" => 1.5 * difficulty_mult,
+                    "true_false" => 0.8,
                     _ => 1.0 * difficulty_mult,
                 };
-                type_weight
+                // Adjust weight based on question difficulty vs user level
+                let diff_weight = match q.difficulty.as_str() {
+                    "easy" => 1.0 / difficulty_mult, // Easier Qs less likely when user is strong
+                    "hard" => difficulty_mult,        // Harder Qs more likely when user struggles
+                    _ => 1.0,                         // Medium stays neutral
+                };
+                type_weight * diff_weight
             })
             .collect();
 
@@ -185,6 +193,7 @@ mod tests {
             id: 1, topic_id: 1,
             question: "Test?".into(),
             question_type: "multiple_choice".into(),
+            difficulty: "medium".into(),
             correct_answer: "42".into(),
             options: vec!["10".into(), "42".into(), "50".into(), "100".into()],
             hint: None,
@@ -201,6 +210,7 @@ mod tests {
             id: 1, topic_id: 1,
             question: "Test?".into(),
             question_type: "multiple_choice".into(),
+            difficulty: "medium".into(),
             correct_answer: "Paris".into(),
             options: vec!["London".into(), "Paris".into(), "Berlin".into(), "Rome".into()],
             hint: None,
@@ -217,6 +227,7 @@ mod tests {
             id: 1, topic_id: 1,
             question: "True or false: The sky is blue.".into(),
             question_type: "true_false".into(),
+            difficulty: "medium".into(),
             correct_answer: "true".into(),
             options: vec!["true".into(), "false".into()],
             hint: None,
@@ -235,6 +246,7 @@ mod tests {
             id: 1, topic_id: 1,
             question: "3 + 4 × 2 = ___".into(),
             question_type: "fill_in_blank".into(),
+            difficulty: "medium".into(),
             correct_answer: "11".into(),
             options: vec![],
             hint: None,

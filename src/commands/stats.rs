@@ -1,6 +1,7 @@
 use colored::*;
 use rusqlite::Connection;
 use crate::display;
+use crate::engine::spaced;
 
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Learning Statistics");
@@ -89,6 +90,40 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             println!("    {} {}: {} sessions (avg {:.0}%)", emoji, atype.bold(), count, avg);
         }
 
+        println!();
+
+        // Memory retention estimates
+        display::print_section("Memory Retention Estimates");
+        let mut ret_stmt = conn.prepare(
+            "SELECT p.topic_id, t.name, s.name
+             FROM user_progress p
+             JOIN topics t ON t.id = p.topic_id
+             JOIN subjects s ON s.id = t.subject_id
+             ORDER BY s.name, t.name"
+        )?;
+        let ret_rows: Vec<(i64, String, String)> = ret_stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?))
+        })?.collect::<Result<Vec<_>, _>>()?;
+
+        if ret_rows.is_empty() {
+            display::print_info("No retention data yet.");
+        } else {
+            for (topic_id, topic_name, subject_name) in &ret_rows {
+                let retention = spaced::estimate_retention(conn, *topic_id);
+                let pct = (retention * 100.0) as u32;
+                let bar_len = (retention * 20.0) as usize;
+                let bar = format!("{}{}", "█".repeat(bar_len), "░".repeat(20 - bar_len));
+                let colored_bar = if pct >= 80 {
+                    bar.bright_green()
+                } else if pct >= 50 {
+                    bar.yellow()
+                } else {
+                    bar.bright_red()
+                };
+                println!("    {} {} ({}) {}%",
+                    colored_bar, topic_name.bold(), subject_name.dimmed(), pct);
+            }
+        }
         println!();
 
         // Weakest topics

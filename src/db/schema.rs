@@ -40,6 +40,7 @@ pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             topic_id INTEGER NOT NULL REFERENCES topics(id),
             question TEXT NOT NULL,
             question_type TEXT NOT NULL DEFAULT 'multiple_choice',
+            difficulty TEXT NOT NULL DEFAULT 'medium',
             correct_answer TEXT NOT NULL,
             option_a TEXT,
             option_b TEXT,

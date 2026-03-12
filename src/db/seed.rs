@@ -34,6 +34,7 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Psychology", "Understanding the mind — how we think, feel, behave, and interact with others."),
         ("Environmental Science", "Exploring ecosystems, climate, pollution, and sustainability."),
         ("Creative Writing", "Crafting stories, poems, and essays — finding your voice through words."),
+        ("Astronomy", "Exploring space — stars, planets, galaxies, and the vast universe beyond Earth."),
     ];
     for (name, desc) in &subjects {
         conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
@@ -110,6 +111,11 @@ fn seed_topics(conn: &Connection) -> Result<(), rusqlite::Error> {
         (14, "Character Development", "beginner", 2),
         (14, "Dialogue & Voice", "intermediate", 3),
         (14, "Poetry Fundamentals", "intermediate", 4),
+        // Astronomy (subject_id=15)
+        (15, "The Solar System", "beginner", 1),
+        (15, "Stars & Stellar Evolution", "beginner", 2),
+        (15, "Galaxies & the Universe", "intermediate", 3),
+        (15, "Space Exploration", "intermediate", 4),
     ];
     for (sid, name, diff, order) in &topics {
         conn.execute(
@@ -237,6 +243,18 @@ fn seed_lessons(conn: &Connection) -> Result<(), rusqlite::Error> {
         // Creative Writing — Poetry Fundamentals (topic_id=53)
         (53, "Poetry Forms and Devices", "Poetry compresses language for maximum emotional impact.\n\nCommon forms:\n- Free verse: no fixed meter or rhyme. Most modern poetry.\n- Sonnet: 14 lines, iambic pentameter. Shakespeare, Petrarch.\n- Haiku: 3 lines (5-7-5 syllables). Captures a moment.\n- Limerick: 5 lines (AABBA). Humorous.\n- Villanelle: 19 lines with repeating lines. ('Do Not Go Gentle' — Dylan Thomas).\n\nSound devices:\n- Alliteration: same starting sound (Peter Piper picked).\n- Assonance: repeated vowel sounds (the rain in Spain).\n- Onomatopoeia: words that sound like their meaning (buzz, crash, whisper).\n- Rhyme: end rhyme, internal rhyme, slant rhyme.", 1),
         (53, "Imagery and Figurative Language", "Imagery engages the five senses:\n- Visual: 'The crimson leaves carpeted the path.'\n- Auditory: 'The creek whispered over smooth stones.'\n- Tactile: 'Sandpaper rough under her fingertips.'\n- Olfactory: 'The kitchen smelled of cinnamon and burnt toast.'\n- Gustatory: 'The lemon was sharp enough to make her wince.'\n\nFigurative language:\n- Simile: comparison using like/as. 'Life is like a box of chocolates.'\n- Metaphor: direct comparison. 'Time is a thief.'\n- Personification: giving human traits to non-human things. 'The wind howled.'\n- Hyperbole: exaggeration. 'I've told you a million times.'\n- Symbolism: an object represents something larger. A rose = love.\n\nRule: use figurative language to clarify, not to show off.", 2),
+        // Astronomy — The Solar System (topic_id=54)
+        (54, "Our Solar System", "The Solar System formed ~4.6 billion years ago from a cloud of gas and dust.\n\nThe Sun: a medium-sized star containing 99.86% of the system's mass.\n  Surface temperature: ~5,500°C. Core: ~15 million°C.\n\nPlanets (from Sun outward):\n  Inner (rocky): Mercury, Venus, Earth, Mars.\n  Outer (gas/ice giants): Jupiter, Saturn, Uranus, Neptune.\n\nOther objects:\n- Dwarf planets: Pluto, Eris, Ceres.\n- Asteroid belt: between Mars and Jupiter.\n- Kuiper belt: beyond Neptune.\n- Oort cloud: outermost boundary.\n\nScale: light from the Sun reaches Earth in ~8 minutes. It takes ~4 hours to reach Neptune.", 1),
+        (54, "Planets Up Close", "Mercury: smallest, no atmosphere, extreme temps (-180°C to 430°C). Orbits Sun in 88 days.\nVenus: hottest planet (465°C), thick CO₂ atmosphere, rotates backward.\nEarth: the Goldilocks planet — liquid water, atmosphere, magnetic field.\nMars: the Red Planet, thin atmosphere, Olympus Mons (tallest volcano in solar system).\n\nJupiter: largest planet, Great Red Spot (storm bigger than Earth). 79+ moons including Europa (subsurface ocean).\nSaturn: famous rings (ice and rock), density less than water. Moon Titan has lakes of methane.\nUranus: tilted 98° on its side, ice giant.\nNeptune: windiest planet (2,100 km/h), deep blue color, moon Triton orbits backward.", 2),
+        // Astronomy — Stars & Stellar Evolution (topic_id=55)
+        (55, "The Life of a Star", "Stars are born in nebulae — vast clouds of gas and dust.\n\nStellar lifecycle:\n1. Nebula: gravity pulls gas together.\n2. Protostar: heats up as it collapses.\n3. Main sequence: hydrogen fusion begins. Our Sun is here.\n   Lasts billions of years (longer for smaller stars).\n4. Red giant: hydrogen runs out, star expands.\n5. Death depends on mass:\n   - Low/medium mass → planetary nebula → white dwarf.\n   - High mass → supernova → neutron star or black hole.\n\nHertzsprung-Russell diagram: plots stars by temperature vs. luminosity.\nMost stars lie on the 'main sequence' diagonal.", 1),
+        (55, "Types of Stars", "Stars are classified by temperature and color (spectral type: O B A F G K M).\nMnemonic: Oh Be A Fine Girl/Guy, Kiss Me.\n\nO-type: blue, hottest (>30,000 K), short-lived (millions of years).\nG-type: yellow, like our Sun (~5,800 K), lives ~10 billion years.\nM-type: red, coolest (<3,500 K), most common, lives trillions of years.\n\nSpecial objects:\n- Red dwarfs: most stars in the universe. Small, dim, extremely long-lived.\n- White dwarfs: dead cores of medium stars. Earth-sized but Sun's mass.\n- Neutron stars: incredibly dense. A teaspoon weighs ~6 billion tons.\n- Black holes: gravity so strong even light can't escape. Stellar or supermassive.\n\nNearest star (besides Sun): Proxima Centauri, 4.24 light-years away.", 2),
+        // Astronomy — Galaxies & the Universe (topic_id=56)
+        (56, "Galaxies", "A galaxy is a gravitationally bound system of stars, gas, dust, and dark matter.\n\nTypes of galaxies:\n- Spiral: flat disk with arms (Milky Way, Andromeda). ~77% of observed galaxies.\n- Elliptical: round/oval, older stars, little gas. From small to giant.\n- Irregular: no defined shape (Magellanic Clouds).\n\nThe Milky Way:\n- ~200-400 billion stars.\n- ~100,000 light-years across.\n- Our Sun is ~26,000 light-years from the center.\n- A supermassive black hole (Sagittarius A*) sits at the center — 4 million solar masses.\n\nGalaxy groups and clusters: galaxies aren't alone.\n  The Milky Way is part of the Local Group (~54 galaxies).\n  The observable universe contains ~2 trillion galaxies.", 1),
+        (56, "The Expanding Universe", "Edwin Hubble (1929) discovered that galaxies are moving apart — the universe is expanding.\n\nThe Big Bang theory:\n- ~13.8 billion years ago, all matter and energy was in an incredibly hot, dense point.\n- It expanded rapidly (not an explosion 'in' space — space itself expanded).\n- As it cooled: quarks → protons/neutrons → atoms → stars → galaxies.\n\nEvidence for the Big Bang:\n1. Cosmic Microwave Background (CMB): radiation left over from 380,000 years after the Big Bang.\n2. Hubble's Law: farther galaxies move away faster.\n3. Abundance of hydrogen and helium matches predictions.\n\nDark matter: ~27% of the universe. Invisible but detectable by gravity.\nDark energy: ~68% of the universe. Accelerating the expansion.\nOrdinary matter: only ~5% of everything!", 2),
+        // Astronomy — Space Exploration (topic_id=57)
+        (57, "History of Space Exploration", "Key milestones:\n\n1957: Sputnik 1 — first artificial satellite (USSR).\n1961: Yuri Gagarin — first human in space (USSR).\n1969: Apollo 11 — Neil Armstrong and Buzz Aldrin walk on the Moon (USA).\n1971: First space station (Salyut 1, USSR).\n1977: Voyager 1 & 2 launched — still sending data from interstellar space.\n1990: Hubble Space Telescope launched.\n1998: International Space Station (ISS) construction begins.\n2012: Curiosity rover lands on Mars.\n2019: First image of a black hole (M87*).\n2021: James Webb Space Telescope launched.\n2022: DART mission successfully redirects an asteroid.\n\nThe Space Race (1957-1975) between USA and USSR drove rapid advancement.", 1),
+        (57, "The Future of Space", "Current and future missions:\n\nMars exploration:\n- NASA's Perseverance rover searching for ancient life.\n- SpaceX Starship: aims for crewed Mars missions in the 2030s.\n- Challenges: 6-9 month journey, radiation, thin atmosphere, no return plan yet.\n\nArtemis program: returning humans to the Moon. Gateway lunar station planned.\n\nPrivate spaceflight:\n- SpaceX: reusable rockets, Starlink satellite internet.\n- Blue Origin: space tourism, lunar lander.\n- Virgin Galactic: suborbital flights.\n\nBig questions:\n- Is there life elsewhere? (Europa, Enceladus, Mars, exoplanets)\n- Can we become a multi-planetary species?\n- Will we detect signals from intelligent civilizations?\n\nFermi Paradox: if the universe is so big, where is everyone?", 2),
         // Additional lessons for previously under-served topics
         // Reading Comprehension (topic_id=11) — add a second lesson
         (11, "Inference and Context Clues", "Inference means drawing conclusions from evidence, not just what's directly stated.\n\nTypes of context clues:\n- Definition: the word is defined in the sentence.\n- Synonym: a similar word appears nearby.\n- Antonym: an opposite word provides contrast.\n- Example: examples help clarify meaning.\n\nPractice:\n'The arid desert received less than 10cm of rain per year.'\n  Clue: desert, little rain → arid means very dry.\n\nMaking inferences:\n- What does the author imply but not say?\n- What evidence supports your conclusion?\n- Could there be another interpretation?", 2),
@@ -329,6 +347,11 @@ fn seed_explanations(conn: &Connection) -> Result<(), rusqlite::Error> {
         (47, "climate change", "Climate change is the long-term shift in global temperatures and weather patterns, largely driven by human activities.", Some("Imagine Earth wearing a blanket (the atmosphere). Greenhouse gases are making that blanket thicker — great for staying warm, but we're now overheating under it!"), Some("What's one thing you could do this week to reduce your carbon footprint?")),
         (48, "pollution", "Pollution is the introduction of harmful substances into the environment.", Some("Pollution is like putting the wrong fuel in an engine — the machine still runs for a while, but eventually things start breaking down. Earth is that engine!"), Some("Where does your garbage go after it leaves your house?")),
         (49, "sustainability", "Sustainability means using resources in a way that meets current needs without preventing future generations from meeting theirs.", Some("Sustainability is like eating from a fruit tree — if you pick all the fruit AND cut down the tree, there's nothing for next year. Smart harvesting keeps the tree alive forever!"), Some("If you could redesign one everyday product to be more sustainable, what would it be?")),
+        // Astronomy
+        (54, "solar system", "The solar system is the Sun and everything that orbits it — planets, moons, asteroids, and comets.", Some("Think of the solar system like a giant spinning record player — the Sun is the center, and the planets are grooves spiraling outward, each at their own speed!"), Some("Can you name the eight planets in order from the Sun?")),
+        (55, "stars", "Stars are massive balls of hot gas that produce energy through nuclear fusion — converting hydrogen into helium.", Some("A star is like a giant nuclear campfire — except instead of burning wood, it crushes hydrogen atoms together so hard they become helium and release incredible energy!"), Some("Why do you think some stars are blue and others are red?")),
+        (56, "galaxies", "A galaxy is a vast collection of stars, gas, dust, and dark matter bound together by gravity.", Some("Imagine a galaxy as a cosmic city — each star is a house, and there are hundreds of billions of houses, all orbiting a central downtown (usually a supermassive black hole)!"), Some("If the Milky Way is 100,000 light-years across, what does that tell you about how long light takes to cross it?")),
+        (57, "space exploration", "Space exploration is humanity's effort to understand and travel beyond Earth — using telescopes, satellites, rovers, and crewed missions.", Some("Space exploration is like being an ant on a beach ball trying to understand the ocean — we've barely stepped off our tiny planet, but what we've already found is mind-blowing!"), Some("If you could send one message to an alien civilization, what would you say?")),
         // Creative Writing
         (50, "story structure", "Story structure is the framework that organizes a narrative — beginning, middle, and end.", Some("Think of story structure like a roller coaster: the slow climb builds tension (setup), the big drop is the climax, and the gentle return to the station is the resolution. No one rides a flat roller coaster!"), Some("What's the inciting incident in your favorite movie?")),
         (51, "characters", "Characters are the people (or creatures) whose experiences drive a story forward.", Some("A character without a flaw is like a diamond without facets — technically perfect but not very interesting to look at. Flaws catch the light!"), Some("Think of a character you love — what's their biggest flaw, and why do you love them anyway?")),
@@ -511,11 +534,36 @@ fn seed_quiz_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         (53, "A haiku has how many syllables in total?", "multiple_choice", "17", Some("14"), Some("17"), Some("20"), Some("10"), Some("5 + 7 + 5"), "A haiku has 17 syllables: 5 in the first line, 7 in the second, 5 in the third."),
         (53, "Which device gives human qualities to non-human things?", "multiple_choice", "Personification", Some("Simile"), Some("Metaphor"), Some("Personification"), Some("Alliteration"), Some("The wind 'howled' — can wind really howl?"), "Personification attributes human characteristics to non-human things (the wind howled, time marches on)."),
         (53, "'Life is like a box of chocolates' is an example of a ___.", "fill_in_blank", "simile", None, None, None, None, Some("It uses 'like' or 'as'"), "A simile compares two things using 'like' or 'as'. A metaphor would say 'Life IS a box of chocolates.'"),
+        // Astronomy — The Solar System (topic_id=54)
+        (54, "Which planet is closest to the Sun?", "multiple_choice", "Mercury", Some("Venus"), Some("Mercury"), Some("Mars"), Some("Earth"), Some("The smallest planet"), "Mercury is the closest planet to the Sun, orbiting at an average distance of 58 million km."),
+        (54, "Which planet is the hottest in our solar system?", "multiple_choice", "Venus", Some("Mercury"), Some("Venus"), Some("Mars"), Some("Jupiter"), Some("Hint: it's not the closest to the Sun"), "Venus is the hottest (465°C) due to its thick CO₂ atmosphere creating a runaway greenhouse effect."),
+        (54, "How many planets are in our solar system?", "multiple_choice", "8", Some("7"), Some("8"), Some("9"), Some("10"), Some("Pluto was reclassified"), "There are 8 planets. Pluto was reclassified as a dwarf planet in 2006."),
+        (54, "Which planet has the Great Red Spot?", "multiple_choice", "Jupiter", Some("Mars"), Some("Saturn"), Some("Jupiter"), Some("Neptune"), Some("The largest planet"), "Jupiter's Great Red Spot is a storm larger than Earth that has raged for at least 350 years."),
+        (54, "True or false: Saturn is the only planet with rings.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Other gas giants have them too"), "False. Jupiter, Uranus, and Neptune also have ring systems, though Saturn's are by far the most prominent."),
+        (54, "Light from the Sun reaches Earth in about ___ minutes.", "fill_in_blank", "8", None, None, None, None, Some("The Sun is about 150 million km away"), "Light travels at ~300,000 km/s. The Sun is ~150 million km away: 150,000,000 ÷ 300,000 ≈ 500 seconds ≈ 8.3 minutes."),
+        // Astronomy — Stars & Stellar Evolution (topic_id=55)
+        (55, "What process powers stars?", "multiple_choice", "Nuclear fusion", Some("Nuclear fission"), Some("Nuclear fusion"), Some("Chemical combustion"), Some("Gravitational collapse"), Some("Hydrogen atoms combine"), "Stars are powered by nuclear fusion — hydrogen atoms fuse into helium, releasing enormous energy (E=mc²)."),
+        (55, "What will our Sun eventually become?", "multiple_choice", "White dwarf", Some("Black hole"), Some("Neutron star"), Some("White dwarf"), Some("Red dwarf"), Some("It's not massive enough for a dramatic death"), "Our Sun will expand into a red giant, shed its outer layers as a planetary nebula, and leave behind a white dwarf."),
+        (55, "Which spectral type is the hottest?", "multiple_choice", "O", Some("M"), Some("G"), Some("O"), Some("A"), Some("Oh Be A Fine Girl/Guy Kiss Me"), "O-type stars are the hottest (>30,000 K), appearing blue-white. M-type are the coolest."),
+        (55, "True or false: Red dwarfs are the most common type of star.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Small and dim but everywhere"), "True. Red dwarfs (M-type) make up about 70-80% of all stars in the Milky Way."),
+        (55, "The nearest star to Earth (besides the Sun) is ___.", "fill_in_blank", "Proxima Centauri", None, None, None, None, Some("It's part of the Alpha Centauri system"), "Proxima Centauri is 4.24 light-years from Earth, part of the Alpha Centauri triple star system."),
+        // Astronomy — Galaxies & the Universe (topic_id=56)
+        (56, "What type of galaxy is the Milky Way?", "multiple_choice", "Spiral", Some("Elliptical"), Some("Spiral"), Some("Irregular"), Some("Lenticular"), Some("It has arms"), "The Milky Way is a barred spiral galaxy, about 100,000 light-years in diameter."),
+        (56, "What sits at the center of the Milky Way?", "multiple_choice", "A supermassive black hole", Some("A giant star"), Some("A supermassive black hole"), Some("A neutron star"), Some("Nothing"), Some("Named Sagittarius A*"), "Sagittarius A* is a supermassive black hole at the Milky Way's center, with ~4 million solar masses."),
+        (56, "How old is the universe?", "multiple_choice", "About 13.8 billion years", Some("About 4.6 billion years"), Some("About 13.8 billion years"), Some("About 100 billion years"), Some("About 1 billion years"), Some("4.6 billion is our solar system"), "The universe is approximately 13.8 billion years old, determined from the cosmic microwave background."),
+        (56, "True or false: The universe is expanding.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Hubble discovered this in 1929"), "True. Edwin Hubble discovered that galaxies are moving apart, and the expansion is accelerating due to dark energy."),
+        (56, "Ordinary matter makes up about ___% of the universe.", "fill_in_blank", "5", None, None, None, None, Some("Dark matter and dark energy dominate"), "Only ~5% of the universe is ordinary matter. ~27% is dark matter and ~68% is dark energy."),
+        // Astronomy — Space Exploration (topic_id=57)
+        (57, "Who was the first human in space?", "multiple_choice", "Yuri Gagarin", Some("Neil Armstrong"), Some("Yuri Gagarin"), Some("John Glenn"), Some("Buzz Aldrin"), Some("Soviet cosmonaut, 1961"), "Yuri Gagarin orbited Earth on April 12, 1961, aboard Vostok 1."),
+        (57, "In what year did humans first walk on the Moon?", "multiple_choice", "1969", Some("1965"), Some("1969"), Some("1972"), Some("1959"), Some("Apollo 11"), "Neil Armstrong and Buzz Aldrin walked on the Moon on July 20, 1969, during the Apollo 11 mission."),
+        (57, "Which space telescope launched in 2021?", "multiple_choice", "James Webb Space Telescope", Some("Hubble"), Some("James Webb Space Telescope"), Some("Spitzer"), Some("Kepler"), Some("Named after a NASA administrator"), "The James Webb Space Telescope (JWST) launched on December 25, 2021, as Hubble's successor for infrared astronomy."),
+        (57, "True or false: Voyager 1 has left the solar system.", "true_false", "true", Some("true"), Some("false"), None, None, Some("It entered interstellar space in 2012"), "True. Voyager 1 crossed into interstellar space in August 2012, becoming the first human-made object to do so."),
+        (57, "The Fermi Paradox asks: if the universe is so big, where is ___?", "fill_in_blank", "everyone", None, None, None, None, Some("Where are all the aliens?"), "The Fermi Paradox highlights the contradiction between the high probability of alien civilizations and the lack of evidence for them."),
     ];
     for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
-            rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
         )?;
     }
     Ok(())
@@ -569,6 +617,10 @@ fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("creative writing", 2, 51, "Character development — breathing life into people on the page"),
         ("creative writing", 3, 52, "Dialogue & voice — making characters speak and finding your style"),
         ("creative writing", 4, 53, "Poetry fundamentals — the art of compressed language"),
+        ("space and astronomy", 1, 54, "The solar system — our cosmic neighborhood"),
+        ("space and astronomy", 2, 55, "Stars — the life and death of suns"),
+        ("space and astronomy", 3, 56, "Galaxies — island universes of stars"),
+        ("space and astronomy", 4, 57, "Space exploration — humanity's journey beyond Earth"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -591,7 +643,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 14);
+        assert_eq!(count, 15);
     }
 
     #[test]
@@ -601,7 +653,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 14);
+        assert_eq!(count, 15);
     }
 
     #[test]

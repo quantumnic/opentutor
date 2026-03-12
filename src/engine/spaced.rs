@@ -249,6 +249,42 @@ pub fn calculate_streak(conn: &Connection) -> i64 {
     streak
 }
 
+/// Estimate current memory retention using the Ebbinghaus forgetting curve.
+/// Returns a value between 0.0 and 1.0 (100% = perfect retention).
+/// Formula: R = e^(-t/S) where t = time since last review, S = stability (derived from interval × ease).
+pub fn estimate_retention(conn: &Connection, topic_id: i64) -> f64 {
+    let result: Option<(f64, i64, Option<String>)> = conn
+        .query_row(
+            "SELECT ease_factor, interval_days, last_reviewed FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+
+    match result {
+        Some((ease, interval, Some(last_reviewed))) => {
+            let days_since: f64 = conn
+                .query_row(
+                    "SELECT MAX(0, julianday('now') - julianday(?1))",
+                    [&last_reviewed],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0.0);
+
+            // Stability is proportional to the scheduled interval and ease factor
+            let stability = (interval as f64) * ease / 2.5;
+            if stability <= 0.0 {
+                return 0.0;
+            }
+
+            // Ebbinghaus forgetting curve: R = e^(-t/S)
+            let retention = (-days_since / stability).exp();
+            retention.clamp(0.0, 1.0)
+        }
+        _ => 0.0, // No progress data
+    }
+}
+
 /// Get a topic's memory strength as a descriptive string.
 #[allow(dead_code)]
 pub fn memory_strength(interval_days: i64, ease_factor: f64) -> &'static str {
