@@ -138,6 +138,17 @@ enum Commands {
         #[arg(short, long, default_value = "15")]
         limit: usize,
     },
+    /// Mixed cross-subject quiz for interleaved practice
+    Mix {
+        /// Number of questions
+        #[arg(short, long, default_value = "10")]
+        count: usize,
+        /// Filter by subject (optional)
+        #[arg(short, long)]
+        subject: Option<String>,
+    },
+    /// Track your learning velocity and progress trends
+    Velocity,
 }
 
 fn main() {
@@ -178,6 +189,8 @@ fn main() {
         Commands::Bookmark { action, topic } => commands::bookmark::run(&conn, &action, &topic),
         Commands::Weak { limit } => commands::weak::run(&conn, limit),
         Commands::Mistakes { limit } => commands::mistakes::run(&conn, limit),
+        Commands::Mix { count, subject } => commands::mix::run(&conn, count, subject.as_deref()),
+        Commands::Velocity => commands::velocity::run(&conn),
     };
 
     if let Err(e) = result {

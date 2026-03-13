@@ -27,6 +27,11 @@ const INITIAL_STABILITY: [f64; 6] = [0.4, 0.6, 1.0, 2.0, 4.0, 6.0];
 /// Same-day review bonus: fraction of normal interval awarded when re-reviewing
 /// a topic on the same day (prevents wasted reviews but gives partial credit).
 const SAME_DAY_REVIEW_FACTOR: f64 = 0.25;
+/// Fatigue decay: quality is reduced by this amount per review done in the
+/// current session (beyond the first 10). Models cognitive fatigue during
+/// long review sessions — later reviews are worth slightly less.
+const FATIGUE_THRESHOLD: i64 = 10;
+const FATIGUE_DECAY_PER_REVIEW: f64 = 0.05;
 
 /// Returns a difficulty multiplier for initial intervals based on topic difficulty.
 /// Harder topics get shorter initial intervals (multiplier < 1.0) to reinforce
@@ -63,6 +68,21 @@ fn topic_difficulty_factor(conn: &Connection, topic_id: i64) -> f64 {
     } else {
         base
     }
+}
+
+/// Calculate fatigue-adjusted quality based on how many reviews done today.
+/// After FATIGUE_THRESHOLD reviews, each additional review slightly reduces
+/// the effective quality score, modeling cognitive fatigue. This encourages
+/// users to spread reviews across multiple sessions.
+pub fn fatigue_adjusted_quality(conn: &Connection, quality: u8) -> u8 {
+    let done = reviews_done_today(conn);
+    if done <= FATIGUE_THRESHOLD || quality <= 1 {
+        return quality;
+    }
+    let fatigue_reviews = (done - FATIGUE_THRESHOLD) as f64;
+    let penalty = (fatigue_reviews * FATIGUE_DECAY_PER_REVIEW).min(1.0);
+    let adjusted = (quality as f64 - penalty).floor().max(1.0) as u8;
+    adjusted.min(quality) // Never increase quality
 }
 
 /// Apply a small random fuzz to an interval to prevent review clustering.
@@ -1051,6 +1071,50 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let remaining = remaining_reviews_today(&conn);
         assert_eq!(remaining, DEFAULT_DAILY_REVIEW_CAP);
+    }
+
+    #[test]
+    fn test_fatigue_no_penalty_under_threshold() {
+        let conn = db::init_memory_db().unwrap();
+        // No reviews done → no fatigue
+        assert_eq!(fatigue_adjusted_quality(&conn, 5), 5);
+        assert_eq!(fatigue_adjusted_quality(&conn, 3), 3);
+    }
+
+    #[test]
+    fn test_fatigue_penalty_over_threshold() {
+        let conn = db::init_memory_db().unwrap();
+        // Insert many reviews to exceed threshold
+        for _ in 0..(FATIGUE_THRESHOLD + 10) {
+            conn.execute(
+                "INSERT INTO session_log (topic_id, activity_type, timestamp) VALUES (1, 'review', datetime('now'))",
+                [],
+            ).unwrap();
+        }
+        let adjusted = fatigue_adjusted_quality(&conn, 5);
+        assert!(adjusted < 5, "Quality should be reduced by fatigue, got {}", adjusted);
+        assert!(adjusted >= 1, "Quality should never go below 1");
+    }
+
+    #[test]
+    fn test_fatigue_never_increases_quality() {
+        let conn = db::init_memory_db().unwrap();
+        let q = fatigue_adjusted_quality(&conn, 2);
+        assert!(q <= 2);
+    }
+
+    #[test]
+    fn test_fatigue_minimum_quality_1() {
+        let conn = db::init_memory_db().unwrap();
+        // Many many reviews
+        for _ in 0..100 {
+            conn.execute(
+                "INSERT INTO session_log (topic_id, activity_type, timestamp) VALUES (1, 'review', datetime('now'))",
+                [],
+            ).unwrap();
+        }
+        let q = fatigue_adjusted_quality(&conn, 3);
+        assert!(q >= 1, "Fatigue should never push quality below 1, got {}", q);
     }
 }
 

@@ -36,6 +36,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_nutrition_science(conn)?;
     seed_expanded_language_health(conn)?;
     seed_astronomy_physics_expanded(conn)?;
+    seed_calculus(conn)?;
+    seed_programming_basics(conn)?;
+    seed_extra_math_quizzes(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -717,7 +720,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 26); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science
+        assert_eq!(count, 28); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming
     }
 
     #[test]
@@ -727,7 +730,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 26);
+        assert_eq!(count, 28);
     }
 
     #[test]
@@ -2909,6 +2912,234 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
             rusqlite::params![tid, title, content, order],
         )?;
+    }
+
+    Ok(())
+}
+
+fn seed_calculus(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let calc_id: i64 = conn.query_row(
+        "INSERT INTO subjects (name, description) VALUES ('Calculus', 'The mathematics of change — limits, derivatives, integrals, and their applications in science and engineering.') RETURNING id",
+        [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        (calc_id, "Limits & Continuity", "beginner", 1),
+        (calc_id, "Derivatives", "intermediate", 2),
+        (calc_id, "Applications of Derivatives", "intermediate", 3),
+        (calc_id, "Integrals", "intermediate", 4),
+        (calc_id, "Fundamental Theorem of Calculus", "advanced", 5),
+    ];
+    let mut topic_ids = Vec::new();
+    for (sid, name, diff, order) in &topics {
+        let tid: i64 = conn.query_row(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1,?2,?3,?4) RETURNING id",
+            rusqlite::params![sid, name, diff, order],
+            |r| r.get(0),
+        )?;
+        topic_ids.push(tid);
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (topic_ids[0], "What Is a Limit?", "A limit describes what value a function approaches as the input approaches some value.\n\nExample: As x approaches 2, f(x) = x² approaches 4.\nWe write: lim(x→2) x² = 4\n\nKey insight: The limit is about the JOURNEY, not the destination.\nThe function doesn't need to equal that value at the point — it's about what it gets close to.\n\nOne-sided limits:\n- Left limit: approaching from smaller values (x → 2⁻)\n- Right limit: approaching from larger values (x → 2⁺)\n- The limit exists only if both sides agree.", 1),
+        (topic_ids[0], "Continuity", "A function is continuous at a point if:\n1. f(a) exists (the function is defined there)\n2. lim(x→a) f(x) exists (the limit exists)\n3. lim(x→a) f(x) = f(a) (they're equal)\n\nIf any condition fails, there's a discontinuity:\n- Removable: a hole (limit exists but ≠ f(a))\n- Jump: left and right limits differ\n- Infinite: function blows up to ±∞\n\nContinuous functions are 'smooth' — you can draw them without lifting your pen.", 2),
+        (topic_ids[1], "The Derivative", "The derivative measures the instantaneous rate of change.\n\nDefinition: f'(x) = lim(h→0) [f(x+h) - f(x)] / h\n\nBasic rules:\n- Power rule: d/dx(xⁿ) = n·xⁿ⁻¹\n- Constant rule: d/dx(c) = 0\n- Sum rule: d/dx(f+g) = f' + g'\n- Product rule: d/dx(fg) = f'g + fg'\n- Chain rule: d/dx(f(g(x))) = f'(g(x))·g'(x)\n\nGeometrically, the derivative at a point is the slope of the tangent line.", 1),
+        (topic_ids[2], "Optimization", "Derivatives help find maximum and minimum values.\n\nProcess:\n1. Find f'(x) and set it equal to 0\n2. These are critical points\n3. Use the second derivative test:\n   - f''(x) > 0 → local minimum (concave up)\n   - f''(x) < 0 → local maximum (concave down)\n   - f''(x) = 0 → inconclusive\n\nReal-world examples:\n- Maximizing profit\n- Minimizing material cost\n- Finding optimal dimensions", 1),
+        (topic_ids[3], "Introduction to Integrals", "Integration is the reverse of differentiation.\n\nThe indefinite integral: ∫f(x)dx = F(x) + C\nwhere F'(x) = f(x) and C is the constant of integration.\n\nBasic rules:\n- ∫xⁿ dx = xⁿ⁺¹/(n+1) + C  (n ≠ -1)\n- ∫1/x dx = ln|x| + C\n- ∫eˣ dx = eˣ + C\n\nThe definite integral ∫[a,b] f(x)dx computes the signed area under the curve from a to b.", 1),
+        (topic_ids[4], "The Fundamental Theorem", "The Fundamental Theorem of Calculus connects derivatives and integrals:\n\nPart 1: If F(x) = ∫[a,x] f(t)dt, then F'(x) = f(x).\n(The derivative of the integral gives back the original function.)\n\nPart 2: ∫[a,b] f(x)dx = F(b) - F(a)\n(To evaluate a definite integral, find an antiderivative and plug in the bounds.)\n\nThis is one of the most beautiful results in mathematics — it says accumulation and rate of change are inverse operations.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (topic_ids[0], "Limit", "A limit is the value a function approaches as the input approaches a specific number. It's about getting infinitely close, not necessarily reaching.", Some("Imagine walking toward a wall — you can always halve the remaining distance. The limit is the wall: you never touch it, but it's clearly where you're heading."), Some("Can a limit exist at a point where the function is undefined?")),
+        (topic_ids[1], "Derivative as rate of change", "The derivative tells you how fast something is changing at an exact instant. If position is where you are, velocity (the derivative) is how fast you're moving right now.", Some("Your car's speedometer shows a derivative — your instantaneous speed — not average speed over the whole trip."), Some("What's the derivative of x³?")),
+        (topic_ids[3], "Integral as accumulation", "An integral adds up infinitely many tiny pieces to find a total. It's the mathematical equivalent of summing all the infinitesimally thin slices of an area.", Some("Imagine measuring rainfall: the integral of the rain rate over time gives total rainfall. Each moment contributes a tiny amount, and the integral is the bucket that catches it all."), Some("What does a negative integral value mean?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRow> = vec![
+        (topic_ids[0], "What is lim(x→3) of x² + 1?", "multiple_choice", "10", Some("7"), Some("9"), Some("10"), Some("12"), None, "Substitute x=3: 3² + 1 = 9 + 1 = 10. Since x² + 1 is continuous, the limit equals the function value."),
+        (topic_ids[0], "A function is continuous at x=a if the limit exists and equals ___.", "fill_in_blank", "f(a)", None, None, None, None, Some("The function value at that point..."), "Continuity requires: lim(x→a) f(x) = f(a). The limit must equal the actual function value."),
+        (topic_ids[0], "True or false: A limit can exist even if the function is undefined at that point.", "true_false", "true", Some("true"), Some("false"), None, None, None, "Yes! For example, lim(x→0) sin(x)/x = 1, even though sin(0)/0 is undefined (0/0)."),
+        (topic_ids[1], "Using the power rule, what is the derivative of x⁵?", "multiple_choice", "5x⁴", Some("5x⁴"), Some("x⁴"), Some("5x⁵"), Some("4x⁵"), None, "Power rule: d/dx(xⁿ) = n·xⁿ⁻¹. So d/dx(x⁵) = 5·x⁴."),
+        (topic_ids[1], "The derivative of a constant is ___.", "fill_in_blank", "0", None, None, None, None, Some("Constants don't change..."), "A constant has no rate of change, so its derivative is always 0."),
+        (topic_ids[1], "What is the derivative of 3x² + 2x - 7?", "multiple_choice", "6x + 2", Some("6x + 2"), Some("3x + 2"), Some("6x² + 2"), Some("6x - 7"), None, "Apply the power rule term by term: d/dx(3x²) = 6x, d/dx(2x) = 2, d/dx(-7) = 0. Sum: 6x + 2."),
+        (topic_ids[2], "To find maximum/minimum values, we set the ___ equal to zero.", "fill_in_blank", "derivative", None, None, None, None, Some("The rate of change at a peak or valley is..."), "At a maximum or minimum, the function is momentarily not changing — the slope (derivative) is zero."),
+        (topic_ids[2], "If f''(x) > 0 at a critical point, it's a:", "multiple_choice", "local minimum", Some("local maximum"), Some("local minimum"), Some("inflection point"), Some("saddle point"), None, "f'' > 0 means concave up (like a cup), so the critical point is a local minimum."),
+        (topic_ids[3], "What is ∫x² dx?", "multiple_choice", "x³/3 + C", Some("x³/3 + C"), Some("2x + C"), Some("x³ + C"), Some("3x² + C"), None, "Using the power rule for integrals: ∫xⁿ dx = xⁿ⁺¹/(n+1) + C. So ∫x² dx = x³/3 + C."),
+        (topic_ids[3], "The 'C' in ∫f(x)dx = F(x) + C is called the constant of ___.", "fill_in_blank", "integration", None, None, None, None, Some("It represents any constant that disappears when you differentiate..."), "The constant of integration accounts for the fact that many functions have the same derivative (they differ by a constant)."),
+        (topic_ids[4], "The Fundamental Theorem of Calculus connects which two operations?", "multiple_choice", "Differentiation and integration", Some("Addition and subtraction"), Some("Differentiation and integration"), Some("Limits and series"), Some("Algebra and geometry"), None, "The FTC shows that differentiation and integration are inverse operations — the two central ideas of calculus are fundamentally linked."),
+        (topic_ids[4], "True or false: ∫[a,b] f(x)dx = F(b) - F(a) where F is any antiderivative of f.", "true_false", "true", Some("true"), Some("false"), None, None, None, "This is Part 2 of the Fundamental Theorem. You evaluate a definite integral by finding an antiderivative and computing F(b) - F(a)."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    for (i, (tid, desc)) in [
+        (topic_ids[0], "Master limits and continuity — the foundation of calculus"),
+        (topic_ids[1], "Learn derivatives and differentiation rules"),
+        (topic_ids[2], "Apply derivatives to real-world optimization problems"),
+        (topic_ids[3], "Understand integrals and the area under curves"),
+        (topic_ids[4], "Connect it all with the Fundamental Theorem of Calculus"),
+    ].iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('calculus', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_programming_basics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let prog_id: i64 = conn.query_row(
+        "INSERT INTO subjects (name, description) VALUES ('Programming', 'Learn to code — variables, control flow, functions, data structures, and algorithmic thinking.') RETURNING id",
+        [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        (prog_id, "Variables & Data Types", "beginner", 1),
+        (prog_id, "Control Flow", "beginner", 2),
+        (prog_id, "Functions", "intermediate", 3),
+        (prog_id, "Data Structures", "intermediate", 4),
+        (prog_id, "Algorithms", "advanced", 5),
+    ];
+    let mut topic_ids = Vec::new();
+    for (sid, name, diff, order) in &topics {
+        let tid: i64 = conn.query_row(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1,?2,?3,?4) RETURNING id",
+            rusqlite::params![sid, name, diff, order],
+            |r| r.get(0),
+        )?;
+        topic_ids.push(tid);
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (topic_ids[0], "Variables", "A variable is a named container for data.\n\nThink of it as a labeled box:\n- The label is the variable name\n- The contents are the value\n- The box type is the data type\n\nCommon data types:\n- Integer (int): whole numbers like 42, -7\n- Float/Double: decimal numbers like 3.14\n- String: text like \"Hello\"\n- Boolean: true or false\n- Char: single character like 'A'\n\nExample:\n  let age = 25;        // integer\n  let pi = 3.14159;    // float\n  let name = \"Alice\";   // string\n  let active = true;   // boolean", 1),
+        (topic_ids[1], "If-Else & Loops", "Control flow decides which code runs and when.\n\nConditionals (if-else):\n  if temperature > 30 {\n      print(\"It's hot!\");\n  } else if temperature > 20 {\n      print(\"Nice weather\");\n  } else {\n      print(\"It's cold\");\n  }\n\nLoops repeat code:\n- For loop: repeat a known number of times\n  for i in 1..=5 { print(i); }\n- While loop: repeat while a condition is true\n  while count > 0 { count -= 1; }\n- Break: exit a loop early\n- Continue: skip to the next iteration", 1),
+        (topic_ids[2], "Defining & Calling Functions", "Functions are reusable blocks of code.\n\nWhy use functions?\n1. Avoid repeating code (DRY: Don't Repeat Yourself)\n2. Break complex problems into smaller pieces\n3. Make code readable and testable\n\nAnatomy of a function:\n  fn greet(name: &str) -> String {\n      format!(\"Hello, {}!\", name)\n  }\n\n- fn: keyword to define a function\n- greet: the function name\n- name: &str: parameter with its type\n- -> String: return type\n- The body contains the logic\n\nCalling: let message = greet(\"Alice\");", 1),
+        (topic_ids[3], "Arrays, Lists & Maps", "Data structures organize collections of data.\n\nArray/Vector: ordered collection, accessed by index (0-based)\n  let fruits = [\"apple\", \"banana\", \"cherry\"];\n  fruits[0]  // \"apple\"\n\nHashMap/Dictionary: key-value pairs\n  let ages = {\"Alice\": 30, \"Bob\": 25};\n  ages[\"Alice\"]  // 30\n\nStack: Last In, First Out (LIFO) — like a stack of plates\nQueue: First In, First Out (FIFO) — like a line at a store\n\nChoosing the right data structure is a key programming skill.", 1),
+        (topic_ids[4], "Sorting & Searching", "Algorithms are step-by-step procedures to solve problems.\n\nSearching:\n- Linear search: check each element one by one. O(n)\n- Binary search: divide sorted data in half each step. O(log n)\n  Much faster for sorted data!\n\nSorting:\n- Bubble sort: compare adjacent pairs, swap if needed. O(n²)\n- Merge sort: divide, sort halves, merge. O(n log n)\n- Quick sort: pick a pivot, partition. O(n log n) average\n\nBig-O notation measures efficiency:\n- O(1): constant — instant\n- O(log n): logarithmic — very fast\n- O(n): linear — proportional\n- O(n²): quadratic — slow for large data", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (topic_ids[0], "Variable", "A variable stores a value in memory with a name you choose. You can read it, change it, and use it in calculations.", Some("Like a whiteboard with a label — you can erase and rewrite the contents, but the label stays."), Some("What happens if you assign a new value to an existing variable?")),
+        (topic_ids[2], "Function", "A function is a named, reusable block of code that takes inputs (parameters), does something, and optionally returns an output.", Some("Like a kitchen recipe: it has a name, a list of ingredients (parameters), instructions (the body), and produces a dish (the return value)."), Some("Can a function call itself?")),
+        (topic_ids[4], "Big-O notation", "Big-O notation describes how an algorithm's running time or space grows as input size increases. It's about the worst-case growth rate, ignoring constants.", Some("If sorting 10 items takes 1 second, O(n²) means 100 items takes ~100 seconds — it grows with the square. O(n log n) means 100 items takes ~7 seconds."), Some("Which is faster for large data: O(n log n) or O(n²)?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRow> = vec![
+        (topic_ids[0], "Which data type stores true or false?", "multiple_choice", "Boolean", Some("Integer"), Some("Boolean"), Some("String"), Some("Float"), None, "Boolean is the data type for logical values: true or false. Named after George Boole."),
+        (topic_ids[0], "A variable that stores 3.14 is most likely a ___.", "fill_in_blank", "float", None, None, None, None, Some("It has a decimal point..."), "Decimal numbers are stored as floating-point (float or double) values."),
+        (topic_ids[0], "True or false: Variable names can start with a number.", "true_false", "false", Some("true"), Some("false"), None, None, None, "In most programming languages, variable names must start with a letter or underscore, not a number."),
+        (topic_ids[1], "Which loop runs a known number of times?", "multiple_choice", "for loop", Some("while loop"), Some("for loop"), Some("do-while loop"), Some("infinite loop"), None, "A for loop iterates over a range or collection with a predetermined count."),
+        (topic_ids[1], "What keyword exits a loop early?", "fill_in_blank", "break", None, None, None, None, Some("It stops the loop immediately..."), "The 'break' keyword immediately exits the innermost loop."),
+        (topic_ids[2], "What is the term for a function that calls itself?", "multiple_choice", "Recursion", Some("Iteration"), Some("Recursion"), Some("Abstraction"), Some("Encapsulation"), None, "Recursion is when a function calls itself, typically with a simpler version of the problem, until it reaches a base case."),
+        (topic_ids[2], "The values passed to a function are called ___.", "fill_in_blank", "arguments", None, None, None, None, Some("Also called parameters when defining the function..."), "Arguments are the actual values passed to a function when calling it. Parameters are the names used in the function definition."),
+        (topic_ids[3], "In a zero-indexed array, what index is the first element?", "multiple_choice", "0", Some("0"), Some("1"), Some("-1"), Some("none"), None, "Most programming languages use 0-based indexing: the first element is at index 0."),
+        (topic_ids[3], "A HashMap stores data as ___ pairs.", "fill_in_blank", "key-value", None, None, None, None, Some("Each entry has a lookup key and associated data..."), "HashMaps (also called dictionaries) map unique keys to their associated values for fast lookup."),
+        (topic_ids[4], "What is the time complexity of binary search?", "multiple_choice", "O(log n)", Some("O(n)"), Some("O(log n)"), Some("O(n²)"), Some("O(1)"), None, "Binary search halves the search space each step, giving O(log n) — searching 1 million items takes only ~20 steps."),
+        (topic_ids[4], "Put these complexities in order from fastest to slowest: O(n²), O(1), O(n log n), O(n)", "ordering", "O(1),O(n),O(n log n),O(n²)", None, None, None, None, None, "O(1) is constant (fastest), then O(n) linear, O(n log n) linearithmic, O(n²) quadratic (slowest)."),
+        (topic_ids[4], "True or false: Merge sort is always O(n log n), even in the worst case.", "true_false", "true", Some("true"), Some("false"), None, None, None, "Unlike quicksort which can degrade to O(n²), merge sort is always O(n log n) because it always divides evenly."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    for (i, (tid, desc)) in [
+        (topic_ids[0], "Learn variables and data types — the building blocks"),
+        (topic_ids[1], "Master control flow — if-else and loops"),
+        (topic_ids[2], "Understand functions and code reuse"),
+        (topic_ids[3], "Explore data structures for organizing information"),
+        (topic_ids[4], "Study algorithms and computational complexity"),
+    ].iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('programming', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Add more quiz questions to subjects with sparse coverage.
+fn seed_extra_math_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let algebra_id: Option<i64> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Algebra Basics' LIMIT 1",
+        [], |r| r.get(0),
+    ).ok();
+
+    if let Some(tid) = algebra_id {
+        let existing: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1",
+            [tid], |r| r.get(0),
+        )?;
+        if existing < 5 {
+            let extra_quizzes: Vec<QuizRow> = vec![
+                (tid, "Solve: 2x + 6 = 14. What is x?", "multiple_choice", "4", Some("3"), Some("4"), Some("5"), Some("8"), Some("Subtract 6 from both sides first..."), "2x + 6 = 14 → 2x = 8 → x = 4."),
+                (tid, "If y = 3x - 1 and x = 5, then y = ___.", "fill_in_blank", "14", None, None, None, None, Some("Substitute x = 5..."), "y = 3(5) - 1 = 15 - 1 = 14."),
+                (tid, "True or false: The equation x² = 9 has exactly one solution.", "true_false", "false", Some("true"), Some("false"), None, None, None, "x² = 9 has TWO solutions: x = 3 and x = -3. Don't forget the negative root!"),
+            ];
+            for (tid2, question, qtype, answer, a, b, c, d, hint, expl) in &extra_quizzes {
+                conn.execute(
+                    "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+                    rusqlite::params![tid2, question, qtype, answer, a, b, c, d, hint, expl],
+                )?;
+            }
+        }
+    }
+
+    let geometry_id: Option<i64> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Geometry' LIMIT 1",
+        [], |r| r.get(0),
+    ).ok();
+
+    if let Some(tid) = geometry_id {
+        let existing: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1",
+            [tid], |r| r.get(0),
+        )?;
+        if existing < 5 {
+            let extra_quizzes: Vec<QuizRow> = vec![
+                (tid, "What is the area of a circle with radius 5? (Use π ≈ 3.14)", "multiple_choice", "78.5", Some("31.4"), Some("78.5"), Some("25"), Some("157"), Some("Area = π × r²"), "Area = π × r² = 3.14 × 25 = 78.5 square units."),
+                (tid, "A triangle with all three sides equal is called ___.", "fill_in_blank", "equilateral", None, None, None, None, Some("Equi- means equal..."), "An equilateral triangle has all three sides (and all three angles at 60°) equal."),
+                (tid, "How many degrees are in the interior angles of a triangle?", "multiple_choice", "180", Some("90"), Some("180"), Some("270"), Some("360"), None, "The interior angles of any triangle always sum to exactly 180 degrees."),
+            ];
+            for (tid2, question, qtype, answer, a, b, c, d, hint, expl) in &extra_quizzes {
+                conn.execute(
+                    "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+                    rusqlite::params![tid2, question, qtype, answer, a, b, c, d, hint, expl],
+                )?;
+            }
+        }
     }
 
     Ok(())

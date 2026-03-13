@@ -179,7 +179,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
             adaptive::update_progress(conn, *topic_id, true)?;
         }
 
-        // Update spaced repetition
+        // Update spaced repetition with fatigue adjustment
         let score = 100.0; // Non-interactive mode
         let quality = if score >= 90.0 {
             5
@@ -190,6 +190,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         } else {
             2
         };
+        let quality = spaced::fatigue_adjusted_quality(conn, quality);
         spaced::update_spaced_repetition(conn, *topic_id, quality)?;
         adaptive::log_activity(conn, *topic_id, "review", Some(score))?;
 
