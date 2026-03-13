@@ -179,7 +179,8 @@ pub fn update_spaced_repetition(
                     let calculated = (n as f64 * ease).round() as i64;
                     let quality_bonus = if quality == 5 { 1.1 } else { 1.0 };
                     let same_day_factor = if is_same_day { SAME_DAY_REVIEW_FACTOR } else { 1.0 };
-                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor)
+                    let spacing = spacing_bonus(conn, topic_id);
+                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * spacing)
                         .round()
                         .max(n as f64) as i64 // Never shrink interval on success
                 }
@@ -587,6 +588,25 @@ pub fn prioritized_due_topics(conn: &Connection) -> Result<Vec<(i64, String, Str
         .collect();
     scored.sort_by(|a, b| b.3.partial_cmp(&a.3).unwrap_or(std::cmp::Ordering::Equal));
     Ok(scored)
+}
+
+/// Calculate the inter-day spacing bonus: reviewing a topic on different days
+/// is more effective than cramming on the same day. Returns a multiplier > 1.0
+/// when the user has reviewed this topic across multiple distinct days.
+pub fn spacing_bonus(conn: &Connection, topic_id: i64) -> f64 {
+    let distinct_days: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT DATE(timestamp)) FROM session_log
+             WHERE topic_id = ?1 AND activity_type IN ('review', 'quiz', 'learn')
+             AND timestamp >= datetime('now', '-14 days')",
+            [topic_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    // Bonus scales from 1.0 (1 day) to 1.2 (7+ distinct days in last 2 weeks)
+    let bonus = 1.0 + (distinct_days.min(7) as f64 - 1.0).max(0.0) * 0.033;
+    bonus.min(1.2)
 }
 
 /// Default daily review cap (configurable via `opentutor config daily_review_cap`)
@@ -1101,6 +1121,34 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let q = fatigue_adjusted_quality(&conn, 2);
         assert!(q <= 2);
+    }
+
+    #[test]
+    fn test_spacing_bonus_no_history() {
+        let conn = db::init_memory_db().unwrap();
+        let bonus = spacing_bonus(&conn, 1);
+        assert!((bonus - 1.0).abs() < 0.01, "No history should give 1.0 bonus, got {}", bonus);
+    }
+
+    #[test]
+    fn test_spacing_bonus_multiple_days() {
+        let conn = db::init_memory_db().unwrap();
+        // Insert activity on 3 different days
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, timestamp) VALUES (1, 'review', datetime('now'))",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, timestamp) VALUES (1, 'review', datetime('now', '-1 day'))",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, timestamp) VALUES (1, 'review', datetime('now', '-3 days'))",
+            [],
+        ).unwrap();
+        let bonus = spacing_bonus(&conn, 1);
+        assert!(bonus > 1.0, "Multiple days should give bonus > 1.0, got {}", bonus);
+        assert!(bonus <= 1.2, "Bonus should be capped at 1.2, got {}", bonus);
     }
 
     #[test]

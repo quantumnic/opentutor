@@ -3,6 +3,7 @@ use rusqlite::Connection;
 type LessonRow<'a> = (i64, &'a str, &'a str, i64);
 type ExplanationRow<'a> = (i64, &'a str, &'a str, Option<&'a str>, Option<&'a str>);
 type QuizRow<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str);
+type QuizRowHint<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str, &'a str);
 
 pub fn seed_if_empty(conn: &Connection) -> Result<(), rusqlite::Error> {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))?;
@@ -39,6 +40,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_calculus(conn)?;
     seed_programming_basics(conn)?;
     seed_extra_math_quizzes(conn)?;
+    seed_creative_writing(conn)?;
+    seed_earth_science(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -720,7 +723,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 28); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming
+        assert_eq!(count, 29); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science
     }
 
     #[test]
@@ -730,7 +733,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 28);
+        assert_eq!(count, 29);
     }
 
     #[test]
@@ -890,7 +893,7 @@ mod tests {
             "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Creative Writing'",
             [], |r| r.get(0)
         ).unwrap();
-        assert_eq!(topic_count, 4);
+        assert_eq!(topic_count, 7);
     }
 
     #[test]
@@ -1034,7 +1037,7 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     // Explanations
-    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let explanations: Vec<ExplanationRow> = vec![
         (atoms_id, "atoms", "Atoms are the smallest unit of an element — the building blocks of all matter.", Some("Think of atoms like LEGO bricks — just as every LEGO creation is built from simple bricks, everything in the universe is built from atoms. There are about 118 types of 'bricks' (elements), and by combining them differently, you get water, air, gold, and even you!"), Some("If you could zoom in far enough to see a single atom, what do you think it would look like?")),
         (bonds_id, "chemical bonds", "Chemical bonds are the forces that hold atoms together to form molecules and compounds.", Some("Chemical bonds are like handshakes between atoms — some atoms share equally (covalent, like a cooperative handshake), some take from the other (ionic, like one person grabbing the other's hand), and metals are like a group high-five where everyone shares!"), Some("Why do you think salt (NaCl) dissolves in water but oil doesn't?")),
         (reactions_id, "chemical reactions", "A chemical reaction transforms one set of substances into another by rearranging atoms.", Some("A chemical reaction is like cooking — you start with raw ingredients (reactants), apply energy (heat), and end up with something completely new (products). You can't un-bake a cake, just like you can't easily reverse most reactions!"), Some("What happens when you mix baking soda and vinegar? What type of reaction is it?")),
@@ -1048,7 +1051,7 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     // Quiz questions
-    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let questions: Vec<QuizRow> = vec![
         (atoms_id, "What particle defines which element an atom is?", "multiple_choice", "Proton", Some("Electron"), Some("Proton"), Some("Neutron"), Some("Photon"), Some("It determines the atomic number"), "The number of protons (atomic number) defines the element. Change the protons and you change the element."),
         (atoms_id, "How many electrons can the first shell hold?", "multiple_choice", "2", Some("2"), Some("4"), Some("8"), Some("16"), Some("The simplest shell"), "The first electron shell can hold a maximum of 2 electrons."),
         (atoms_id, "Which group of elements is the most unreactive?", "multiple_choice", "Noble gases", Some("Alkali metals"), Some("Halogens"), Some("Noble gases"), Some("Transition metals"), Some("They have full outer shells"), "Noble gases (Group 18) are the most stable and unreactive because they have full valence shells."),
@@ -1568,7 +1571,7 @@ fn seed_statistics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Quiz questions
     #[allow(clippy::type_complexity)]
-    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+    let questions: Vec<QuizRowHint> = vec![
         (mean_id, "What is the mean of {4, 8, 6, 2, 10}?", "multiple_choice", "6", Some("4"), Some("6"), Some("8"), Some("5"), "Add them up and divide by 5.", "Sum = 30, Count = 5, Mean = 30/5 = 6."),
         (mean_id, "What is the median of {1, 3, 7, 9, 11}?", "multiple_choice", "7", Some("3"), Some("7"), Some("9"), Some("5"), "Sort the values and find the middle one.", "The sorted list is {1, 3, 7, 9, 11}. The middle (3rd) value is 7."),
         (mean_id, "The mode is the value that appears most often in a dataset.", "true_false", "true", Some("true"), Some("false"), None, None, "Think about the word 'mode' — like fashion, it is what is most popular.", "The mode is defined as the most frequently occurring value."),
@@ -1919,7 +1922,7 @@ pub fn seed_trigonometry(conn: &Connection) -> Result<(), rusqlite::Error> {
     )?;
 
     #[allow(clippy::type_complexity)]
-    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+    let questions: Vec<QuizRowHint> = vec![
         (trig_id, "What is sin(30°)?", "multiple_choice", "0.5", Some("0"), Some("0.5"), Some("1"), Some("√3/2"), "It is one of the key angles to memorize.", "sin(30°) = 1/2 = 0.5"),
         (trig_id, "SOH-CAH-TOA is a mnemonic for:", "multiple_choice", "Trig ratios", Some("Algebraic identities"), Some("Trig ratios"), Some("Calculus rules"), Some("Geometry theorems"), "It helps you remember sine, cosine, and tangent.", "SOH-CAH-TOA stands for Sin=Opp/Hyp, Cos=Adj/Hyp, Tan=Opp/Adj."),
         (trig_id, "tan(θ) = sin(θ) / cos(θ)", "true_false", "true", Some("true"), Some("false"), None, None, "Think about the definitions.", "By definition, tan(θ) = opposite/adjacent = (opp/hyp)/(adj/hyp) = sin(θ)/cos(θ)."),
@@ -1981,7 +1984,7 @@ pub fn seed_political_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 
     #[allow(clippy::type_complexity)]
     // Explanations
-    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let explanations: Vec<ExplanationRow> = vec![
         (gov_sys, "Democracy", "Democracy means 'rule by the people.' Citizens participate in decision-making, either directly (voting on laws) or by electing representatives. Key features include free elections, rule of law, and protection of minority rights.", Some("Think of democracy like a group project where everyone gets a vote on what to do — majority wins, but good groups also listen to dissenting voices."), Some("Why might a majority-rule democracy still need protections for minorities?")),
         (gov_sys, "Separation of Powers", "Dividing government into legislative, executive, and judicial branches prevents any one group from gaining too much power. Each branch can check the others.", Some("Like a three-legged stool — remove one leg and the whole thing topples. Each branch keeps the others balanced."), Some("What happens when one branch becomes much stronger than the others?")),
         (intl_rel, "Sovereignty", "Sovereignty means a state has supreme authority within its borders and is independent from external control. It's the foundation of the international system since the Peace of Westphalia (1648).", Some("Sovereignty is like a fence around your property — what you do inside is your business, but your neighbors might complain if your actions affect them."), Some("When, if ever, should the international community override a nation's sovereignty?")),
@@ -1997,7 +2000,7 @@ pub fn seed_political_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 
     // Quiz questions
     #[allow(clippy::type_complexity)]
-    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+    let questions: Vec<QuizRowHint> = vec![
         (gov_sys, "In which system does the legislature choose the head of government?", "multiple_choice", "Parliamentary", Some("Presidential"), Some("Parliamentary"), Some("Theocratic"), Some("Monarchical"), "Think about the UK and Canada.", "In a parliamentary system, the prime minister is chosen by (and accountable to) the legislature."),
         (gov_sys, "True or false: In a constitutional monarchy, the monarch holds absolute power.", "true_false", "false", Some("true"), Some("false"), None, None, "Think about the UK's queen/king.", "False. In a constitutional monarchy, the monarch's powers are limited by law; real power lies with elected officials."),
         (gov_sys, "Montesquieu proposed the separation of powers in which work?", "fill_in_blank", "The Spirit of the Laws", None, None, None, None, "Published in 1748.", "Montesquieu outlined the separation of powers in 'The Spirit of the Laws' (1748)."),
@@ -2227,7 +2230,7 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
 
     // Logic quiz questions
     #[allow(clippy::type_complexity)]
-    let logic_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let logic_qs: Vec<QuizRow> = vec![
         (logic_id, "In propositional logic, P → Q is false only when:", "multiple_choice", "P is true and Q is false",
          Some("P is true and Q is false"), Some("P is false and Q is true"), Some("Both are false"), Some("Both are true"),
          Some("The conclusion fails despite the premise holding"),
@@ -2262,7 +2265,7 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
 
     // Logic explanations
     #[allow(clippy::type_complexity)]
-    let logic_explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let logic_explanations: Vec<ExplanationRow> = vec![
         (logic_id, "propositional logic",
          "Propositional logic is the branch of logic that studies how to combine simple true/false statements using connectives like AND, OR, NOT, and IF-THEN.",
          Some("Think of propositional logic like electrical circuits: AND is two switches in series (both must be on), OR is two switches in parallel (either works), and NOT is an inverter that flips the signal."),
@@ -2290,7 +2293,7 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
     )?;
 
     #[allow(clippy::type_complexity)]
-    let fa_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let fa_qs: Vec<QuizRow> = vec![
         (first_aid_id, "What should you do first when you find someone unconscious?", "multiple_choice", "Check for responsiveness and call for help",
          Some("Start CPR immediately"), Some("Check for responsiveness and call for help"), Some("Give them water"), Some("Move them to a bed"),
          Some("Safety first, then assess"),
@@ -2328,7 +2331,7 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
     )?;
 
     #[allow(clippy::type_complexity)]
-    let nut_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let nut_qs: Vec<QuizRow> = vec![
         (nutrition_id, "Which vitamin is produced when skin is exposed to sunlight?", "multiple_choice", "Vitamin D",
          Some("Vitamin A"), Some("Vitamin D"), Some("Vitamin C"), Some("Vitamin K"),
          Some("The sunshine vitamin"),
@@ -2366,7 +2369,7 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
     )?;
 
     #[allow(clippy::type_complexity)]
-    let hyg_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let hyg_qs: Vec<QuizRow> = vec![
         (hygiene_id, "How long should you wash your hands with soap?", "multiple_choice", "At least 20 seconds",
          Some("5 seconds"), Some("At least 20 seconds"), Some("1 minute"), Some("10 seconds"),
          Some("Sing 'Happy Birthday' twice"),
@@ -2443,7 +2446,7 @@ pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     // Explanations
-    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let explanations: Vec<ExplanationRow> = vec![
         (cult_id, "Ethnocentrism", "Ethnocentrism is judging another culture solely by the standards of your own. Anthropologists practice cultural relativism instead — understanding a culture on its own terms.", Some("Imagine visiting another planet and insisting they eat with forks. Their spoons work perfectly for their food!"), Some("Can you think of a custom from another culture you initially found strange but now understand?")),
         (bio_id, "Natural Selection", "Natural selection is the process where traits that improve survival and reproduction become more common over generations. It is a key mechanism of evolution, first described by Charles Darwin.", Some("Think of it like a job interview: the environment is the employer, and beneficial traits are the qualifications."), Some("How might natural selection explain why some populations are taller than others?")),
         (arch_id, "Stratigraphy", "Stratigraphy is the study of rock and soil layers (strata). In archaeology, deeper layers are generally older. This principle lets archaeologists date finds relative to each other.", Some("It's like a stack of pancakes — the one on the bottom was made first."), Some("Why might archaeological layers sometimes be disturbed or mixed?")),
@@ -2458,7 +2461,7 @@ pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Quiz questions
     #[allow(clippy::type_complexity)]
-    let quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let quizzes: Vec<QuizRow> = vec![
         (cult_id, "What does 'culture' mean in anthropology?", "multiple_choice", "Learned beliefs, values, and practices shared by a group", Some("Only art and music"), Some("Learned beliefs, values, and practices shared by a group"), Some("Genetic traits passed down"), Some("Government laws and rules"), None, "Culture encompasses all learned and shared behaviors, not just arts or genetics."),
         (cult_id, "In a matrilineal society, descent is traced through:", "multiple_choice", "The mother's line", Some("The father's line"), Some("The mother's line"), Some("Both parents equally"), Some("The eldest sibling"), None, "Matrilineal means tracing lineage through the maternal side."),
         (cult_id, "Arnold van Gennep identified three phases of rites of passage: separation, ___, and incorporation.", "fill_in_blank", "liminality", None, None, None, None, Some("This is the 'in-between' phase"), "Liminality is the transitional phase where the person is between their old and new social status."),
@@ -2546,7 +2549,7 @@ pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> 
     }
 
     // Explanations
-    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let explanations: Vec<ExplanationRow> = vec![
         (macro_id, "Glycemic Index", "The glycemic index (GI) ranks foods by how quickly they raise blood sugar. High-GI foods (white bread, candy) spike blood sugar rapidly. Low-GI foods (oats, lentils) release glucose slowly, providing sustained energy.", Some("High-GI is like a bonfire that burns hot and fast; low-GI is a slow-burning campfire that lasts all night."), Some("Why might athletes choose high-GI foods during a race but low-GI foods for breakfast?")),
         (micro_id, "Antioxidants", "Antioxidants are molecules that neutralize free radicals — unstable atoms that damage cells and contribute to aging and diseases. Vitamins C and E, beta-carotene, and selenium are powerful antioxidants found in colorful fruits and vegetables.", Some("Free radicals are like rust on metal; antioxidants are the protective coating that prevents damage."), Some("What colors of fruits and vegetables are richest in antioxidants?")),
         (digest_id, "Gut Microbiome", "The gut microbiome is the community of trillions of bacteria living in your intestines. These bacteria help digest fiber, produce vitamins (K, B12), regulate immunity, and even influence mood through the gut-brain axis.", Some("Your gut is like a garden: diverse, well-fed bacteria create a thriving ecosystem; poor diet creates weeds."), Some("How might antibiotics affect your gut microbiome?")),
@@ -2561,7 +2564,7 @@ pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 
     // Quiz questions
     #[allow(clippy::type_complexity)]
-    let quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let quizzes: Vec<QuizRow> = vec![
         (macro_id, "Which macronutrient is the body's primary energy source?", "multiple_choice", "Carbohydrates", Some("Protein"), Some("Carbohydrates"), Some("Fat"), Some("Vitamins"), None, "Carbohydrates break down into glucose, the main fuel for cells."),
         (macro_id, "How many essential amino acids must come from food?", "multiple_choice", "9", Some("5"), Some("9"), Some("12"), Some("20"), None, "Of the 20 amino acids, 9 are essential — our bodies cannot synthesize them."),
         (macro_id, "Trans fats are generally considered healthy.", "true_false", "false", None, None, None, None, None, "Trans fats increase bad cholesterol and are linked to heart disease. They should be avoided."),
@@ -2642,7 +2645,7 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
 
     // Quizzes
     #[allow(clippy::type_complexity)]
-    let quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let quizzes: Vec<QuizRow> = vec![
         (vocab_id, "The prefix 'un-' means:", "multiple_choice", "not", Some("not"), Some("again"), Some("before"), Some("after"), None, "'Un-' means 'not' — unhappy means not happy, unclear means not clear."),
         (vocab_id, "The root 'bio' comes from Greek and means:", "fill_in_blank", "life", None, None, None, None, Some("Biology is the study of..."), "'Bio' means life — biology, biography, bioluminescence all relate to living things."),
         (essay_id, "A thesis statement belongs in which part of an essay?", "multiple_choice", "Introduction", Some("Introduction"), Some("Body"), Some("Conclusion"), Some("Bibliography"), None, "The thesis statement appears in the introduction and states the essay's central argument."),
@@ -2682,7 +2685,7 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
         )?;
     }
 
-    let mh_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let mh_quizzes: Vec<QuizRow> = vec![
         (mental_id, "Chronic stress can weaken the immune system.", "true_false", "true", None, None, None, None, None, "Long-term stress raises cortisol levels, which suppresses immune function over time."),
         (mental_id, "Which of these is a healthy way to cope with stress?", "multiple_choice", "Exercise", Some("Avoiding all social contact"), Some("Exercise"), Some("Skipping meals"), Some("Staying up all night"), None, "Exercise releases endorphins and reduces stress hormones like cortisol."),
     ];
@@ -2765,7 +2768,7 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
     }
 
     // Astronomy quiz questions
-    let astro_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let astro_quizzes: Vec<QuizRow> = vec![
         (stellar_id, "What triggers a supernova in a massive star?", "multiple_choice", "Iron core collapse", Some("Hydrogen ignition"), Some("Helium flash"), Some("Iron core collapse"), Some("Dark energy"), None, "Iron fusion absorbs energy. When the core becomes iron, fusion stops and gravity causes a catastrophic collapse."),
         (stellar_id, "A teaspoon of neutron star material weighs approximately:", "multiple_choice", "6 billion tons", Some("6 tons"), Some("6 million tons"), Some("6 billion tons"), Some("6 grams"), None, "Neutron stars are incredibly dense — a teaspoon weighs about 6 billion tons."),
         (stellar_id, "What is a pulsar?", "multiple_choice", "A rapidly spinning neutron star", Some("A type of black hole"), Some("A dying red giant"), Some("A rapidly spinning neutron star"), Some("A collapsing nebula"), None, "Pulsars are neutron stars that emit beams of radiation as they spin rapidly."),
@@ -2785,7 +2788,7 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
     }
 
     // Explanations
-    let astro_explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let astro_explanations: Vec<ExplanationRow> = vec![
         (stellar_id, "Stellar Evolution", "Stars are born, live, and die — just like living things, but over millions to billions of years. Their mass at birth determines everything about their life and death.", Some("Think of stars like candles: a big candle burns brighter but runs out faster. A tiny candle burns dimly for a very long time."), Some("What happens to a star that's 20 times the mass of our Sun?")),
         (exo_id, "Exoplanet Detection", "We can't easily see exoplanets directly because stars outshine them. Instead, we detect them indirectly — like noticing a firefly near a lighthouse by watching the lighthouse flicker.", Some("Imagine trying to spot a moth flying in front of a car headlight from a mile away. The transit method works by detecting that tiny shadow."), Some("Why is the transit method better for finding large planets close to their stars?")),
         (cosmo_id, "Dark Energy", "Something is pushing the universe apart faster and faster. We don't know what it is, so we call it 'dark energy.' It makes up 68% of the universe and is perhaps the biggest mystery in physics.", Some("Imagine throwing a ball up in the air and instead of slowing down, it accelerates upward. That's what dark energy does to the expansion of space."), Some("If the universe is 95% invisible stuff, how can we be sure it exists?")),
@@ -2827,7 +2830,7 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         )?;
     }
 
-    let thermo_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let thermo_quizzes: Vec<QuizRow> = vec![
         (thermo_id, "Which law of thermodynamics states that energy cannot be created or destroyed?", "multiple_choice", "First Law", Some("Zeroth Law"), Some("First Law"), Some("Second Law"), Some("Third Law"), None, "The First Law of Thermodynamics is the law of conservation of energy: energy can only be transformed, not created or destroyed."),
         (thermo_id, "Heat transfer through direct contact between molecules is called:", "fill_in_blank", "conduction", None, None, None, None, Some("Think of touching a hot pan..."), "Conduction transfers heat through direct molecular contact — fast-vibrating molecules pass energy to slower neighbors."),
         (thermo_id, "True or false: Heat can spontaneously flow from a cold object to a hot object.", "true_false", "false", None, None, None, None, None, "The Second Law of Thermodynamics states that heat flows spontaneously from hot to cold, never the reverse."),
@@ -2864,7 +2867,7 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         )?;
     }
 
-    let net_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let net_quizzes: Vec<QuizRow> = vec![
         (net_id, "What does DNS stand for?", "fill_in_blank", "Domain Name System", None, None, None, None, Some("It translates domain names to IP addresses..."), "DNS = Domain Name System. It translates human-readable domain names into IP addresses."),
         (net_id, "Which protocol provides reliable, ordered data delivery?", "multiple_choice", "TCP", Some("UDP"), Some("TCP"), Some("FTP"), Some("DNS"), None, "TCP (Transmission Control Protocol) ensures reliable, ordered delivery using a three-way handshake and acknowledgments."),
         (net_id, "HTTPS uses port:", "multiple_choice", "443", Some("80"), Some("22"), Some("443"), Some("53"), None, "HTTPS (HTTP Secure) uses port 443. Regular HTTP uses port 80."),
@@ -2890,7 +2893,7 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Capitals'", [geo_id], |r| r.get(0)
     )?;
 
-    let cap_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+    let cap_quizzes: Vec<QuizRow> = vec![
         (capitals_id, "What is the capital of Japan?", "multiple_choice", "Tokyo", Some("Osaka"), Some("Tokyo"), Some("Kyoto"), Some("Yokohama"), None, "Tokyo has been Japan's capital since 1868 when the Emperor moved there from Kyoto."),
         (capitals_id, "What is the capital of Brazil?", "multiple_choice", "Brasília", Some("Rio de Janeiro"), Some("São Paulo"), Some("Brasília"), Some("Salvador"), Some("It's not the largest city..."), "Brasília was purpose-built as the capital in 1960, designed by Oscar Niemeyer and Lúcio Costa."),
         (capitals_id, "What is the capital of Australia?", "multiple_choice", "Canberra", Some("Sydney"), Some("Melbourne"), Some("Canberra"), Some("Brisbane"), Some("It's not Sydney or Melbourne..."), "Canberra was chosen as a compromise between rival cities Sydney and Melbourne in 1908."),
@@ -3140,6 +3143,157 @@ fn seed_extra_math_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
                 )?;
             }
         }
+    }
+
+    Ok(())
+}
+
+
+fn seed_creative_writing(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Expand Creative Writing with additional topics, lessons, and quizzes
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Creative Writing'", [], |r| r.get(0),
+    )?;
+
+    // Add new topics that don't already exist
+    let new_topics = [
+        ("World Building", "advanced", 6),
+        ("Revision & Editing", "intermediate", 7),
+        ("Flash Fiction", "intermediate", 8),
+    ];
+    for (name, diff, order) in &new_topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let world_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Building'", [subj_id], |r| r.get(0),
+    )?;
+    let revision_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Revision & Editing'", [subj_id], |r| r.get(0),
+    )?;
+    let flash_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Flash Fiction'", [subj_id], |r| r.get(0),
+    )?;
+
+    let lessons: &[LessonRow] = &[
+        (world_id, "Building Believable Worlds", "World-building isn't just maps and magic systems. A believable world needs:\n\n1. **Internal consistency** — rules must be followed once established\n2. **Sensory details** — what does it smell, sound, taste like?\n3. **Culture and history** — how do people live, what do they believe?\n4. **Economics** — who has power and why?\n5. **The iceberg principle** — know 10x more than you show\n\nDon't info-dump your world-building. Reveal it through character experience: a character buying bread teaches us about the economy. A prayer before meals shows us religion. Let the world emerge naturally.", 1),
+        (revision_id, "The Art of Revision", "First drafts are for getting ideas down. Revision is where writing becomes good.\n\n**The revision hierarchy (work top-down):**\n1. **Structure:** Does the story arc work? Cut scenes that don't serve the plot.\n2. **Character:** Are motivations clear? Do arcs feel earned?\n3. **Scene-level:** Does each scene have conflict and change?\n4. **Line-level:** Tighten prose. Kill adverbs. Vary sentence length.\n5. **Proofreading:** Grammar, spelling, consistency.\n\n**Key principle:** Let the draft rest (days, weeks) before revising. Fresh eyes catch what tired eyes miss.\n\n**Murder your darlings:** If a beautiful sentence doesn't serve the story, cut it. Save it in a scraps file if you must.", 1),
+        (flash_id, "Flash Fiction: Big Stories, Small Spaces", "Flash fiction tells a complete story in under 1,000 words (some say under 500).\n\n**Keys to flash fiction:**\n- Start *in medias res* (in the middle of the action)\n- Every word must earn its place — no room for filler\n- Imply backstory rather than stating it\n- End with a twist, revelation, or emotional punch\n- One character, one conflict, one moment\n\n**Famous examples:** Hemingway's alleged six-word story: 'For sale: baby shoes, never worn.'\n\nFlash fiction is excellent practice for any writer — it forces economy and precision. If you can move a reader in 500 words, imagine what you can do in 50,000.", 1),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: &[ExplanationRow] = &[
+        (world_id, "The Iceberg Principle", "Coined by Hemingway: the writer should know everything about their world but only show a fraction on the page. The depth beneath the surface gives the visible part its weight and authenticity.", Some("Like a duck gliding on a lake — calm on top, paddling furiously underneath."), Some("How do you decide what to reveal and what to keep hidden?")),
+        (revision_id, "Murder Your Darlings", "The advice (often attributed to Faulkner) to cut beloved passages that don't serve the story. Just because a line is beautiful doesn't mean it belongs. Every element should advance plot, character, or theme.", Some("Like pruning a rose bush — cutting healthy branches so the remaining ones bloom more beautifully."), Some("How do you know when a passage is self-indulgent vs. essential?")),
+        (flash_id, "In Medias Res", "Starting 'in the middle of things' — dropping the reader into action or conflict without preamble. Especially powerful in flash fiction where every word counts. The reader catches up through context clues.", Some("Like walking into a movie 10 minutes late — you're instantly engaged trying to figure out what's happening."), Some("When is it better to start with setup instead of action?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: &[QuizRow] = &[
+        (world_id, "The 'iceberg principle' in world-building means:", "multiple_choice", "Know much more than you reveal", Some("Show every detail you've created"), Some("Know much more than you reveal"), Some("Focus only on geography"), Some("Always include a map"), None, "The iceberg principle (from Hemingway) means the writer should know 10x more about their world than appears on the page."),
+        (world_id, "Revealing world-building through a character buying bread is an example of:", "multiple_choice", "Organic exposition", Some("Info-dumping"), Some("Organic exposition"), Some("Foreshadowing"), Some("Purple prose"), None, "Organic exposition weaves world-building into character actions and experiences instead of stopping the story to explain."),
+        (revision_id, "In the revision hierarchy, what should you address FIRST?", "multiple_choice", "Story structure", Some("Grammar errors"), Some("Adverb removal"), Some("Story structure"), Some("Sentence variety"), None, "Work top-down: fix structure first (the big picture), then drill down to scenes, lines, and finally grammar."),
+        (revision_id, "'Murder your darlings' means:", "multiple_choice", "Cut beloved passages that don't serve the story", Some("Write dark content"), Some("Kill off main characters"), Some("Cut beloved passages that don't serve the story"), Some("Delete your first draft"), None, "It means removing writing you love if it doesn't serve the story — beautiful but unnecessary passages should go."),
+        (flash_id, "Flash fiction is typically under ___ words.", "fill_in_blank", "1000", None, None, None, None, Some("Some say 500, but the upper bound is..."), "Flash fiction is generally defined as stories under 1,000 words, though some definitions use 500 or even 300."),
+        (flash_id, "Starting a story in the middle of the action is called:", "multiple_choice", "In medias res", Some("Prologue"), Some("In medias res"), Some("Exposition"), Some("Denouement"), None, "In medias res (Latin: 'in the middle of things') drops the reader into action without preamble."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_earth_science(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add Earth Science as a new subject (geology, oceanography, soil science)
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Earth Science', 'Understanding our planet — geology, oceanography, soil science, and the forces that shape Earth.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Earth Science'", [], |r| r.get(0),
+    )?;
+
+    // Add new topics
+    let new_topics = [
+        ("Earthquakes and Volcanoes", "intermediate", 4),
+        ("Oceanography", "intermediate", 5),
+        ("Soil Science", "beginner", 6),
+    ];
+    for (name, diff, order) in &new_topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let quake_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Earthquakes and Volcanoes'", [subj_id], |r| r.get(0),
+    )?;
+    let ocean_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Oceanography'", [subj_id], |r| r.get(0),
+    )?;
+    let soil_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Soil Science'", [subj_id], |r| r.get(0),
+    )?;
+
+    let lessons: &[LessonRow] = &[
+        (quake_id, "When the Earth Shakes", "**Earthquakes** occur when stress along a fault line overcomes friction, releasing energy as seismic waves.\n\n- **Focus:** The point underground where the rupture starts\n- **Epicenter:** The point on the surface directly above the focus\n- **Magnitude:** Measured on the moment magnitude scale (logarithmic — each whole number ≈ 32x more energy)\n\n**Volcanoes** form where magma reaches the surface:\n- **Shield volcanoes:** Gentle slopes, fluid lava (Hawaii)\n- **Stratovolcanoes:** Steep, explosive (Mt. St. Helens, Fuji)\n- **Cinder cones:** Small, built from ejected fragments\n\nThe Ring of Fire (Pacific Rim) hosts 75% of the world's volcanoes and 90% of earthquakes.", 1),
+        (ocean_id, "The World Ocean", "Earth's ocean covers 71% of the surface and holds 97% of all water.\n\n**Ocean layers (by depth):**\n- **Epipelagic (0-200m):** Sunlit zone, most marine life\n- **Mesopelagic (200-1000m):** Twilight zone, bioluminescent creatures\n- **Bathypelagic (1000-4000m):** Midnight zone, near-freezing, crushing pressure\n- **Abyssopelagic (4000-6000m):** The abyss\n- **Hadopelagic (6000m+):** Deep trenches only\n\n**Ocean currents** are driven by wind, temperature, salinity, and Earth's rotation. The thermohaline circulation (global conveyor belt) moves warm water toward the poles and cold water toward the equator, regulating global climate.\n\nThe ocean absorbs ~30% of human CO₂ emissions — but this is causing ocean acidification.", 1),
+        (soil_id, "The Ground Beneath Our Feet", "Soil is a living ecosystem, not just dirt.\n\n**Soil horizons (layers):**\n- **O horizon:** Organic matter (decomposing leaves)\n- **A horizon (topsoil):** Rich in humus, dark, where roots grow\n- **B horizon (subsoil):** Minerals washed down from above\n- **C horizon:** Weathered rock fragments\n- **R horizon (bedrock):** Solid rock below\n\n**Soil types:** Sand (large particles, drains fast), clay (tiny particles, holds water), silt (medium), loam (ideal mix).\n\nIt takes ~500 years to form 1 inch of topsoil. Erosion, deforestation, and poor farming practices can destroy it in a season. Soil contains more microorganisms in a teaspoon than there are people on Earth.", 1),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: &[ExplanationRow] = &[
+        (quake_id, "Seismic Waves", "Earthquakes produce three types of waves: P-waves (fast, compressional), S-waves (slower, shearing), and surface waves (slowest but most destructive). Seismographs detect the time difference between P and S waves to locate the epicenter.", Some("Like dropping a stone in water — different ripple types spread at different speeds."), Some("Why can't S-waves travel through liquids?")),
+        (ocean_id, "Thermohaline Circulation", "The global ocean 'conveyor belt' driven by differences in water temperature (thermo) and salinity (haline). Cold, salty water sinks in the North Atlantic, flows deep to the Southern Ocean, and slowly returns as warm surface current. Takes ~1,000 years for a complete cycle.", Some("Like a massive, slow conveyor belt looping through all the world's oceans, redistributing heat."), Some("What would happen if thermohaline circulation stopped?")),
+        (soil_id, "Humus", "The dark, organic component of soil formed by decomposition of plant and animal matter. Humus is not the same as compost — it's the final stage of decomposition, a stable substance that improves soil structure, water retention, and nutrient availability.", Some("Humus is like a sponge and a pantry combined — it holds water and slowly releases nutrients to plant roots."), Some("Why is humus more stable than fresh compost?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: &[QuizRow] = &[
+        (quake_id, "The point on Earth's surface directly above an earthquake's focus is the ___.", "fill_in_blank", "epicenter", None, None, None, None, Some("Epi- means 'above'..."), "The epicenter is the surface point directly above the focus (hypocenter) where the earthquake originates underground."),
+        (quake_id, "What percentage of Earth's earthquakes occur in the Ring of Fire?", "multiple_choice", "90%", Some("50%"), Some("75%"), Some("90%"), Some("100%"), None, "The Ring of Fire around the Pacific Rim hosts about 90% of the world's earthquakes due to dense plate boundary activity."),
+        (quake_id, "Shield volcanoes are characterized by:", "multiple_choice", "Gentle slopes and fluid lava", Some("Steep slopes and explosive eruptions"), Some("Gentle slopes and fluid lava"), Some("Only underwater eruptions"), Some("No lava, only ash"), None, "Shield volcanoes (like Hawaii) have gentle slopes built by layers of fluid basaltic lava."),
+        (ocean_id, "What percentage of Earth's surface is covered by ocean?", "multiple_choice", "71%", Some("50%"), Some("60%"), Some("71%"), Some("85%"), None, "Earth's ocean covers approximately 71% of the planet's surface — that's why Earth looks blue from space."),
+        (ocean_id, "The sunlit zone of the ocean (0-200m) is called the ___ zone.", "fill_in_blank", "epipelagic", None, None, None, None, Some("Epi- means 'upon' or 'above'..."), "The epipelagic (sunlit) zone extends from the surface to 200m depth and supports most marine life through photosynthesis."),
+        (ocean_id, "The global ocean conveyor belt is called ___ circulation.", "fill_in_blank", "thermohaline", None, None, None, None, Some("Thermo = heat, haline = salt..."), "Thermohaline circulation is driven by differences in temperature and salinity, moving water around the globe over ~1,000 years."),
+        (ocean_id, "Ocean acidification is caused by the ocean absorbing:", "multiple_choice", "Carbon dioxide", Some("Methane"), Some("Nitrogen"), Some("Carbon dioxide"), Some("Ozone"), None, "The ocean absorbs ~30% of atmospheric CO₂, which reacts with seawater to form carbonic acid, lowering pH."),
+        (soil_id, "How long does it take to form approximately 1 inch of topsoil?", "multiple_choice", "500 years", Some("50 years"), Some("100 years"), Some("500 years"), Some("5 years"), None, "Topsoil formation is incredibly slow — about 500 years per inch — making soil conservation critical."),
+        (soil_id, "The dark, organic component of soil is called ___.", "fill_in_blank", "humus", None, None, None, None, Some("Not the chickpea dip..."), "Humus is the stable, dark organic matter in soil formed from fully decomposed plant and animal material."),
+        (soil_id, "Which soil type is the ideal mix for growing plants?", "multiple_choice", "Loam", Some("Clay"), Some("Sand"), Some("Loam"), Some("Gravel"), None, "Loam is a balanced mixture of sand, silt, and clay that provides good drainage, water retention, and nutrient availability."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
     }
 
     Ok(())

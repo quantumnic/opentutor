@@ -149,6 +149,8 @@ enum Commands {
     },
     /// Track your learning velocity and progress trends
     Velocity,
+    /// Show optimal study focus based on forgetting curve analysis
+    Focus,
 }
 
 fn main() {
@@ -191,6 +193,7 @@ fn main() {
         Commands::Mistakes { limit } => commands::mistakes::run(&conn, limit),
         Commands::Mix { count, subject } => commands::mix::run(&conn, count, subject.as_deref()),
         Commands::Velocity => commands::velocity::run(&conn),
+        Commands::Focus => commands::focus::run(&conn),
     };
 
     if let Err(e) = result {

@@ -6,6 +6,7 @@ pub mod config;
 pub mod daily;
 pub mod explain;
 pub mod export;
+pub mod focus;
 pub mod flashcard;
 pub mod forecast;
 pub mod history;
