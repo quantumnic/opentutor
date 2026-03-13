@@ -155,8 +155,26 @@ pub fn update_spaced_repetition(
         (new_ease, 1)
     };
 
+    // Scale interval by desired retention: higher retention → shorter intervals.
+    // Uses the FSRS power-law forgetting curve to adjust.
+    let desired_retention = crate::commands::config::get_desired_retention(conn);
+    let retention_scaled_interval = if (desired_retention - DEFAULT_DESIRED_RETENTION).abs() > 0.001 && new_interval > 1 {
+        // Derived from R(t) = (1 + t / (S * FSRS_FACTOR))^(-FSRS_DECAY)
+        // Ratio of intervals for two retention targets (at same stability):
+        //   t2/t1 = ((1/R2)^(1/FSRS_DECAY) - 1) / ((1/R1)^(1/FSRS_DECAY) - 1)
+        let ratio_new = (1.0 / desired_retention).powf(1.0 / FSRS_DECAY) - 1.0;
+        let ratio_default = (1.0 / DEFAULT_DESIRED_RETENTION).powf(1.0 / FSRS_DECAY) - 1.0;
+        if ratio_default > 0.0 {
+            ((new_interval as f64) * (ratio_new / ratio_default)).round().max(1.0) as i64
+        } else {
+            new_interval
+        }
+    } else {
+        new_interval
+    };
+
     // Apply interval fuzzing to prevent review clustering on the same day
-    let final_interval = fuzz_interval(new_interval);
+    let final_interval = fuzz_interval(retention_scaled_interval);
 
     // Update leech tracking
     let (new_consecutive_fails, new_leech_count) = if quality < 3 {

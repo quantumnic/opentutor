@@ -1,5 +1,6 @@
 use colored::*;
 use rusqlite::Connection;
+use crate::commands::config;
 use crate::display;
 use crate::engine::spaced;
 
@@ -60,6 +61,39 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
         if leeches.len() > 3 {
             println!("    ... and {} more", leeches.len() - 3);
+        }
+    }
+
+    // Daily goal progress
+    let daily_goal: usize = config::get_config(conn, "daily_goal", "5")
+        .parse()
+        .unwrap_or(5);
+    let today_activities: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT topic_id) FROM session_log WHERE date(timestamp) = date('now')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+    println!();
+    display::print_section("Daily Goal");
+    display::print_progress_bar("Today", today_activities as f64, daily_goal as f64);
+    if today_activities as usize >= daily_goal {
+        display::print_success("Daily goal reached! 🎯");
+    }
+
+    // Desired retention target
+    let desired = config::get_desired_retention(conn);
+    if studied > 0 {
+        let target_pct = (desired * 100.0).round();
+        let actual_pct = (avg_retention * 100.0).round();
+        if actual_pct < target_pct {
+            println!(
+                "\n  🎯 Retention target: {}% (current: {}% — {} below target)",
+                target_pct,
+                actual_pct,
+                format!("{:.0}%", target_pct - actual_pct).bright_red()
+            );
         }
     }
 

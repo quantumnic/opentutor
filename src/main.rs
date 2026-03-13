@@ -116,6 +116,14 @@ enum Commands {
         #[arg(short, long, default_value = "10")]
         count: usize,
     },
+    /// Bookmark (favorite) a topic for quick access
+    Bookmark {
+        /// Action: add, remove, list
+        #[arg(default_value = "list")]
+        action: String,
+        /// Topic name (for add/remove)
+        topic: Option<String>,
+    },
 }
 
 fn main() {
@@ -152,6 +160,7 @@ fn main() {
         Commands::Streak => commands::streak::run(&conn),
         Commands::Config { key, value } => commands::config::run(&conn, &key, &value),
         Commands::Flashcard { topic, count } => commands::flashcard::run(&conn, &topic, count),
+        Commands::Bookmark { action, topic } => commands::bookmark::run(&conn, &action, &topic),
     };
 
     if let Err(e) = result {

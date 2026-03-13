@@ -1,4 +1,5 @@
 pub mod achievements;
+pub mod bookmark;
 pub mod challenge;
 pub mod config;
 pub mod daily;

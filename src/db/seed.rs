@@ -31,6 +31,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_political_science(conn)?;
     seed_renaissance(conn)?;
     seed_extra_history_quizzes(conn)?;
+    seed_formal_logic_and_health(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -2146,6 +2147,236 @@ pub fn seed_extra_history_quizzes(conn: &Connection) -> Result<(), rusqlite::Err
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
             rusqlite::params![ind_id, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Seed additional content: formal logic, first aid quiz, nutrition quiz.
+pub fn seed_formal_logic_and_health(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Check if already seeded
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM lessons WHERE title = 'Propositional Logic'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    // ── Logic & Reasoning (topic that already exists, id looked up dynamically) ──
+    let logic_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id \
+         WHERE s.name = 'Philosophy' AND t.name = 'Logic & Reasoning'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    // Additional lessons for Logic & Reasoning
+    let logic_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (logic_id, "Propositional Logic",
+         "Propositional logic deals with propositions (statements that are true or false) \
+and logical connectives.\n\n\
+Connectives:\n\
+- AND (∧): Both must be true. \"It's raining AND cold\" → only true if both.\n\
+- OR (∨): At least one must be true. \"Tea OR coffee\" → true if either.\n\
+- NOT (¬): Negation. If P is true, ¬P is false.\n\
+- IF...THEN (→): Implication. \"If it rains, the ground is wet.\"\n\
+  Only false when premise is true but conclusion is false.\n\
+- IF AND ONLY IF (↔): Biconditional. True when both sides have the same truth value.\n\n\
+Truth tables: list all possible combinations of truth values.\n\
+  P | Q | P ∧ Q | P ∨ Q | P → Q\n\
+  T | T |   T   |   T   |   T\n\
+  T | F |   F   |   T   |   F\n\
+  F | T |   F   |   T   |   T\n\
+  F | F |   F   |   F   |   T\n\n\
+Tautology: always true regardless of values (e.g., P ∨ ¬P).\n\
+Contradiction: always false (e.g., P ∧ ¬P).", 3),
+        (logic_id, "Common Logical Fallacies",
+         "A fallacy is an error in reasoning that makes an argument invalid.\n\n\
+Formal fallacies (structural errors):\n\
+- Affirming the consequent: \"If it rains, ground is wet. Ground is wet, so it rained.\" (Wrong — sprinkler!)\n\
+- Denying the antecedent: \"If it rains, ground is wet. It didn't rain, so ground isn't wet.\" (Wrong.)\n\n\
+Informal fallacies (content errors):\n\
+- Ad hominem: attacking the person instead of the argument.\n\
+- Straw man: misrepresenting someone's argument to make it easier to attack.\n\
+- Appeal to authority: \"Einstein said X\" — authority doesn't guarantee truth.\n\
+- False dilemma: presenting only two options when more exist.\n\
+- Slippery slope: claiming one event will lead to extreme consequences without evidence.\n\
+- Circular reasoning: using the conclusion as a premise (\"The Bible is true because it says so\").\n\
+- Red herring: introducing an irrelevant topic to divert attention.\n\
+- Tu quoque: \"You do it too\" — doesn't address the argument.\n\n\
+Recognizing fallacies is essential for critical thinking and evaluating arguments.", 4),
+    ];
+    for (tid, title, content, order) in &logic_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Logic quiz questions
+    #[allow(clippy::type_complexity)]
+    let logic_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (logic_id, "In propositional logic, P → Q is false only when:", "multiple_choice", "P is true and Q is false",
+         Some("P is true and Q is false"), Some("P is false and Q is true"), Some("Both are false"), Some("Both are true"),
+         Some("The conclusion fails despite the premise holding"),
+         "An implication is false only when the premise (P) is true but the conclusion (Q) is false."),
+        (logic_id, "P ∨ ¬P is an example of a:", "multiple_choice", "Tautology",
+         Some("Contradiction"), Some("Tautology"), Some("Contingency"), Some("Fallacy"),
+         Some("It's always true regardless of P's value"),
+         "P ∨ ¬P (P or not P) is always true — this is the Law of Excluded Middle, a tautology."),
+        (logic_id, "Attacking the person making an argument instead of the argument itself is called:", "multiple_choice", "Ad hominem",
+         Some("Straw man"), Some("Ad hominem"), Some("Red herring"), Some("Tu quoque"),
+         Some("Latin for 'to the person'"),
+         "Ad hominem means 'to the person' — it's a fallacy that attacks the arguer rather than the argument."),
+        (logic_id, "True or false: 'If it rains, the ground is wet' is logically equivalent to 'If the ground is not wet, it did not rain'.", "true_false", "true",
+         Some("true"), Some("false"), None, None,
+         Some("This is called the contrapositive"),
+         "True. The contrapositive (¬Q → ¬P) is always logically equivalent to the original (P → Q)."),
+        (logic_id, "Presenting only two options when more exist is the ___ fallacy.", "fill_in_blank", "false dilemma",
+         None, None, None, None,
+         Some("Also called a false dichotomy"),
+         "A false dilemma (or false dichotomy) artificially limits choices to two options when others exist."),
+        (logic_id, "What logical connective does 'AND' represent?", "multiple_choice", "∧",
+         Some("∨"), Some("∧"), Some("→"), Some("↔"),
+         Some("Conjunction requires both to be true"),
+         "The conjunction operator ∧ (AND) is true only when both propositions are true."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &logic_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, *hint, expl],
+        )?;
+    }
+
+    // Logic explanations
+    #[allow(clippy::type_complexity)]
+    let logic_explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (logic_id, "propositional logic",
+         "Propositional logic is the branch of logic that studies how to combine simple true/false statements using connectives like AND, OR, NOT, and IF-THEN.",
+         Some("Think of propositional logic like electrical circuits: AND is two switches in series (both must be on), OR is two switches in parallel (either works), and NOT is an inverter that flips the signal."),
+         Some("Can you build a truth table for (P ∧ Q) → R?")),
+        (logic_id, "logical fallacies",
+         "Logical fallacies are errors in reasoning that undermine the logic of an argument, even when the conclusion might happen to be true.",
+         Some("Fallacies are like optical illusions for your brain — they look convincing at first glance, but once you learn to spot them, you see them everywhere: in politics, advertising, and everyday arguments."),
+         Some("Can you identify the fallacy in: 'Everyone is buying this product, so it must be good'?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &logic_explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // ── Additional quiz questions for Health topics ──
+
+    // First Aid (topic 17)
+    let first_aid_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id \
+         WHERE s.name = 'Health' AND t.name = 'First Aid Basics'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    #[allow(clippy::type_complexity)]
+    let fa_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (first_aid_id, "What should you do first when you find someone unconscious?", "multiple_choice", "Check for responsiveness and call for help",
+         Some("Start CPR immediately"), Some("Check for responsiveness and call for help"), Some("Give them water"), Some("Move them to a bed"),
+         Some("Safety first, then assess"),
+         "Always check responsiveness (tap and shout), ensure the scene is safe, and call emergency services before starting any intervention."),
+        (first_aid_id, "How many chest compressions per minute during CPR?", "multiple_choice", "100-120",
+         Some("60-80"), Some("100-120"), Some("140-160"), Some("80-100"),
+         Some("Think of the beat of 'Stayin' Alive'"),
+         "The AHA recommends 100-120 compressions per minute during CPR. The song 'Stayin' Alive' has the right tempo."),
+        (first_aid_id, "True or false: You should tilt a person's head back to open the airway.", "true_false", "true",
+         Some("true"), Some("false"), None, None,
+         Some("Head-tilt, chin-lift maneuver"),
+         "True. The head-tilt chin-lift maneuver opens the airway by lifting the tongue away from the back of the throat."),
+        (first_aid_id, "For a severe burn, you should apply ___ water for at least 10 minutes.", "fill_in_blank", "cool",
+         None, None, None, None,
+         Some("Not ice-cold, not warm"),
+         "Cool (not ice-cold) running water for at least 10-20 minutes reduces burn depth and pain. Never use ice directly."),
+        (first_aid_id, "The recovery position is used for someone who is:", "multiple_choice", "Unconscious but breathing",
+         Some("Having a heart attack"), Some("Unconscious but breathing"), Some("Choking"), Some("Bleeding severely"),
+         Some("They need to stay on their side"),
+         "The recovery position keeps the airway clear for unconscious but breathing people, preventing choking on vomit or fluids."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &fa_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, *hint, expl],
+        )?;
+    }
+
+    // Nutrition (topic 16)
+    let nutrition_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id \
+         WHERE s.name = 'Health' AND t.name = 'Nutrition'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    #[allow(clippy::type_complexity)]
+    let nut_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (nutrition_id, "Which vitamin is produced when skin is exposed to sunlight?", "multiple_choice", "Vitamin D",
+         Some("Vitamin A"), Some("Vitamin D"), Some("Vitamin C"), Some("Vitamin K"),
+         Some("The sunshine vitamin"),
+         "Vitamin D is synthesized in the skin upon UVB radiation exposure. It's essential for bone health and immune function."),
+        (nutrition_id, "True or false: Carbohydrates are the body's primary source of energy.", "true_false", "true",
+         Some("true"), Some("false"), None, None,
+         Some("Think glucose"),
+         "True. Carbohydrates are broken down into glucose, the body's preferred fuel source, especially for the brain."),
+        (nutrition_id, "Iron deficiency can lead to ___.", "fill_in_blank", "anemia",
+         None, None, None, None,
+         Some("A condition where blood can't carry enough oxygen"),
+         "Iron is essential for hemoglobin in red blood cells. Deficiency causes anemia: fatigue, weakness, and pale skin."),
+        (nutrition_id, "Which mineral is essential for strong bones and teeth?", "multiple_choice", "Calcium",
+         Some("Iron"), Some("Calcium"), Some("Potassium"), Some("Zinc"),
+         Some("Found abundantly in dairy products"),
+         "Calcium is the most abundant mineral in the body and is critical for bone structure, muscle function, and nerve signaling."),
+        (nutrition_id, "How many liters of water should an average adult drink daily?", "multiple_choice", "About 2-3 liters",
+         Some("About 0.5 liters"), Some("About 2-3 liters"), Some("About 5-6 liters"), Some("About 1 liter"),
+         Some("8 glasses is a common guideline"),
+         "The general recommendation is about 2-3 liters (8-12 cups) per day, though needs vary by activity level and climate."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &nut_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, *hint, expl],
+        )?;
+    }
+
+    // Hygiene (topic 15)
+    let hygiene_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id \
+         WHERE s.name = 'Health' AND t.name = 'Hygiene'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    #[allow(clippy::type_complexity)]
+    let hyg_qs: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (hygiene_id, "How long should you wash your hands with soap?", "multiple_choice", "At least 20 seconds",
+         Some("5 seconds"), Some("At least 20 seconds"), Some("1 minute"), Some("10 seconds"),
+         Some("Sing 'Happy Birthday' twice"),
+         "The CDC recommends scrubbing hands with soap for at least 20 seconds — about the time to sing 'Happy Birthday' twice."),
+        (hygiene_id, "True or false: Antibacterial soap is significantly more effective than regular soap.", "true_false", "false",
+         Some("true"), Some("false"), None, None,
+         Some("FDA findings on consumer antibacterial soaps"),
+         "False. Studies show regular soap and water are just as effective. The FDA found no evidence antibacterial soaps are superior."),
+        (hygiene_id, "You should replace your toothbrush every ___ months.", "fill_in_blank", "3",
+         None, None, None, None,
+         Some("Or when bristles are frayed"),
+         "Dentists recommend replacing your toothbrush every 3-4 months, or sooner if the bristles are frayed."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &hyg_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, *hint, expl],
         )?;
     }
 
