@@ -108,6 +108,14 @@ enum Commands {
         /// Value to set (omit to view current value)
         value: Option<String>,
     },
+    /// Study flashcards for a topic or subject
+    Flashcard {
+        /// Topic or subject to study (e.g. "fractions", "history")
+        topic: String,
+        /// Number of flashcards to show
+        #[arg(short, long, default_value = "10")]
+        count: usize,
+    },
 }
 
 fn main() {
@@ -143,6 +151,7 @@ fn main() {
         Commands::History { limit } => commands::history::run(&conn, limit),
         Commands::Streak => commands::streak::run(&conn),
         Commands::Config { key, value } => commands::config::run(&conn, &key, &value),
+        Commands::Flashcard { topic, count } => commands::flashcard::run(&conn, &topic, count),
     };
 
     if let Err(e) = result {

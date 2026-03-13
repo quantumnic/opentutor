@@ -28,6 +28,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_ethics(conn)?;
     seed_world_literature(conn)?;
     seed_trigonometry(conn)?;
+    seed_political_science(conn)?;
+    seed_renaissance(conn)?;
+    seed_extra_history_quizzes(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -709,7 +712,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 23); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature
+        assert_eq!(count, 24); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature
     }
 
     #[test]
@@ -719,7 +722,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 23);
+        assert_eq!(count, 24);
     }
 
     #[test]
@@ -1919,6 +1922,230 @@ pub fn seed_trigonometry(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
             rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_political_science(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let sub_id: i64 = conn.query_row(
+        "INSERT INTO subjects (name, description) VALUES ('Political Science', 'The study of governments, political processes, and power structures — how societies organize and govern themselves.') RETURNING id",
+        [],
+        |r| r.get(0),
+    )?;
+
+    // Topics
+    let gov_sys: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Government Systems', 'beginner', 1) RETURNING id",
+        [sub_id], |r| r.get(0),
+    )?;
+    let intl_rel: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'International Relations', 'intermediate', 2) RETURNING id",
+        [sub_id], |r| r.get(0),
+    )?;
+    let pol_phil: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Political Philosophy', 'intermediate', 3) RETURNING id",
+        [sub_id], |r| r.get(0),
+    )?;
+    let human_r: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Human Rights', 'beginner', 4) RETURNING id",
+        [sub_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (gov_sys, "Types of Government", "Government systems organize political power.\n\nDemocracy: citizens vote to elect leaders or decide policy directly.\n  - Direct democracy: citizens vote on laws themselves (e.g., Swiss cantons).\n  - Representative democracy: citizens elect representatives (e.g., USA, Germany).\n  - Parliamentary: legislature picks the head of government (e.g., UK, Canada).\n  - Presidential: separate executive elected by the people (e.g., USA, Brazil).\n\nMonarchy: power held by a king or queen.\n  - Absolute: monarch rules with total authority (historical France, Saudi Arabia).\n  - Constitutional: monarch is head of state but power rests with parliament (UK, Japan).\n\nAuthoritarian: power concentrated in a small group; limited political freedom.\n  Examples: military juntas, single-party states.\n\nTheocracy: religious leaders govern; laws based on religious doctrine.\n  Examples: Vatican City, historical Tibet.\n\nFederalism: power shared between central and regional governments.\n  Examples: USA, Switzerland, Germany.\n\nKey insight: most modern states blend elements of multiple systems.", 1),
+        (gov_sys, "Separation of Powers", "Most democracies divide government into three branches:\n\n1. Legislative: makes laws (parliament, congress).\n2. Executive: enforces laws (president, prime minister, cabinet).\n3. Judicial: interprets laws (courts, supreme court).\n\nChecks and balances prevent any branch from becoming too powerful.\n  - The legislature can impeach the executive.\n  - The judiciary can strike down unconstitutional laws.\n  - The executive can veto legislation.\n\nMontesquieu (1748) first articulated this idea in 'The Spirit of the Laws.'\n\nNot all democracies separate powers equally:\n  - USA: strong separation between branches.\n  - UK: parliament is supreme; PM comes from the legislature.\n  - Switzerland: collective executive (Federal Council) elected by parliament.", 2),
+        (intl_rel, "International Organizations", "Major international organizations:\n\nUnited Nations (UN): founded 1945; 193 member states.\n  - General Assembly: all members, one vote each.\n  - Security Council: 5 permanent members with veto power (USA, UK, France, Russia, China).\n  - Agencies: WHO, UNESCO, UNICEF, UNHCR.\n\nEuropean Union (EU): 27 member states; common market, shared currency (euro).\n  - Parliament, Commission, Council.\n  - Free movement of people, goods, services, capital.\n\nNATO: military alliance (1949); collective defense — attack on one is attack on all.\n\nWorld Trade Organization (WTO): regulates international trade; resolves disputes.\n\nInternational Criminal Court (ICC): prosecutes genocide, war crimes, crimes against humanity.\n\nKey tension: national sovereignty vs. international cooperation.", 1),
+        (intl_rel, "Diplomacy and Conflict", "Diplomacy: the art of managing relations between nations.\n\nKey concepts:\n- Bilateral: between two countries.\n- Multilateral: among many countries.\n- Soft power: influence through culture, values, and institutions (vs. military force).\n- Hard power: coercion through military or economic force.\n- Smart power: combining soft and hard power strategically.\n\nConflict resolution tools:\n1. Negotiation: direct talks between parties.\n2. Mediation: neutral third party facilitates agreement.\n3. Arbitration: third party makes a binding decision.\n4. Sanctions: economic penalties to pressure behavior change.\n5. Peacekeeping: international forces monitor ceasefires.\n\nJust War Theory: war is justifiable only if:\n  - Last resort (all peaceful options exhausted).\n  - Just cause (e.g., self-defense).\n  - Proportional response.\n  - Reasonable chance of success.", 2),
+        (pol_phil, "Social Contract Theory", "Social contract theory asks: why do people accept government authority?\n\nThomas Hobbes (1651, Leviathan):\n  - Without government, life is 'solitary, poor, nasty, brutish, and short.'\n  - People surrender freedom to a strong sovereign for security.\n  - Favored absolute authority.\n\nJohn Locke (1689, Two Treatises):\n  - People have natural rights: life, liberty, property.\n  - Government exists to protect these rights.\n  - If it fails, people may revolt.\n  - Foundation of liberal democracy.\n\nJean-Jacques Rousseau (1762, The Social Contract):\n  - 'Man is born free, and everywhere he is in chains.'\n  - Legitimate authority comes from the 'general will' of the people.\n  - Emphasized popular sovereignty and equality.\n\nModern impact: these ideas shaped the American and French Revolutions,\nand remain central to debates about government legitimacy.", 1),
+        (pol_phil, "Justice and Equality", "Political philosophy grapples with what a just society looks like.\n\nJohn Rawls (1971, A Theory of Justice):\n  - The 'veil of ignorance': design society without knowing your place in it.\n  - Two principles: (1) equal basic liberties for all, (2) inequalities only if they benefit the least advantaged.\n  - Influenced modern welfare state thinking.\n\nRobert Nozick (1974, Anarchy, State, and Utopia):\n  - Minimal state: government should only protect against force and fraud.\n  - Holdings are just if acquired fairly (liberty-based).\n  - Redistribution violates individual rights.\n\nAmartya Sen (1999, Development as Freedom):\n  - Justice = expanding real freedoms (capabilities).\n  - Poverty is unfreedom — lacking capability to live well.\n  - Focus on what people can actually do and be.\n\nMartha Nussbaum:\n  - Capabilities approach: 10 central capabilities every government should guarantee.\n  - Includes life, health, education, political participation, emotional well-being.", 2),
+        (human_r, "Universal Declaration of Human Rights", "The UDHR was adopted by the UN General Assembly on December 10, 1948.\n\n30 articles covering fundamental rights:\n\nCivil & Political Rights:\n  - Right to life, liberty, security (Art. 3).\n  - Freedom from slavery (Art. 4) and torture (Art. 5).\n  - Right to a fair trial (Art. 10).\n  - Freedom of thought, conscience, religion (Art. 18).\n  - Freedom of opinion and expression (Art. 19).\n  - Right to peaceful assembly (Art. 20).\n\nEconomic, Social & Cultural Rights:\n  - Right to work and fair wages (Art. 23).\n  - Right to education (Art. 26).\n  - Right to participate in cultural life (Art. 27).\n\nKey principle: rights are universal, inalienable, and indivisible.\n  Universal: apply to every person regardless of nationality.\n  Inalienable: cannot be taken away.\n  Indivisible: civil rights and economic rights are equally important.\n\nThe UDHR is not legally binding, but it inspired:\n  - International Covenant on Civil and Political Rights (ICCPR).\n  - International Covenant on Economic, Social and Cultural Rights (ICESCR).\n  - Many national constitutions.", 1),
+        (human_r, "Human Rights Challenges", "Despite legal frameworks, human rights face ongoing challenges:\n\nCurrent issues:\n  - Freedom of expression vs. hate speech regulation.\n  - Digital privacy and surveillance.\n  - Refugee rights and asylum.\n  - Labor rights in global supply chains.\n  - Indigenous peoples' rights to land and self-determination.\n  - Gender equality and LGBTQ+ rights.\n\nEnforcement gaps:\n  - Sovereignty: states resist external scrutiny.\n  - Power dynamics: powerful nations rarely face consequences.\n  - Cultural relativism: are rights truly universal or culturally shaped?\n\nKey institutions:\n  - UN Human Rights Council: reviews member states.\n  - International Criminal Court: prosecutes worst violations.\n  - NGOs (Amnesty International, Human Rights Watch): document and advocate.\n\nDebate: positive vs. negative rights.\n  - Negative rights: freedom FROM interference (e.g., no torture).\n  - Positive rights: entitlement TO something (e.g., education, healthcare).\n  - Which should governments prioritize?", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    #[allow(clippy::type_complexity)]
+    // Explanations
+    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (gov_sys, "Democracy", "Democracy means 'rule by the people.' Citizens participate in decision-making, either directly (voting on laws) or by electing representatives. Key features include free elections, rule of law, and protection of minority rights.", Some("Think of democracy like a group project where everyone gets a vote on what to do — majority wins, but good groups also listen to dissenting voices."), Some("Why might a majority-rule democracy still need protections for minorities?")),
+        (gov_sys, "Separation of Powers", "Dividing government into legislative, executive, and judicial branches prevents any one group from gaining too much power. Each branch can check the others.", Some("Like a three-legged stool — remove one leg and the whole thing topples. Each branch keeps the others balanced."), Some("What happens when one branch becomes much stronger than the others?")),
+        (intl_rel, "Sovereignty", "Sovereignty means a state has supreme authority within its borders and is independent from external control. It's the foundation of the international system since the Peace of Westphalia (1648).", Some("Sovereignty is like a fence around your property — what you do inside is your business, but your neighbors might complain if your actions affect them."), Some("When, if ever, should the international community override a nation's sovereignty?")),
+        (pol_phil, "Social Contract", "The idea that people agree (implicitly) to give up some freedoms in exchange for social order and protection. Different philosophers (Hobbes, Locke, Rousseau) envisioned different versions.", Some("Imagine you and friends are stranded on an island — you'd naturally agree on some rules to keep everyone safe. That's the social contract."), Some("Did you ever explicitly agree to your government's rules? Does that matter?")),
+        (human_r, "Universal Human Rights", "The idea that every person has inherent rights simply by being human — regardless of nationality, ethnicity, gender, or status. Codified in the 1948 Universal Declaration of Human Rights.", Some("Human rights are like a minimum specification for dignity — the baseline that no government or person should violate."), Some("Are human rights truly universal, or do they reflect specific cultural values?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let questions: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        (gov_sys, "In which system does the legislature choose the head of government?", "multiple_choice", "Parliamentary", Some("Presidential"), Some("Parliamentary"), Some("Theocratic"), Some("Monarchical"), "Think about the UK and Canada.", "In a parliamentary system, the prime minister is chosen by (and accountable to) the legislature."),
+        (gov_sys, "True or false: In a constitutional monarchy, the monarch holds absolute power.", "true_false", "false", Some("true"), Some("false"), None, None, "Think about the UK's queen/king.", "False. In a constitutional monarchy, the monarch's powers are limited by law; real power lies with elected officials."),
+        (gov_sys, "Montesquieu proposed the separation of powers in which work?", "fill_in_blank", "The Spirit of the Laws", None, None, None, None, "Published in 1748.", "Montesquieu outlined the separation of powers in 'The Spirit of the Laws' (1748)."),
+        (gov_sys, "Which country is an example of a federal system?", "multiple_choice", "Switzerland", Some("France"), Some("Switzerland"), Some("Japan"), Some("United Kingdom"), "This country has 26 cantons.", "Switzerland is a federal state with 26 cantons sharing power with the central government."),
+        (gov_sys, "The three branches of government are legislative, executive, and ___.", "fill_in_blank", "judicial", None, None, None, None, "This branch interprets laws.", "The judicial branch interprets laws and ensures they are applied fairly."),
+        (intl_rel, "How many permanent members does the UN Security Council have?", "multiple_choice", "5", Some("3"), Some("5"), Some("10"), Some("15"), "They have veto power.", "The Security Council has 5 permanent members: USA, UK, France, Russia, and China."),
+        (intl_rel, "True or false: NATO's principle of collective defense means an attack on one member is considered an attack on all.", "true_false", "true", Some("true"), Some("false"), None, None, "This is Article 5.", "True. NATO's Article 5 establishes collective defense — an attack on one ally is an attack on all."),
+        (intl_rel, "What is 'soft power'?", "multiple_choice", "Influence through culture, values, and institutions", Some("Military force"), Some("Economic sanctions"), Some("Influence through culture, values, and institutions"), Some("Espionage"), "Think of cultural exports, education, and diplomacy.", "Soft power is the ability to influence others through attraction (culture, values, policies) rather than coercion."),
+        (intl_rel, "The WTO primarily regulates:", "multiple_choice", "International trade", Some("Military alliances"), Some("International trade"), Some("Human rights"), Some("Space exploration"), "Think about tariffs and trade disputes.", "The World Trade Organization (WTO) regulates international trade and resolves trade disputes."),
+        (pol_phil, "Who wrote 'Leviathan' (1651)?", "multiple_choice", "Thomas Hobbes", Some("John Locke"), Some("Thomas Hobbes"), Some("Jean-Jacques Rousseau"), Some("Niccolò Machiavelli"), "He described life without government as 'nasty, brutish, and short.'", "Thomas Hobbes wrote Leviathan, arguing for a strong sovereign to prevent the chaos of the 'state of nature.'"),
+        (pol_phil, "Rawls's 'veil of ignorance' asks you to design society without knowing:", "multiple_choice", "Your place in it", Some("The laws"), Some("Your place in it"), Some("The geography"), Some("The technology"), "Imagine not knowing if you'll be rich or poor.", "Behind the veil of ignorance, you don't know your race, wealth, gender, or talents — leading to fairer principles."),
+        (pol_phil, "True or false: Nozick supported a strong welfare state.", "true_false", "false", Some("true"), Some("false"), None, None, "He favored a minimal state.", "False. Nozick argued for a minimal state that only protects against force and fraud; redistribution violates rights."),
+        (pol_phil, "Which philosopher said 'Man is born free, and everywhere he is in chains'?", "multiple_choice", "Rousseau", Some("Hobbes"), Some("Locke"), Some("Rousseau"), Some("Marx"), "He wrote 'The Social Contract.'", "Jean-Jacques Rousseau opened The Social Contract (1762) with this famous line about natural freedom vs. social constraints."),
+        (human_r, "When was the Universal Declaration of Human Rights adopted?", "multiple_choice", "1948", Some("1919"), Some("1945"), Some("1948"), Some("1966"), "It was after World War II.", "The UDHR was adopted by the UN General Assembly on December 10, 1948."),
+        (human_r, "Freedom from torture is found in Article ___ of the UDHR.", "fill_in_blank", "5", None, None, None, None, "It's one of the first articles.", "Article 5 of the UDHR states: 'No one shall be subjected to torture or to cruel, inhuman or degrading treatment.'"),
+        (human_r, "True or false: The UDHR is legally binding on all UN member states.", "true_false", "false", Some("true"), Some("false"), None, None, "It's a declaration, not a treaty.", "False. The UDHR is a declaration, not a treaty — it's not directly legally binding, though it has inspired binding covenants."),
+        (human_r, "Negative rights protect freedom FROM interference; positive rights provide entitlement TO ___.", "fill_in_blank", "something", None, None, None, None, "Think of education or healthcare.", "Positive rights entitle people to something (e.g., education, healthcare) that the state must actively provide."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths: Vec<(&str, i64, i64, &str)> = vec![
+        ("political science", 1, gov_sys, "Learn the major types of government and how power is organized"),
+        ("political science", 2, human_r, "Understand fundamental human rights and their legal framework"),
+        ("political science", 3, intl_rel, "Explore how nations interact through diplomacy and organizations"),
+        ("political science", 4, pol_phil, "Dive into the philosophical foundations of politics and justice"),
+    ];
+    for (goal, step, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, step, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_renaissance(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add a new History topic: Renaissance & Reformation
+    let history_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'History'", [], |r| r.get(0),
+    )?;
+    let ren_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Renaissance & Reformation', 'intermediate', 4) RETURNING id",
+        [history_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    conn.execute(
+        "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, 'The Renaissance', ?2, 1)",
+        rusqlite::params![ren_id, "The Renaissance (14th–17th century) was a cultural rebirth centered in Italy.\n\nKey ideas:\n  - Humanism: focus on human potential, reason, and classical learning.\n  - Individualism: celebrating personal achievement.\n  - Secularism: growing interest in the material world alongside faith.\n\nMajor figures:\n  - Leonardo da Vinci: painter, inventor, scientist (Mona Lisa, Vitruvian Man).\n  - Michelangelo: sculptor and painter (David, Sistine Chapel ceiling).\n  - Raphael: painter (School of Athens).\n  - Niccolò Machiavelli: political philosopher (The Prince).\n  - Galileo Galilei: astronomer, championed heliocentrism.\n\nFlorence was the epicenter, funded by the Medici banking family.\n\nThe printing press (Gutenberg, ~1440) accelerated the spread of ideas.\n\nThe Renaissance spread north to the Netherlands, Germany, France, and England:\n  - Erasmus (Netherlands): Christian humanism.\n  - Albrecht Dürer (Germany): Northern Renaissance art.\n  - William Shakespeare (England): drama and poetry."],
+    )?;
+    conn.execute(
+        "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, 'The Reformation', ?2, 2)",
+        rusqlite::params![ren_id, "The Reformation (16th century) transformed Christianity in Europe.\n\nMartin Luther (1517):\n  - Posted 95 Theses criticizing the Catholic Church, especially the sale of indulgences.\n  - Key ideas: salvation by faith alone (sola fide), scripture as sole authority (sola scriptura).\n  - Excommunicated in 1521; protected by German princes.\n  - His ideas spread rapidly thanks to the printing press.\n\nJohn Calvin (Geneva):\n  - Predestination: God has already chosen who is saved.\n  - Strict moral code; Geneva became a 'Protestant Rome.'\n  - Calvinism spread to France (Huguenots), Netherlands, Scotland (Presbyterianism).\n\nHenry VIII (England):\n  - Broke from Rome over his divorce request.\n  - Created the Church of England (Anglican Church).\n  - Political as much as theological.\n\nCounter-Reformation:\n  - The Catholic Church responded with the Council of Trent (1545–1563).\n  - Clarified doctrine, reformed abuses, established seminaries.\n  - Jesuits (Society of Jesus) led education and missionary work.\n\nConsequences:\n  - Religious wars across Europe (Thirty Years' War, 1618–1648).\n  - Peace of Westphalia (1648): established state sovereignty.\n  - Permanent split: Catholic south, Protestant north in Europe."],
+    )?;
+
+    // Explanations
+    conn.execute(
+        "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, 'Renaissance Humanism', 'Humanism was the intellectual movement at the heart of the Renaissance. It emphasized the study of classical Greek and Roman texts, human potential, and the value of reason. Unlike medieval thinking that focused on the afterlife, humanists celebrated life in the present.', 'If medieval thinking was like staring at the sky waiting for heaven, humanism was like looking around and saying — the world right here is pretty amazing too, let''s study it.', 'How did the rediscovery of classical texts change European thought?')",
+        [ren_id],
+    )?;
+    conn.execute(
+        "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, 'The Reformation', 'The Reformation was a religious revolution that challenged the Catholic Church''s authority. Starting with Martin Luther''s 95 Theses in 1517, it questioned practices like selling indulgences and argued that individuals could connect with God directly through scripture.', 'Imagine a giant corporation (the Church) controlled all access to a product (salvation). The Reformation was like open-source — anyone could read the source code (Bible) themselves.', 'Why was the printing press so crucial to the Reformation''s success?')",
+        [ren_id],
+    )?;
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let questions: Vec<(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        ("In which city did the Renaissance begin?", "multiple_choice", "Florence", Some("Rome"), Some("Florence"), Some("Venice"), Some("Paris"), "Think about the Medici family.", "The Renaissance began in Florence, Italy, supported by wealthy patrons like the Medici family."),
+        ("Who painted the Sistine Chapel ceiling?", "multiple_choice", "Michelangelo", Some("Leonardo da Vinci"), Some("Raphael"), Some("Michelangelo"), Some("Botticelli"), "He also sculpted David.", "Michelangelo painted the Sistine Chapel ceiling (1508–1512) for Pope Julius II."),
+        ("Martin Luther posted his 95 Theses in which year?", "multiple_choice", "1517", Some("1492"), Some("1517"), Some("1534"), Some("1648"), "It was in Wittenberg, Germany.", "Martin Luther posted his 95 Theses on October 31, 1517, criticizing the sale of indulgences."),
+        ("True or false: The printing press helped spread Reformation ideas.", "true_false", "true", Some("true"), Some("false"), None, None, "Gutenberg's invention changed everything.", "True. The printing press allowed Luther's writings and translated Bibles to spread rapidly across Europe."),
+        ("Gutenberg invented the movable-type printing press around ___.", "fill_in_blank", "1440", None, None, None, None, "It was in the mid-15th century.", "Johannes Gutenberg developed his printing press around 1440, revolutionizing the spread of knowledge."),
+        ("The Peace of Westphalia (1648) established the principle of:", "multiple_choice", "State sovereignty", Some("Papal supremacy"), Some("State sovereignty"), Some("Universal monarchy"), Some("Free trade"), "It ended the Thirty Years' War.", "The Peace of Westphalia established state sovereignty as the foundation of the international order."),
+        ("Who proposed the idea of predestination?", "multiple_choice", "John Calvin", Some("Martin Luther"), Some("John Calvin"), Some("Henry VIII"), Some("Erasmus"), "He led the reformation in Geneva.", "John Calvin taught that God has predetermined who will be saved (predestination)."),
+        ("The Council of Trent was part of the:", "multiple_choice", "Counter-Reformation", Some("Renaissance"), Some("Reformation"), Some("Counter-Reformation"), Some("Enlightenment"), "It was the Catholic Church's response.", "The Council of Trent (1545–1563) was central to the Counter-Reformation, reforming Catholic practices."),
+    ];
+    for (q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![ren_id, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    conn.execute(
+        "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('renaissance', 1, ?1, 'Explore the cultural rebirth and religious upheaval that reshaped Europe')",
+        [ren_id],
+    )?;
+
+    Ok(())
+}
+
+pub fn seed_extra_history_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add more quiz questions for existing History topics (Ancient Civilizations, World Wars, Industrial Revolution)
+
+    // Ancient Civilizations (topic_id=12 based on seed order)
+    let anc_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'History' AND t.name = 'Ancient Civilizations'",
+        [], |r| r.get(0),
+    )?;
+    #[allow(clippy::type_complexity)]
+    let anc_qs: Vec<(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        ("Which ancient civilization built the pyramids at Giza?", "multiple_choice", "Egypt", Some("Mesopotamia"), Some("Egypt"), Some("Greece"), Some("Rome"), "They're on the Nile.", "The ancient Egyptians built the pyramids at Giza around 2560 BCE as tombs for pharaohs."),
+        ("The Roman Republic became the Roman Empire in which century?", "multiple_choice", "1st century BCE", Some("3rd century BCE"), Some("1st century BCE"), Some("1st century CE"), Some("3rd century CE"), "Think about Julius Caesar and Augustus.", "The Roman Republic transitioned to the Roman Empire in 27 BCE when Octavian became Augustus."),
+        ("True or false: Ancient Athens practiced direct democracy.", "true_false", "true", Some("true"), Some("false"), None, None, "Citizens voted on laws themselves.", "True. In Athens, eligible citizens (free adult males) voted directly on laws and policies in the Assembly."),
+        ("The Indus Valley civilization was located in modern-day ___ and India.", "fill_in_blank", "Pakistan", None, None, None, None, "It's India's western neighbor.", "The Indus Valley civilization (c. 3300–1300 BCE) was centered in modern Pakistan and northwestern India."),
+    ];
+    for (q, qtype, correct, a, b, c, d, hint, expl) in anc_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![anc_id, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // World Wars (topic_id=13)
+    let ww_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'History' AND t.name = 'World Wars'",
+        [], |r| r.get(0),
+    )?;
+    #[allow(clippy::type_complexity)]
+    let ww_qs: Vec<(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        ("Which event marked the start of World War II in Europe?", "multiple_choice", "Germany's invasion of Poland", Some("Attack on Pearl Harbor"), Some("Germany's invasion of Poland"), Some("Battle of Britain"), Some("Treaty of Versailles"), "It happened on September 1, 1939.", "Germany invaded Poland on September 1, 1939, prompting Britain and France to declare war."),
+        ("D-Day (June 6, 1944) was the Allied invasion of:", "multiple_choice", "Normandy, France", Some("Berlin, Germany"), Some("Normandy, France"), Some("Sicily, Italy"), Some("London, England"), "It was a beach landing in northern France.", "D-Day was the Allied amphibious invasion of Normandy, France — the largest seaborne invasion in history."),
+        ("True or false: The United States entered World War I in 1917.", "true_false", "true", Some("true"), Some("false"), None, None, "The war started in 1914 but the US joined later.", "True. The US entered WWI in April 1917, partly due to unrestricted submarine warfare and the Zimmermann Telegram."),
+        ("The Treaty of ___ ended World War I.", "fill_in_blank", "Versailles", None, None, None, None, "It was signed at a French palace in 1919.", "The Treaty of Versailles (1919) officially ended WWI, imposing harsh terms on Germany."),
+    ];
+    for (q, qtype, correct, a, b, c, d, hint, expl) in ww_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![ww_id, q, qtype, correct, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Industrial Revolution (topic_id=14)
+    let ind_id: i64 = conn.query_row(
+        "SELECT t.id FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'History' AND t.name = 'Industrial Revolution'",
+        [], |r| r.get(0),
+    )?;
+    #[allow(clippy::type_complexity)]
+    let ind_qs: Vec<(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        ("James Watt improved which invention?", "multiple_choice", "The steam engine", Some("The spinning jenny"), Some("The steam engine"), Some("The telegraph"), Some("The locomotive"), "It powered factories and transport.", "James Watt dramatically improved the steam engine in the 1760s–70s, making it practical for industry."),
+        ("True or false: The Industrial Revolution led to mass urbanization.", "true_false", "true", Some("true"), Some("false"), None, None, "People moved to cities for factory work.", "True. Millions moved from rural areas to cities for factory jobs, transforming society."),
+        ("Child labor in British factories was first regulated by the Factory Act of ___.", "fill_in_blank", "1833", None, None, None, None, "It was in the early 19th century.", "The Factory Act of 1833 limited working hours for children and required factory inspections."),
+    ];
+    for (q, qtype, correct, a, b, c, d, hint, expl) in ind_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![ind_id, q, qtype, correct, a, b, c, d, hint, expl],
         )?;
     }
 

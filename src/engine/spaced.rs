@@ -22,6 +22,43 @@ const FSRS_DECAY: f64 = 0.5;
 /// Factor relating stability to the 90% retention interval (from FSRS-4.5)
 const FSRS_FACTOR: f64 = 19.0 / 81.0;
 
+/// Returns a difficulty multiplier for initial intervals based on topic difficulty.
+/// Harder topics get shorter initial intervals (multiplier < 1.0) to reinforce
+/// learning more frequently. Easy topics may get slightly longer intervals.
+fn topic_difficulty_factor(conn: &Connection, topic_id: i64) -> f64 {
+    let difficulty: String = conn
+        .query_row(
+            "SELECT difficulty FROM topics WHERE id = ?1",
+            [topic_id],
+            |r| r.get(0),
+        )
+        .unwrap_or_else(|_| "beginner".to_string());
+
+    // Also consider user's ease factor — if they're struggling, shorten intervals
+    let ease: f64 = conn
+        .query_row(
+            "SELECT COALESCE(ease_factor, 2.5) FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(2.5);
+
+    let base = match difficulty.as_str() {
+        "advanced" => 0.6,       // 60% of normal interval (review sooner)
+        "intermediate" => 0.8,   // 80% of normal interval
+        _ => 1.0,                // beginner: normal intervals
+    };
+
+    // If ease is very low (user struggling), compress further
+    if ease < 1.8 {
+        base * 0.75
+    } else if ease < 2.2 {
+        base * 0.9
+    } else {
+        base
+    }
+}
+
 /// Apply a small random fuzz to an interval to prevent review clustering.
 /// For intervals >= 4 days, adds ±FUZZ_FACTOR jitter (at least ±1 day).
 fn fuzz_interval(interval: i64) -> i64 {
@@ -91,9 +128,11 @@ pub fn update_spaced_repetition(
             (new_ease, step_interval.min(MAX_INTERVAL))
         } else {
             // Normal correct answer — standard SM-2 graduation
+            // Difficulty-aware initial intervals: harder topics start with shorter gaps
+            let difficulty_factor = topic_difficulty_factor(conn, topic_id);
             let new_interval = match interval {
-                0 => 1,     // First review: 1 day
-                1 => 3,     // Second review: 3 days
+                0 => (1.0 * difficulty_factor).round().max(1.0) as i64,    // First review: 1 day (shorter for hard topics)
+                1 => (3.0 * difficulty_factor).round().max(1.0) as i64,    // Second review: 3 days (adjusted)
                 n => {
                     let calculated = (n as f64 * ease).round() as i64;
                     // Apply a bonus for high quality answers
@@ -850,6 +889,42 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let topics = prioritized_due_topics(&conn).unwrap();
         assert!(topics.is_empty());
+    }
+
+    #[test]
+    fn test_difficulty_factor_beginner() {
+        let conn = db::init_memory_db().unwrap();
+        // Topic 1 should be beginner difficulty
+        let factor = topic_difficulty_factor(&conn, 1);
+        assert!((factor - 1.0).abs() < 0.01, "Beginner should have factor ~1.0, got {}", factor);
+    }
+
+    #[test]
+    fn test_difficulty_factor_with_low_ease() {
+        let conn = db::init_memory_db().unwrap();
+        // Simulate struggling user
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, ease_factor, interval_days, score, attempts, correct)
+             VALUES (1, 1.5, 1, 30.0, 5, 1)",
+            [],
+        ).unwrap();
+        let factor = topic_difficulty_factor(&conn, 1);
+        assert!(factor < 1.0, "Low ease should compress intervals, got {}", factor);
+    }
+
+    #[test]
+    fn test_difficulty_aware_intervals() {
+        let conn = db::init_memory_db().unwrap();
+        // Find an intermediate topic
+        let int_id: Option<i64> = conn.query_row(
+            "SELECT id FROM topics WHERE difficulty = 'intermediate' LIMIT 1",
+            [],
+            |r| r.get(0),
+        ).ok();
+        if let Some(topic_id) = int_id {
+            let factor = topic_difficulty_factor(&conn, topic_id);
+            assert!(factor <= 1.0, "Intermediate should have factor <= 1.0, got {}", factor);
+        }
     }
 }
 
