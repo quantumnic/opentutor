@@ -77,6 +77,8 @@ enum Commands {
         #[arg(short, long)]
         output: Option<String>,
     },
+    /// Compare your progress across all subjects side-by-side
+    Compare,
     /// Cross-topic challenge quiz mixing questions from multiple subjects
     Challenge {
         /// Number of questions
@@ -162,6 +164,7 @@ fn main() {
         Commands::Daily => commands::daily::run(&conn),
         Commands::Reset { subject } => commands::reset::run(&conn, &subject),
         Commands::Export { output } => commands::export::run(&conn, &output),
+        Commands::Compare => commands::compare::run(&conn),
         Commands::Challenge { count } => commands::challenge::run(&conn, count),
         Commands::Achievements => commands::achievements::run(&conn),
         Commands::Forecast => commands::forecast::run(&conn),

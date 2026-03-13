@@ -569,6 +569,49 @@ pub fn prioritized_due_topics(conn: &Connection) -> Result<Vec<(i64, String, Str
     Ok(scored)
 }
 
+/// Default daily review cap (configurable via `opentutor config daily_review_cap`)
+const DEFAULT_DAILY_REVIEW_CAP: usize = 50;
+
+/// Get the user-configured daily review cap, falling back to default.
+pub fn get_daily_review_cap(conn: &Connection) -> usize {
+    conn.query_row(
+        "SELECT value FROM user_config WHERE key = 'daily_review_cap'",
+        [],
+        |r| r.get::<_, String>(0),
+    )
+    .ok()
+    .and_then(|v| v.parse::<usize>().ok())
+    .unwrap_or(DEFAULT_DAILY_REVIEW_CAP)
+}
+
+/// Get prioritized due topics, capped at the user's daily review limit.
+/// This prevents review overload when many cards become due at once.
+#[allow(dead_code)]
+pub fn capped_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
+    let cap = get_daily_review_cap(conn);
+    let mut topics = prioritized_due_topics(conn)?;
+    topics.truncate(cap);
+    Ok(topics)
+}
+
+/// Count how many reviews the user has already done today.
+pub fn reviews_done_today(conn: &Connection) -> i64 {
+    conn.query_row(
+        "SELECT COUNT(*) FROM session_log
+         WHERE activity_type = 'review' AND date(timestamp) = date('now')",
+        [],
+        |r| r.get(0),
+    )
+    .unwrap_or(0)
+}
+
+/// Remaining reviews for today based on cap and completed reviews.
+pub fn remaining_reviews_today(conn: &Connection) -> usize {
+    let cap = get_daily_review_cap(conn);
+    let done = reviews_done_today(conn) as usize;
+    cap.saturating_sub(done)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -967,6 +1010,47 @@ mod tests {
             let factor = topic_difficulty_factor(&conn, topic_id);
             assert!(factor <= 1.0, "Intermediate should have factor <= 1.0, got {}", factor);
         }
+    }
+
+    #[test]
+    fn test_daily_review_cap_default() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(get_daily_review_cap(&conn), DEFAULT_DAILY_REVIEW_CAP);
+    }
+
+    #[test]
+    fn test_daily_review_cap_custom() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_config (key, value) VALUES ('daily_review_cap', '25')",
+            [],
+        ).unwrap();
+        assert_eq!(get_daily_review_cap(&conn), 25);
+    }
+
+    #[test]
+    fn test_capped_due_topics_respects_cap() {
+        let conn = db::init_memory_db().unwrap();
+        // Set a very small cap
+        conn.execute(
+            "INSERT INTO user_config (key, value) VALUES ('daily_review_cap', '2')",
+            [],
+        ).unwrap();
+        let topics = capped_due_topics(&conn).unwrap();
+        assert!(topics.len() <= 2);
+    }
+
+    #[test]
+    fn test_reviews_done_today_empty() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(reviews_done_today(&conn), 0);
+    }
+
+    #[test]
+    fn test_remaining_reviews_today() {
+        let conn = db::init_memory_db().unwrap();
+        let remaining = remaining_reviews_today(&conn);
+        assert_eq!(remaining, DEFAULT_DAILY_REVIEW_CAP);
     }
 }
 

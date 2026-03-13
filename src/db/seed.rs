@@ -35,6 +35,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_anthropology(conn)?;
     seed_nutrition_science(conn)?;
     seed_expanded_language_health(conn)?;
+    seed_astronomy_physics_expanded(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -2686,6 +2687,227 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
             rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Astronomy expanded content — subject_id=15
+    let astro_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Astronomy'", [], |r| r.get(0)
+    )?;
+
+    // New topics
+    conn.execute(
+        "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Stellar Evolution', 'intermediate', 5)",
+        [astro_id],
+    )?;
+    let stellar_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Stellar Evolution'", [astro_id], |r| r.get(0)
+    )?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Exoplanets', 'intermediate', 6)",
+        [astro_id],
+    )?;
+    let exo_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Exoplanets'", [astro_id], |r| r.get(0)
+    )?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Cosmology', 'advanced', 7)",
+        [astro_id],
+    )?;
+    let cosmo_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cosmology'", [astro_id], |r| r.get(0)
+    )?;
+
+    // Stellar Evolution lessons
+    let stellar_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (stellar_id, "Life Cycle of Stars", "Stars form from collapsing clouds of gas and dust (nebulae). Gravity pulls material together until nuclear fusion ignites in the core — hydrogen fuses into helium.\n\nMain sequence: Stars spend most of their lives fusing hydrogen. Our Sun is a main-sequence star.\n\nMassive stars (>8 solar masses) burn hotter and faster. They last millions of years, not billions.\n\nSmall stars (red dwarfs) burn slowly and can last trillions of years.\n\nWhen hydrogen fuel runs out, a star's fate depends on its mass.", 1),
+        (stellar_id, "Red Giants and Supernovae", "When a Sun-like star exhausts hydrogen, it expands into a red giant, fusing helium into carbon and oxygen. Eventually it sheds its outer layers as a planetary nebula, leaving a white dwarf.\n\nMassive stars go further — fusing carbon, neon, oxygen, silicon, and finally iron. Iron fusion absorbs energy instead of releasing it. The core collapses in seconds, triggering a supernova explosion.\n\nSupernovae create elements heavier than iron (gold, uranium) and scatter them across space. We are literally made of star stuff.", 2),
+        (stellar_id, "Neutron Stars and Black Holes", "After a supernova, the remaining core determines the remnant:\n\n1.4–3 solar masses → neutron star. Incredibly dense: a teaspoon weighs ~6 billion tons. Some spin rapidly (pulsars) and emit radio beams.\n\n>3 solar masses → black hole. Gravity so strong that nothing, not even light, can escape past the event horizon.\n\nBlack holes are detected indirectly: by their gravitational effects on nearby stars, by X-rays from superheated accretion disks, and by gravitational waves when two merge.", 3),
+    ];
+    for (tid, title, content, order) in &stellar_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Exoplanets lessons
+    let exo_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (exo_id, "Discovering Exoplanets", "Exoplanets orbit stars other than our Sun. Over 5,600 have been confirmed (as of 2024).\n\nDetection methods:\n- Transit method: Planet passes in front of its star, causing a tiny dip in brightness. Kepler/TESS missions use this.\n- Radial velocity: Star wobbles due to planet's gravity. Measured via Doppler shift in starlight.\n- Direct imaging: Actually photographing the planet (very difficult — stars are millions of times brighter).\n- Gravitational microlensing: Planet's gravity bends light from a background star.", 1),
+        (exo_id, "Types of Exoplanets", "Exoplanets come in stunning variety:\n\n- Hot Jupiters: Gas giants orbiting very close to their stars. Surface temps >1000°C.\n- Super-Earths: Rocky planets 1-10× Earth's mass. Some may be habitable.\n- Mini-Neptunes: Between Earth and Neptune in size. Thick atmospheres.\n- Ocean worlds: Planets potentially covered entirely in deep water.\n- Rogue planets: Ejected from their systems, wandering through space.\n\nThe habitable zone ('Goldilocks zone') is the distance from a star where liquid water could exist on a planet's surface.", 2),
+    ];
+    for (tid, title, content, order) in &exo_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Cosmology lessons
+    let cosmo_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (cosmo_id, "The Big Bang", "The Big Bang theory describes the origin of the universe ~13.8 billion years ago.\n\nKey evidence:\n1. Cosmic Microwave Background (CMB): Faint radiation from when the universe cooled enough for atoms to form (~380,000 years after the Big Bang).\n2. Hubble's Law: Galaxies are moving away from us — the universe is expanding. Farther galaxies recede faster.\n3. Abundance of light elements: The ratio of hydrogen to helium matches Big Bang nucleosynthesis predictions.\n\nThe Big Bang was not an explosion IN space — it was the expansion OF space itself.", 1),
+        (cosmo_id, "Dark Matter and Dark Energy", "Ordinary matter (atoms) makes up only ~5% of the universe.\n\nDark matter (~27%): Does not emit or absorb light, but has gravitational effects. Evidence: galaxies rotate too fast for their visible mass; gravitational lensing shows invisible mass bending light.\n\nDark energy (~68%): A mysterious force accelerating the universe's expansion. Discovered in 1998 by observing distant supernovae that were dimmer than expected (farther away → expansion is speeding up).\n\nTogether, 95% of the universe is invisible to us. This is one of physics' greatest open problems.", 2),
+    ];
+    for (tid, title, content, order) in &cosmo_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Astronomy quiz questions
+    let astro_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (stellar_id, "What triggers a supernova in a massive star?", "multiple_choice", "Iron core collapse", Some("Hydrogen ignition"), Some("Helium flash"), Some("Iron core collapse"), Some("Dark energy"), None, "Iron fusion absorbs energy. When the core becomes iron, fusion stops and gravity causes a catastrophic collapse."),
+        (stellar_id, "A teaspoon of neutron star material weighs approximately:", "multiple_choice", "6 billion tons", Some("6 tons"), Some("6 million tons"), Some("6 billion tons"), Some("6 grams"), None, "Neutron stars are incredibly dense — a teaspoon weighs about 6 billion tons."),
+        (stellar_id, "What is a pulsar?", "multiple_choice", "A rapidly spinning neutron star", Some("A type of black hole"), Some("A dying red giant"), Some("A rapidly spinning neutron star"), Some("A collapsing nebula"), None, "Pulsars are neutron stars that emit beams of radiation as they spin rapidly."),
+        (stellar_id, "True or false: The Sun will eventually become a black hole.", "true_false", "false", None, None, None, None, None, "The Sun is not massive enough. It will become a red giant and then a white dwarf."),
+        (exo_id, "Which method detects exoplanets by measuring tiny dips in starlight?", "multiple_choice", "Transit method", Some("Transit method"), Some("Radial velocity"), Some("Direct imaging"), Some("Spectroscopy"), None, "The transit method detects planets by the slight dimming as they pass in front of their star."),
+        (exo_id, "What is the habitable zone also called?", "fill_in_blank", "Goldilocks zone", None, None, None, None, Some("Not too hot, not too cold..."), "The habitable zone is nicknamed the 'Goldilocks zone' — conditions are just right for liquid water."),
+        (exo_id, "As of 2024, approximately how many exoplanets have been confirmed?", "multiple_choice", "Over 5,000", Some("About 500"), Some("Over 5,000"), Some("About 50"), Some("Over 50,000"), None, "Over 5,600 exoplanets have been confirmed as of 2024, with thousands more candidates."),
+        (cosmo_id, "What percentage of the universe is ordinary matter?", "multiple_choice", "About 5%", Some("About 5%"), Some("About 27%"), Some("About 68%"), Some("About 50%"), None, "Ordinary (baryonic) matter makes up only about 5% of the universe. The rest is dark matter and dark energy."),
+        (cosmo_id, "The Cosmic Microwave Background is evidence of:", "multiple_choice", "The Big Bang", Some("Dark energy"), Some("The Big Bang"), Some("Black holes"), Some("Exoplanets"), None, "The CMB is the afterglow of the Big Bang — radiation from when the universe first became transparent to light."),
+        (cosmo_id, "True or false: Dark energy causes the universe's expansion to accelerate.", "true_false", "true", None, None, None, None, None, "Dark energy is the mysterious force driving the accelerating expansion of the universe, discovered in 1998."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &astro_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Explanations
+    let astro_explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (stellar_id, "Stellar Evolution", "Stars are born, live, and die — just like living things, but over millions to billions of years. Their mass at birth determines everything about their life and death.", Some("Think of stars like candles: a big candle burns brighter but runs out faster. A tiny candle burns dimly for a very long time."), Some("What happens to a star that's 20 times the mass of our Sun?")),
+        (exo_id, "Exoplanet Detection", "We can't easily see exoplanets directly because stars outshine them. Instead, we detect them indirectly — like noticing a firefly near a lighthouse by watching the lighthouse flicker.", Some("Imagine trying to spot a moth flying in front of a car headlight from a mile away. The transit method works by detecting that tiny shadow."), Some("Why is the transit method better for finding large planets close to their stars?")),
+        (cosmo_id, "Dark Energy", "Something is pushing the universe apart faster and faster. We don't know what it is, so we call it 'dark energy.' It makes up 68% of the universe and is perhaps the biggest mystery in physics.", Some("Imagine throwing a ball up in the air and instead of slowing down, it accelerates upward. That's what dark energy does to the expansion of space."), Some("If the universe is 95% invisible stuff, how can we be sure it exists?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &astro_explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Learning paths
+    conn.execute("INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('stellar evolution', 1, ?1, 'Start with the life cycle of stars — how they form and live')", [stellar_id])?;
+    conn.execute("INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('stellar evolution', 2, ?1, 'Learn about stellar death — supernovae, neutron stars, black holes')", [stellar_id])?;
+    conn.execute("INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('exoplanets', 1, ?1, 'Understand how we detect planets around other stars')", [exo_id])?;
+    conn.execute("INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('cosmology', 1, ?1, 'Explore the origin and fate of the universe')", [cosmo_id])?;
+
+    // Physics expanded — subject_id=16
+    let physics_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Physics'", [], |r| r.get(0)
+    )?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Thermodynamics', 'intermediate', 5)",
+        [physics_id],
+    )?;
+    let thermo_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Thermodynamics'", [physics_id], |r| r.get(0)
+    )?;
+
+    let thermo_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (thermo_id, "Laws of Thermodynamics", "The four laws of thermodynamics govern energy and heat:\n\n0th Law: If A is in thermal equilibrium with B, and B with C, then A is with C. (Defines temperature.)\n\n1st Law: Energy cannot be created or destroyed, only transformed. ΔU = Q - W (internal energy change = heat added - work done).\n\n2nd Law: Entropy of an isolated system always increases. Heat flows from hot to cold, never the reverse spontaneously. Perpetual motion machines are impossible.\n\n3rd Law: As temperature approaches absolute zero (0 K / -273.15°C), entropy approaches a minimum.", 1),
+        (thermo_id, "Heat Transfer", "Heat moves by three mechanisms:\n\nConduction: Direct contact. Molecules transfer kinetic energy to neighbors. Metals are good conductors; wood and air are poor (insulators).\n\nConvection: Fluid movement. Hot fluid rises, cool fluid sinks, creating circulation. Boiling water, weather patterns, ocean currents.\n\nRadiation: Electromagnetic waves. No medium needed — this is how the Sun heats the Earth across the vacuum of space.\n\nAll three operate simultaneously in everyday situations (a campfire: radiation warms your face, convection carries smoke up, conduction heats the poker).", 2),
+    ];
+    for (tid, title, content, order) in &thermo_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let thermo_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (thermo_id, "Which law of thermodynamics states that energy cannot be created or destroyed?", "multiple_choice", "First Law", Some("Zeroth Law"), Some("First Law"), Some("Second Law"), Some("Third Law"), None, "The First Law of Thermodynamics is the law of conservation of energy: energy can only be transformed, not created or destroyed."),
+        (thermo_id, "Heat transfer through direct contact between molecules is called:", "fill_in_blank", "conduction", None, None, None, None, Some("Think of touching a hot pan..."), "Conduction transfers heat through direct molecular contact — fast-vibrating molecules pass energy to slower neighbors."),
+        (thermo_id, "True or false: Heat can spontaneously flow from a cold object to a hot object.", "true_false", "false", None, None, None, None, None, "The Second Law of Thermodynamics states that heat flows spontaneously from hot to cold, never the reverse."),
+        (thermo_id, "What is absolute zero in Celsius?", "fill_in_blank", "-273.15", None, None, None, None, Some("It's the lowest possible temperature..."), "Absolute zero is 0 Kelvin, which equals -273.15°C. At this temperature, molecular motion reaches its minimum."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &thermo_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // CS Networking topic — subject_id=6
+    let cs_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Computer Science'", [], |r| r.get(0)
+    )?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Networking Basics', 'intermediate', 5)",
+        [cs_id],
+    )?;
+    let net_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Networking Basics'", [cs_id], |r| r.get(0)
+    )?;
+
+    let net_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (net_id, "How the Internet Works", "The Internet is a global network of connected computers.\n\nKey concepts:\n- IP Address: A unique number identifying each device (e.g., 192.168.1.1 for IPv4, or longer for IPv6).\n- DNS: Translates domain names (google.com) to IP addresses. Like a phone book for the Internet.\n- Packets: Data is broken into small packets, routed independently, and reassembled at the destination.\n- Protocols: Rules for communication. HTTP for web pages, SMTP for email, FTP for files.\n\nThe TCP/IP model has 4 layers: Application, Transport, Internet, Network Access.", 1),
+        (net_id, "Protocols and Ports", "Protocols define how computers communicate:\n\n- TCP (Transmission Control Protocol): Reliable, ordered delivery. Used for web, email. Establishes a connection first (three-way handshake).\n- UDP (User Datagram Protocol): Fast but unreliable. Used for video streaming, gaming, DNS.\n- HTTP/HTTPS: Web browsing (port 80/443). HTTPS adds encryption via TLS.\n- SSH: Secure remote access (port 22).\n- DNS: Name resolution (port 53).\n\nPorts are like apartment numbers in a building — the IP is the address, the port identifies the specific service.", 2),
+    ];
+    for (tid, title, content, order) in &net_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let net_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (net_id, "What does DNS stand for?", "fill_in_blank", "Domain Name System", None, None, None, None, Some("It translates domain names to IP addresses..."), "DNS = Domain Name System. It translates human-readable domain names into IP addresses."),
+        (net_id, "Which protocol provides reliable, ordered data delivery?", "multiple_choice", "TCP", Some("UDP"), Some("TCP"), Some("FTP"), Some("DNS"), None, "TCP (Transmission Control Protocol) ensures reliable, ordered delivery using a three-way handshake and acknowledgments."),
+        (net_id, "HTTPS uses port:", "multiple_choice", "443", Some("80"), Some("22"), Some("443"), Some("53"), None, "HTTPS (HTTP Secure) uses port 443. Regular HTTP uses port 80."),
+        (net_id, "True or false: UDP guarantees packet delivery.", "true_false", "false", None, None, None, None, None, "UDP is connectionless and does not guarantee delivery. It's faster but less reliable than TCP."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &net_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Geography expanded quizzes for under-covered topics
+    let geo_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Geography'", [], |r| r.get(0)
+    )?;
+
+    conn.execute(
+        "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'World Capitals', 'beginner', 5)",
+        [geo_id],
+    )?;
+    let capitals_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Capitals'", [geo_id], |r| r.get(0)
+    )?;
+
+    let cap_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (capitals_id, "What is the capital of Japan?", "multiple_choice", "Tokyo", Some("Osaka"), Some("Tokyo"), Some("Kyoto"), Some("Yokohama"), None, "Tokyo has been Japan's capital since 1868 when the Emperor moved there from Kyoto."),
+        (capitals_id, "What is the capital of Brazil?", "multiple_choice", "Brasília", Some("Rio de Janeiro"), Some("São Paulo"), Some("Brasília"), Some("Salvador"), Some("It's not the largest city..."), "Brasília was purpose-built as the capital in 1960, designed by Oscar Niemeyer and Lúcio Costa."),
+        (capitals_id, "What is the capital of Australia?", "multiple_choice", "Canberra", Some("Sydney"), Some("Melbourne"), Some("Canberra"), Some("Brisbane"), Some("It's not Sydney or Melbourne..."), "Canberra was chosen as a compromise between rival cities Sydney and Melbourne in 1908."),
+        (capitals_id, "The capital of Canada is ___.", "fill_in_blank", "Ottawa", None, None, None, None, Some("It's in Ontario, but it's not Toronto..."), "Ottawa was chosen as Canada's capital by Queen Victoria in 1857."),
+        (capitals_id, "What is the capital of South Africa's legislative branch?", "multiple_choice", "Cape Town", Some("Pretoria"), Some("Cape Town"), Some("Johannesburg"), Some("Durban"), Some("South Africa has three capitals..."), "South Africa has three capitals: Pretoria (executive), Cape Town (legislative), Bloemfontein (judicial)."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &cap_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    let cap_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (capitals_id, "Surprising Capitals", "Many countries' capitals are NOT their largest or most famous city:\n\n- USA: Washington D.C. (not New York)\n- Australia: Canberra (not Sydney)\n- Brazil: Brasília (not São Paulo or Rio)\n- Turkey: Ankara (not Istanbul)\n- Canada: Ottawa (not Toronto)\n- Myanmar: Naypyidaw (not Yangon)\n- Nigeria: Abuja (not Lagos)\n- Pakistan: Islamabad (not Karachi)\n\nCapitals are often chosen for political, geographic, or historical reasons rather than being the biggest city.", 1),
+    ];
+    for (tid, title, content, order) in &cap_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
         )?;
     }
 

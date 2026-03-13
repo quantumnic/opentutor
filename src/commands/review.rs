@@ -76,9 +76,17 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     }
 
     display::print_header("Spaced Repetition Review");
+
+    // Show review budget
+    let cap = spaced::get_daily_review_cap(conn);
+    let done_today = spaced::reviews_done_today(conn);
+    let remaining = spaced::remaining_reviews_today(conn);
     println!(
-        "  {} topics due for review\n",
-        due_topics.len().to_string().bold().bright_yellow()
+        "  {} topics due for review  (today: {}/{} reviews used, {} remaining)\n",
+        due_topics.len().to_string().bold().bright_yellow(),
+        done_today.to_string().dimmed(),
+        cap.to_string().dimmed(),
+        remaining.to_string().bold().bright_cyan(),
     );
 
     let mut total_correct = 0;
