@@ -124,6 +124,18 @@ enum Commands {
         /// Topic name (for add/remove)
         topic: Option<String>,
     },
+    /// Show your weakest topics — where to focus study time
+    Weak {
+        /// Number of topics to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
+    /// Review your quiz mistakes to learn from errors
+    Mistakes {
+        /// Number of topics to show
+        #[arg(short, long, default_value = "15")]
+        limit: usize,
+    },
 }
 
 fn main() {
@@ -161,6 +173,8 @@ fn main() {
         Commands::Config { key, value } => commands::config::run(&conn, &key, &value),
         Commands::Flashcard { topic, count } => commands::flashcard::run(&conn, &topic, count),
         Commands::Bookmark { action, topic } => commands::bookmark::run(&conn, &action, &topic),
+        Commands::Weak { limit } => commands::weak::run(&conn, limit),
+        Commands::Mistakes { limit } => commands::mistakes::run(&conn, limit),
     };
 
     if let Err(e) = result {

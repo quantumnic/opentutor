@@ -32,6 +32,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_renaissance(conn)?;
     seed_extra_history_quizzes(conn)?;
     seed_formal_logic_and_health(conn)?;
+    seed_anthropology(conn)?;
+    seed_nutrition_science(conn)?;
+    seed_expanded_language_health(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -713,7 +716,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 24); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature
+        assert_eq!(count, 26); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science
     }
 
     #[test]
@@ -723,7 +726,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 24);
+        assert_eq!(count, 26);
     }
 
     #[test]
@@ -2377,6 +2380,312 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
             rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, *hint, expl],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Seed Anthropology subject with full content.
+#[allow(clippy::type_complexity)]
+pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Anthropology'", [], |r| r.get(0))
+        .unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Anthropology', 'The study of humanity — cultures, societies, biological evolution, and what makes us human across time and place.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Anthropology'", [], |r| r.get(0))?;
+
+    let topics = [
+        (subj_id, "Cultural Anthropology", "beginner", 1),
+        (subj_id, "Biological Anthropology", "beginner", 2),
+        (subj_id, "Archaeology", "intermediate", 3),
+        (subj_id, "Linguistic Anthropology", "intermediate", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let cult_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cultural Anthropology'", [subj_id], |r| r.get(0))?;
+    let bio_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Biological Anthropology'", [subj_id], |r| r.get(0))?;
+    let arch_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Archaeology'", [subj_id], |r| r.get(0))?;
+    let ling_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Linguistic Anthropology'", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (cult_id, "What Is Culture?", "Culture is the learned set of beliefs, values, norms, and practices shared by a group of people. It includes language, art, religion, food, music, and social habits. Culture is not genetic — it is transmitted through socialization. Anthropologists study culture to understand human diversity and the many ways societies organize life.", 1),
+        (cult_id, "Kinship and Social Organization", "Kinship systems define how people relate to one another through blood, marriage, and adoption. Different societies have matrilineal (traced through the mother) or patrilineal (traced through the father) descent systems. Understanding kinship helps explain inheritance, authority, and social obligations across cultures.", 2),
+        (cult_id, "Rituals and Rites of Passage", "Rituals are symbolic actions performed in a prescribed order, often marking transitions in life: birth, adulthood, marriage, death. Arnold van Gennep identified three phases of rites of passage: separation, liminality (the in-between), and incorporation. These rituals reinforce social bonds and cultural identity.", 3),
+        (bio_id, "Human Evolution", "Biological anthropology traces the evolution of Homo sapiens from early primates. Key milestones include bipedalism (~4 million years ago), tool use (~2.6 million years ago), and the development of language. Fossils like Lucy (Australopithecus afarensis) help reconstruct our evolutionary history.", 1),
+        (bio_id, "Primatology", "Primatology studies non-human primates — monkeys, apes, and prosimians — to understand our closest relatives. Jane Goodall's work with chimpanzees revealed tool use and complex social behaviors previously thought unique to humans. Comparing primates helps us understand what traits are shared and what is uniquely human.", 2),
+        (bio_id, "Human Biological Diversity", "Humans show remarkable biological variation in skin color, body proportions, and disease resistance, shaped by adaptation to different environments. For example, darker skin near the equator protects against UV radiation, while lighter skin at higher latitudes aids vitamin D production. Race is a social construct — genetic variation within so-called 'races' is greater than variation between them.", 3),
+        (arch_id, "What Is Archaeology?", "Archaeology reconstructs past human societies through their material remains — tools, pottery, buildings, and trash. Unlike historians who rely on written records, archaeologists study physical evidence. Stratigraphy (layering of soil) and carbon-14 dating help establish chronologies of past cultures.", 1),
+        (arch_id, "The Neolithic Revolution", "Around 10,000 BCE, humans transitioned from hunting and gathering to farming. This Neolithic Revolution began independently in several regions (Fertile Crescent, China, Mesoamerica). Agriculture led to permanent settlements, population growth, social stratification, and eventually the first cities and states.", 2),
+        (ling_id, "Language and Culture", "Linguistic anthropology examines how language shapes thought and social life. The Sapir-Whorf hypothesis suggests that the structure of a language influences how its speakers perceive the world. For example, some languages have dozens of words for snow or family relationships, reflecting cultural priorities.", 1),
+        (ling_id, "Language Endangerment", "Of roughly 7,000 languages spoken today, nearly half are endangered — spoken by fewer than 1,000 people. When a language dies, its unique worldview, stories, and ecological knowledge vanish. Linguists and communities work on documentation and revitalization to preserve endangered languages.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (cult_id, "Ethnocentrism", "Ethnocentrism is judging another culture solely by the standards of your own. Anthropologists practice cultural relativism instead — understanding a culture on its own terms.", Some("Imagine visiting another planet and insisting they eat with forks. Their spoons work perfectly for their food!"), Some("Can you think of a custom from another culture you initially found strange but now understand?")),
+        (bio_id, "Natural Selection", "Natural selection is the process where traits that improve survival and reproduction become more common over generations. It is a key mechanism of evolution, first described by Charles Darwin.", Some("Think of it like a job interview: the environment is the employer, and beneficial traits are the qualifications."), Some("How might natural selection explain why some populations are taller than others?")),
+        (arch_id, "Stratigraphy", "Stratigraphy is the study of rock and soil layers (strata). In archaeology, deeper layers are generally older. This principle lets archaeologists date finds relative to each other.", Some("It's like a stack of pancakes — the one on the bottom was made first."), Some("Why might archaeological layers sometimes be disturbed or mixed?")),
+        (ling_id, "Sapir-Whorf Hypothesis", "The Sapir-Whorf hypothesis proposes that language influences thought and perception. The strong version says language determines thought; the weaker version says it merely influences it.", Some("If your language has no word for 'blue', do you still see blue? Research with the Himba people suggests color perception is indeed influenced by vocabulary."), Some("How might bilingual speakers experience the world differently?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (cult_id, "What does 'culture' mean in anthropology?", "multiple_choice", "Learned beliefs, values, and practices shared by a group", Some("Only art and music"), Some("Learned beliefs, values, and practices shared by a group"), Some("Genetic traits passed down"), Some("Government laws and rules"), None, "Culture encompasses all learned and shared behaviors, not just arts or genetics."),
+        (cult_id, "In a matrilineal society, descent is traced through:", "multiple_choice", "The mother's line", Some("The father's line"), Some("The mother's line"), Some("Both parents equally"), Some("The eldest sibling"), None, "Matrilineal means tracing lineage through the maternal side."),
+        (cult_id, "Arnold van Gennep identified three phases of rites of passage: separation, ___, and incorporation.", "fill_in_blank", "liminality", None, None, None, None, Some("This is the 'in-between' phase"), "Liminality is the transitional phase where the person is between their old and new social status."),
+        (bio_id, "Approximately when did bipedalism evolve in the human lineage?", "multiple_choice", "About 4 million years ago", Some("About 100,000 years ago"), Some("About 4 million years ago"), Some("About 50 million years ago"), Some("About 500,000 years ago"), None, "Bipedalism appeared in early hominins like Australopithecus around 4 million years ago."),
+        (bio_id, "Jane Goodall is famous for studying which primates?", "multiple_choice", "Chimpanzees", Some("Gorillas"), Some("Orangutans"), Some("Chimpanzees"), Some("Bonobos"), None, "Jane Goodall spent decades studying chimpanzees in Gombe, Tanzania."),
+        (bio_id, "Race is primarily a biological category.", "true_false", "false", None, None, None, None, None, "Genetic variation within racial groups exceeds variation between them; race is a social construct."),
+        (arch_id, "What dating method uses the decay of carbon-14 isotopes?", "multiple_choice", "Radiocarbon dating", Some("Radiocarbon dating"), Some("Stratigraphy"), Some("Dendrochronology"), Some("Thermoluminescence"), None, "Radiocarbon (C-14) dating measures the decay of carbon-14 to estimate age up to ~50,000 years."),
+        (arch_id, "The Neolithic Revolution refers to the transition from hunting-gathering to:", "fill_in_blank", "farming", None, None, None, None, Some("Think about growing your own food"), "The Neolithic Revolution (~10,000 BCE) was the shift to agriculture and settled life."),
+        (ling_id, "The Sapir-Whorf hypothesis suggests that language influences:", "multiple_choice", "Thought and perception", Some("Physical health"), Some("Thought and perception"), Some("Musical ability"), Some("Athletic performance"), None, "The Sapir-Whorf hypothesis links language structure to cognitive patterns and perception."),
+        (ling_id, "Approximately how many languages are spoken in the world today?", "multiple_choice", "About 7,000", Some("About 200"), Some("About 1,500"), Some("About 7,000"), Some("About 50,000"), None, "There are roughly 7,000 languages spoken worldwide, but nearly half are endangered."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths = [
+        ("anthropology", 1, cult_id, "Cultural anthropology — understand how societies organize life"),
+        ("anthropology", 2, bio_id, "Biological anthropology — human evolution and diversity"),
+        ("anthropology", 3, arch_id, "Archaeology — reconstructing the past through material evidence"),
+        ("anthropology", 4, ling_id, "Linguistic anthropology — how language shapes human experience"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Seed Nutrition Science subject with full content.
+#[allow(clippy::type_complexity)]
+pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Nutrition Science'", [], |r| r.get(0))
+        .unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Nutrition Science', 'The science of food and nutrients — how what we eat affects growth, health, disease prevention, and well-being.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Nutrition Science'", [], |r| r.get(0))?;
+
+    let topics = [
+        (subj_id, "Macronutrients", "beginner", 1),
+        (subj_id, "Micronutrients", "beginner", 2),
+        (subj_id, "Digestion & Metabolism", "intermediate", 3),
+        (subj_id, "Dietary Patterns & Health", "intermediate", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let macro_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Macronutrients'", [subj_id], |r| r.get(0))?;
+    let micro_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Micronutrients'", [subj_id], |r| r.get(0))?;
+    let digest_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Digestion & Metabolism'", [subj_id], |r| r.get(0))?;
+    let diet_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Dietary Patterns & Health'", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (macro_id, "Carbohydrates", "Carbohydrates are the body's primary energy source. They break down into glucose, which fuels cells. Simple carbs (sugars) provide quick energy, while complex carbs (starches, fiber) provide sustained energy. Fiber, found in whole grains, fruits, and vegetables, aids digestion and feeds beneficial gut bacteria. Recommended intake: 45–65% of total calories.", 1),
+        (macro_id, "Proteins", "Proteins are chains of amino acids essential for building and repairing tissues, making enzymes and hormones, and supporting immune function. There are 20 amino acids; 9 are 'essential' (must come from food). Complete proteins (meat, eggs, soy) contain all essential amino acids; incomplete proteins (beans, grains) should be combined. Recommended intake: 10–35% of total calories.", 2),
+        (macro_id, "Fats", "Dietary fats are essential for absorbing fat-soluble vitamins (A, D, E, K), insulating organs, and producing hormones. Unsaturated fats (olive oil, nuts, fish) promote heart health. Saturated fats (butter, red meat) should be limited. Trans fats (partially hydrogenated oils) are harmful and should be avoided. Recommended intake: 20–35% of total calories.", 3),
+        (micro_id, "Vitamins", "Vitamins are organic compounds needed in small amounts for metabolism. Water-soluble vitamins (B-complex, C) must be consumed regularly since the body cannot store them. Fat-soluble vitamins (A, D, E, K) are stored in body fat. Deficiencies cause specific diseases: scurvy (vitamin C), rickets (vitamin D), night blindness (vitamin A).", 1),
+        (micro_id, "Minerals", "Minerals are inorganic elements that serve structural and regulatory functions. Calcium builds bones and teeth. Iron carries oxygen in hemoglobin. Sodium and potassium regulate fluid balance and nerve signaling. Zinc supports immune function. Most minerals come from a varied diet; deficiencies can cause anemia (iron), osteoporosis (calcium), or goiter (iodine).", 2),
+        (digest_id, "The Digestive Process", "Digestion begins in the mouth (mechanical chewing + salivary amylase). The stomach uses acid and pepsin to break down proteins. The small intestine is where most nutrient absorption occurs, aided by bile (from the liver) and pancreatic enzymes. The large intestine absorbs water and houses trillions of gut bacteria that produce vitamins and short-chain fatty acids.", 1),
+        (digest_id, "Metabolism and Energy Balance", "Metabolism is the sum of chemical reactions that convert food into energy. Basal Metabolic Rate (BMR) — the calories burned at rest — accounts for 60-70% of daily energy use. Energy balance determines weight: calories in = calories out maintains weight; surplus leads to gain, deficit to loss. Metabolic rate is influenced by age, muscle mass, and hormones.", 2),
+        (diet_id, "Mediterranean Diet", "The Mediterranean diet emphasizes fruits, vegetables, whole grains, legumes, nuts, olive oil, fish, and moderate wine. It is associated with reduced risk of heart disease, stroke, type 2 diabetes, and certain cancers. Key principles: plants first, healthy fats over saturated fats, herbs and spices instead of salt, social meals.", 1),
+        (diet_id, "Understanding Food Labels", "Nutrition labels list serving size, calories, and amounts of macronutrients, sodium, fiber, and added sugars. The %Daily Value (%DV) indicates how much a nutrient contributes to a 2,000-calorie diet. 5% DV or less is 'low'; 20% or more is 'high'. Reading labels helps make informed choices about packaged foods.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (macro_id, "Glycemic Index", "The glycemic index (GI) ranks foods by how quickly they raise blood sugar. High-GI foods (white bread, candy) spike blood sugar rapidly. Low-GI foods (oats, lentils) release glucose slowly, providing sustained energy.", Some("High-GI is like a bonfire that burns hot and fast; low-GI is a slow-burning campfire that lasts all night."), Some("Why might athletes choose high-GI foods during a race but low-GI foods for breakfast?")),
+        (micro_id, "Antioxidants", "Antioxidants are molecules that neutralize free radicals — unstable atoms that damage cells and contribute to aging and diseases. Vitamins C and E, beta-carotene, and selenium are powerful antioxidants found in colorful fruits and vegetables.", Some("Free radicals are like rust on metal; antioxidants are the protective coating that prevents damage."), Some("What colors of fruits and vegetables are richest in antioxidants?")),
+        (digest_id, "Gut Microbiome", "The gut microbiome is the community of trillions of bacteria living in your intestines. These bacteria help digest fiber, produce vitamins (K, B12), regulate immunity, and even influence mood through the gut-brain axis.", Some("Your gut is like a garden: diverse, well-fed bacteria create a thriving ecosystem; poor diet creates weeds."), Some("How might antibiotics affect your gut microbiome?")),
+        (diet_id, "Calorie Density", "Calorie density is the number of calories per gram of food. Water-rich foods (fruits, vegetables, soups) have low calorie density — you can eat more volume for fewer calories. Oils, nuts, and dried foods have high calorie density.", Some("A big bowl of salad has fewer calories than a small handful of peanuts — same energy, very different volumes."), Some("How could understanding calorie density help someone manage their weight?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Quiz questions
+    #[allow(clippy::type_complexity)]
+    let quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (macro_id, "Which macronutrient is the body's primary energy source?", "multiple_choice", "Carbohydrates", Some("Protein"), Some("Carbohydrates"), Some("Fat"), Some("Vitamins"), None, "Carbohydrates break down into glucose, the main fuel for cells."),
+        (macro_id, "How many essential amino acids must come from food?", "multiple_choice", "9", Some("5"), Some("9"), Some("12"), Some("20"), None, "Of the 20 amino acids, 9 are essential — our bodies cannot synthesize them."),
+        (macro_id, "Trans fats are generally considered healthy.", "true_false", "false", None, None, None, None, None, "Trans fats increase bad cholesterol and are linked to heart disease. They should be avoided."),
+        (micro_id, "Scurvy is caused by a deficiency of vitamin ___.", "fill_in_blank", "C", None, None, None, None, Some("Sailors prevented it with citrus fruits"), "Vitamin C deficiency causes scurvy — bleeding gums, fatigue, and poor wound healing."),
+        (micro_id, "Which mineral is essential for carrying oxygen in the blood?", "multiple_choice", "Iron", Some("Calcium"), Some("Zinc"), Some("Iron"), Some("Sodium"), None, "Iron is a key component of hemoglobin, which carries oxygen in red blood cells."),
+        (micro_id, "Fat-soluble vitamins include A, D, E, and ___.", "fill_in_blank", "K", None, None, None, None, Some("It helps with blood clotting"), "Vitamins A, D, E, and K are fat-soluble — stored in the body's fat tissue."),
+        (digest_id, "Where does most nutrient absorption occur?", "multiple_choice", "Small intestine", Some("Stomach"), Some("Mouth"), Some("Small intestine"), Some("Large intestine"), None, "The small intestine's large surface area (villi and microvilli) enables most nutrient absorption."),
+        (digest_id, "BMR stands for Basal ___ Rate.", "fill_in_blank", "Metabolic", None, None, None, None, Some("It relates to your body's energy use at rest"), "Basal Metabolic Rate is the number of calories your body burns at rest to maintain basic functions."),
+        (diet_id, "The Mediterranean diet emphasizes which type of fat?", "multiple_choice", "Olive oil (unsaturated fat)", Some("Butter"), Some("Margarine"), Some("Olive oil (unsaturated fat)"), Some("Lard"), None, "The Mediterranean diet favors unsaturated fats from olive oil, nuts, and fish."),
+        (diet_id, "On a nutrition label, 20% Daily Value or more of a nutrient is considered:", "multiple_choice", "High", Some("Low"), Some("Moderate"), Some("High"), Some("Excessive"), None, "5% DV or less is low; 20% DV or more is high. This helps compare foods quickly."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths = [
+        ("nutrition science", 1, macro_id, "Macronutrients — carbs, proteins, and fats: the building blocks of diet"),
+        ("nutrition science", 2, micro_id, "Micronutrients — vitamins and minerals that keep your body running"),
+        ("nutrition science", 3, digest_id, "Digestion and metabolism — how your body processes food into energy"),
+        ("nutrition science", 4, diet_id, "Dietary patterns — evidence-based approaches to healthy eating"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Seed additional Language and Health lessons + quizzes to deepen existing thin subjects.
+#[allow(clippy::type_complexity)]
+pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add more Language topics
+    let lang_id: i64 = match conn.query_row("SELECT id FROM subjects WHERE name = 'Language'", [], |r| r.get(0)) {
+        Ok(id) => id,
+        Err(_) => return Ok(()),
+    };
+
+    // Check if already expanded
+    let topic_ct: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM topics WHERE subject_id = ?1",
+        [lang_id], |r| r.get(0),
+    )?;
+    if topic_ct >= 4 { return Ok(()); }
+
+    // Add new topics
+    conn.execute(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Vocabulary Building', 'beginner', 3)",
+        [lang_id],
+    )?;
+    conn.execute(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Essay Writing', 'intermediate', 4)",
+        [lang_id],
+    )?;
+
+    let vocab_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Vocabulary Building'", [lang_id], |r| r.get(0))?;
+    let essay_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Essay Writing'", [lang_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (vocab_id, "Context Clues", "Context clues are hints within a sentence that help you figure out the meaning of an unfamiliar word. Types include: definition clues (the word is directly defined), synonym clues (a similar word is nearby), antonym clues (an opposite word is nearby), and example clues (examples illustrate the meaning). Strong readers use context clues automatically.", 1),
+        (vocab_id, "Root Words, Prefixes, and Suffixes", "Many English words are built from Greek and Latin roots. Knowing common roots unlocks thousands of words. For example: 'bio' (life), 'graph' (write), 'tele' (far), 'port' (carry). Prefixes change meaning: 'un-' (not), 'pre-' (before), 're-' (again). Suffixes change word type: '-tion' (noun), '-able' (adjective), '-ly' (adverb).", 2),
+        (essay_id, "Essay Structure", "A well-structured essay has three main parts: introduction (hook + thesis statement), body paragraphs (each with a topic sentence, evidence, and analysis), and conclusion (restate thesis + broader significance). The thesis statement is the essay's central argument — every paragraph should support it.", 1),
+        (essay_id, "Persuasive Writing Techniques", "Persuasive writing aims to convince the reader. Key techniques: ethos (credibility — cite experts), pathos (emotion — use vivid stories), logos (logic — present data and reasoning). A strong persuasive essay acknowledges counterarguments and refutes them, showing the writer has considered multiple perspectives.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Quizzes
+    #[allow(clippy::type_complexity)]
+    let quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (vocab_id, "The prefix 'un-' means:", "multiple_choice", "not", Some("not"), Some("again"), Some("before"), Some("after"), None, "'Un-' means 'not' — unhappy means not happy, unclear means not clear."),
+        (vocab_id, "The root 'bio' comes from Greek and means:", "fill_in_blank", "life", None, None, None, None, Some("Biology is the study of..."), "'Bio' means life — biology, biography, bioluminescence all relate to living things."),
+        (essay_id, "A thesis statement belongs in which part of an essay?", "multiple_choice", "Introduction", Some("Introduction"), Some("Body"), Some("Conclusion"), Some("Bibliography"), None, "The thesis statement appears in the introduction and states the essay's central argument."),
+        (essay_id, "Pathos is a persuasive technique that appeals to:", "multiple_choice", "Emotions", Some("Logic"), Some("Credibility"), Some("Emotions"), Some("Authority"), None, "Pathos appeals to the reader's emotions through vivid language and stories."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Add Health topic: Mental Health
+    let health_id: i64 = match conn.query_row("SELECT id FROM subjects WHERE name = 'Health'", [], |r| r.get(0)) {
+        Ok(id) => id,
+        Err(_) => return Ok(()),
+    };
+    let health_topic_ct: i64 = conn.query_row(
+        "SELECT COUNT(*) FROM topics WHERE subject_id = ?1", [health_id], |r| r.get(0),
+    )?;
+    if health_topic_ct >= 4 { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Mental Health', 'beginner', 4)",
+        [health_id],
+    )?;
+    let mental_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mental Health'", [health_id], |r| r.get(0))?;
+
+    let mh_lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (mental_id, "Understanding Stress", "Stress is the body's response to challenges or demands. Short-term stress (acute) can be helpful — it sharpens focus. Long-term stress (chronic) harms health: it weakens the immune system, disrupts sleep, and increases risk of heart disease and depression. Healthy coping strategies include exercise, deep breathing, social connection, and adequate sleep.", 1),
+        (mental_id, "Emotional Well-Being", "Emotional well-being means recognizing, understanding, and managing your emotions. Everyone experiences difficult emotions — anger, sadness, anxiety. The goal is not to suppress them but to process them healthily. Techniques include journaling, talking to a trusted person, mindfulness meditation, and physical activity. Seeking professional help is a sign of strength, not weakness.", 2),
+    ];
+    for (tid, title, content, order) in &mh_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let mh_quizzes: Vec<(i64, &str, &str, &str, Option<&str>, Option<&str>, Option<&str>, Option<&str>, Option<&str>, &str)> = vec![
+        (mental_id, "Chronic stress can weaken the immune system.", "true_false", "true", None, None, None, None, None, "Long-term stress raises cortisol levels, which suppresses immune function over time."),
+        (mental_id, "Which of these is a healthy way to cope with stress?", "multiple_choice", "Exercise", Some("Avoiding all social contact"), Some("Exercise"), Some("Skipping meals"), Some("Staying up all night"), None, "Exercise releases endorphins and reduces stress hormones like cortisol."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &mh_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
         )?;
     }
 
