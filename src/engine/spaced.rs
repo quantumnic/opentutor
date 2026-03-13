@@ -189,11 +189,32 @@ pub fn update_spaced_repetition(
             (new_ease.max(MIN_EASE), new_interval.min(MAX_INTERVAL))
         }
     } else {
-        // Incorrect — reset interval but penalize ease less for near-misses
-        let ease_penalty = match quality {
-            2 => 0.10,
-            1 => 0.15,
-            _ => 0.20,
+        // Incorrect — reset interval but penalize ease less for near-misses.
+        // New-card grace period: if the card has never been successfully reviewed
+        // (interval == 0 or attempts <= 2), apply a softer ease penalty.
+        // This prevents new topics from being immediately crushed by a single mistake.
+        let attempts: i64 = conn
+            .query_row(
+                "SELECT COALESCE(attempts, 0) FROM user_progress WHERE topic_id = ?1",
+                [topic_id],
+                |r| r.get(0),
+            )
+            .unwrap_or(0);
+
+        let is_new_card = interval <= 1 && attempts <= 2;
+        let ease_penalty = if is_new_card {
+            // Grace period: halve the normal penalty for brand-new cards
+            match quality {
+                2 => 0.05,
+                1 => 0.08,
+                _ => 0.10,
+            }
+        } else {
+            match quality {
+                2 => 0.10,
+                1 => 0.15,
+                _ => 0.20,
+            }
         };
         let new_ease = (ease - ease_penalty).max(MIN_EASE);
         (new_ease, 1)
@@ -1434,5 +1455,40 @@ mod mastery_tests {
         let conn = db::init_memory_db().unwrap();
         let batch = interleaved_review_batch(&conn).unwrap();
         assert!(batch.is_empty());
+    }
+
+    #[test]
+    fn test_new_card_grace_period() {
+        // A brand-new card that fails should get a softer ease penalty
+        let conn = db::init_memory_db().unwrap();
+        // First attempt: fail with quality 1
+        update_spaced_repetition(&conn, 1, 1).unwrap();
+        let ease_after_fail: f64 = conn.query_row(
+            "SELECT ease_factor FROM user_progress WHERE topic_id = 1", [], |r| r.get(0),
+        ).unwrap();
+        // With grace period, ease should be 2.5 - 0.08 = 2.42 (not 2.5 - 0.15 = 2.35)
+        assert!(ease_after_fail > 2.35, "New card grace period should apply softer penalty, got {}", ease_after_fail);
+        assert!(ease_after_fail <= 2.5, "Ease should decrease on failure, got {}", ease_after_fail);
+    }
+
+    #[test]
+    fn test_established_card_full_penalty() {
+        // An established card (many attempts) should get the full ease penalty
+        let conn = db::init_memory_db().unwrap();
+        // Build up some history
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let ease_before: f64 = conn.query_row(
+            "SELECT ease_factor FROM user_progress WHERE topic_id = 1", [], |r| r.get(0),
+        ).unwrap();
+        // Now fail
+        update_spaced_repetition(&conn, 1, 1).unwrap();
+        let ease_after: f64 = conn.query_row(
+            "SELECT ease_factor FROM user_progress WHERE topic_id = 1", [], |r| r.get(0),
+        ).unwrap();
+        // Full penalty of 0.15 should be applied
+        let penalty = ease_before - ease_after;
+        assert!(penalty >= 0.14, "Established card should get full penalty, got {}", penalty);
     }
 }

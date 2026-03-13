@@ -4,6 +4,7 @@ type LessonRow<'a> = (i64, &'a str, &'a str, i64);
 type ExplanationRow<'a> = (i64, &'a str, &'a str, Option<&'a str>, Option<&'a str>);
 type QuizRow<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str);
 type QuizRowHint<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str, &'a str);
+type QuizRowNoTopic<'a> = (&'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str, &'a str);
 
 pub fn seed_if_empty(conn: &Connection) -> Result<(), rusqlite::Error> {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))?;
@@ -44,6 +45,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_earth_science(conn)?;
     seed_data_science(conn)?;
     seed_music_theory(conn)?;
+    seed_civics_and_media(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -725,7 +727,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 31); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory
+        assert_eq!(count, 33); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy
     }
 
     #[test]
@@ -735,7 +737,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 31);
+        assert_eq!(count, 33);
     }
 
     #[test]
@@ -935,6 +937,60 @@ mod tests {
             [], |r| r.get(0)
         ).unwrap();
         assert_eq!(path_count, 4);
+    }
+
+    #[test]
+    fn test_civics_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let civics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Civics & Government'", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(civics, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Civics & Government'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
+        let path_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'Civics Foundations'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(path_count, 4);
+    }
+
+    #[test]
+    fn test_media_literacy_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let media: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM subjects WHERE name = 'Media Literacy'", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(media, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Media Literacy'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
+        let quiz_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions q JOIN topics t ON t.id = q.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Media Literacy'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert!(quiz_count >= 10, "Media Literacy should have at least 10 quiz questions, got {}", quiz_count);
+    }
+
+    #[test]
+    fn test_extra_geography_content() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let geo_quiz_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions q JOIN topics t ON t.id = q.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Geography'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert!(geo_quiz_count >= 10, "Geography should have at least 10 quiz questions after expansion, got {}", geo_quiz_count);
     }
 }
 
@@ -3503,6 +3559,344 @@ pub fn seed_music_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Music Theory Foundations', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // --- Civics & Government (subject_id = 18) ---
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
+        ["Civics & Government", "Understanding democracy, rights, laws, and how governments work."],
+    )?;
+    let civics_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Civics & Government'", [], |r| r.get(0),
+    )?;
+
+    let civics_topics = [
+        ("Democracy & Voting", "beginner", 1),
+        ("Branches of Government", "beginner", 2),
+        ("Rights & Responsibilities", "intermediate", 3),
+        ("International Organizations", "intermediate", 4),
+    ];
+    let mut civics_topic_ids = Vec::new();
+    for (name, diff, order) in &civics_topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![civics_id, name, diff, order],
+        )?;
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND name = ?2",
+            rusqlite::params![civics_id, name], |r| r.get(0),
+        )?;
+        civics_topic_ids.push(tid);
+    }
+
+    // Lessons
+    let civics_lessons: Vec<LessonRow> = vec![
+        (civics_topic_ids[0], "What is Democracy?", "Democracy means 'rule by the people.' In a democracy, citizens have the power to choose their leaders through voting. There are two main forms: direct democracy (citizens vote on every issue) and representative democracy (citizens elect representatives who make decisions for them). Most modern countries use representative democracy.", 1),
+        (civics_topic_ids[0], "How Voting Works", "Voting is the foundation of democracy. In most countries, citizens above a certain age can vote in elections. Different voting systems exist: first-past-the-post (the candidate with the most votes wins), proportional representation (seats are allocated based on vote share), and ranked-choice voting (voters rank candidates in order of preference).", 2),
+        (civics_topic_ids[1], "The Three Branches", "Most democracies have three branches of government: Legislative (makes laws), Executive (enforces laws), and Judicial (interprets laws). This separation of powers prevents any single branch from becoming too powerful. Each branch can check the others — this is called 'checks and balances.'", 1),
+        (civics_topic_ids[1], "How Laws Are Made", "A bill starts as a proposal, is debated in the legislature, may be amended, and must pass a vote. In many systems it must pass both houses of a bicameral legislature. The executive (president or prime minister) then signs it into law or vetoes it. Courts can later review laws for constitutionality.", 2),
+        (civics_topic_ids[2], "Fundamental Rights", "Human rights are basic freedoms that belong to every person. Key categories include: civil rights (freedom of speech, religion, assembly), political rights (right to vote, run for office), and social rights (education, healthcare). Many countries protect these in a constitution or bill of rights.", 1),
+        (civics_topic_ids[2], "Civic Responsibilities", "Along with rights come responsibilities: obeying laws, paying taxes, serving on juries, staying informed, and participating in civic life. Responsible citizenship strengthens democracy and ensures that government serves the people effectively.", 2),
+        (civics_topic_ids[3], "The United Nations", "Founded in 1945, the UN promotes international cooperation, peace, and human rights. Its main bodies include the General Assembly (all member states), the Security Council (15 members, 5 permanent with veto power), and specialized agencies like UNESCO and WHO.", 1),
+    ];
+    for (tid, title, content, order) in &civics_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let civics_explanations: Vec<ExplanationRow> = vec![
+        (civics_topic_ids[0], "Democracy", "A system of government where power comes from the people, usually through elections.", Some("Think of it like a classroom where students vote on the rules — everyone gets a say."), Some("What's the difference between direct and representative democracy?")),
+        (civics_topic_ids[1], "Checks and Balances", "A system where each branch of government can limit the power of the others, preventing abuse of power.", Some("Like a game of rock-paper-scissors — no single choice always wins."), Some("Can you name one way the legislative branch checks the executive?")),
+        (civics_topic_ids[2], "Human Rights", "Basic rights and freedoms that belong to every person in the world, from birth until death.", Some("They're like the rules of a fair game — everyone deserves to play by the same rules."), Some("Why might some rights need to be limited in certain situations?")),
+        (civics_topic_ids[3], "United Nations", "An international organization founded in 1945 to promote peace, cooperation, and human rights among all nations.", Some("Think of it as a global student council where countries come together to solve shared problems."), Some("What is the role of the UN Security Council?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &civics_explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Quiz questions
+    let civics_quizzes: Vec<QuizRowHint> = vec![
+        (civics_topic_ids[0], "What does 'democracy' literally mean?", "multiple_choice", "Rule by the people",
+         Some("Rule by the wealthy"), Some("Rule by the people"), Some("Rule by the military"), Some("Rule by the king"),
+         "Democracy comes from Greek: 'demos' (people) + 'kratos' (rule).",
+         "The word has Greek roots: demos = people, kratos = power or rule."),
+        (civics_topic_ids[0], "In a representative democracy, citizens:", "multiple_choice", "Elect representatives to make decisions",
+         Some("Vote on every law directly"), Some("Elect representatives to make decisions"), Some("Have no political power"), Some("Are ruled by a monarch"),
+         "Representatives act on behalf of voters.",
+         "In representative democracy, elected officials make decisions on behalf of the people who voted for them."),
+        (civics_topic_ids[0], "True or false: In a direct democracy, citizens vote on every issue themselves.", "true_false", "true",
+         None, None, None, None,
+         "Direct democracy gives every citizen a direct vote.",
+         "In a direct democracy, citizens participate directly in decision-making rather than through elected representatives."),
+        (civics_topic_ids[1], "Which branch of government makes laws?", "multiple_choice", "Legislative",
+         Some("Executive"), Some("Legislative"), Some("Judicial"), Some("Military"),
+         "Think about the word 'legislate.'",
+         "The legislative branch (parliament or congress) is responsible for creating, debating, and passing laws."),
+        (civics_topic_ids[1], "What is the purpose of checks and balances?", "multiple_choice", "Prevent any one branch from having too much power",
+         Some("Make government slower"), Some("Prevent any one branch from having too much power"), Some("Give the president total control"), Some("Eliminate the courts"),
+         "It's about distributing power.",
+         "Checks and balances ensure that no single branch of government can dominate the others, protecting against tyranny."),
+        (civics_topic_ids[1], "The judicial branch's main role is to:", "multiple_choice", "Interpret laws",
+         Some("Write laws"), Some("Enforce laws"), Some("Interpret laws"), Some("Collect taxes"),
+         "Judges and courts are part of this branch.",
+         "Courts interpret laws, determine their meaning, and decide whether they align with the constitution."),
+        (civics_topic_ids[2], "Freedom of speech is an example of a:", "multiple_choice", "Civil right",
+         Some("Social right"), Some("Civil right"), Some("Economic right"), Some("Military right"),
+         "Civil rights protect individual freedoms.",
+         "Civil rights are personal freedoms that protect individuals from government overreach, including speech, religion, and assembly."),
+        (civics_topic_ids[2], "True or false: Citizens have responsibilities as well as rights.", "true_false", "true",
+         None, None, None, None,
+         "Rights and responsibilities go together.",
+         "Civic responsibilities like obeying laws, paying taxes, and voting help maintain a functioning democracy."),
+        (civics_topic_ids[3], "When was the United Nations founded?", "multiple_choice", "1945",
+         Some("1918"), Some("1945"), Some("1960"), Some("1900"),
+         "It was founded after a major world conflict.",
+         "The UN was established in 1945 after World War II to prevent future conflicts and promote international cooperation."),
+        (civics_topic_ids[3], "How many permanent members does the UN Security Council have?", "fill_in_blank", "5",
+         None, None, None, None,
+         "Think about the victors of World War II.",
+         "The five permanent members are the US, UK, France, Russia, and China — each with veto power."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &civics_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    for (i, (tid, desc)) in [
+        (civics_topic_ids[0], "Start with the foundations of democracy and how voting works"),
+        (civics_topic_ids[1], "Learn how government is structured with branches and checks"),
+        (civics_topic_ids[2], "Explore the rights citizens have and the responsibilities that come with them"),
+        (civics_topic_ids[3], "Understand how nations work together through international organizations"),
+    ].iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Civics Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    // --- Media Literacy (subject_id = 19) ---
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
+        ["Media Literacy", "Critical thinking about media, information sources, and digital citizenship."],
+    )?;
+    let media_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Media Literacy'", [], |r| r.get(0),
+    )?;
+
+    let media_topics = [
+        ("Evaluating Sources", "beginner", 1),
+        ("Misinformation & Bias", "intermediate", 2),
+        ("Digital Citizenship", "beginner", 3),
+        ("Data Privacy", "intermediate", 4),
+    ];
+    let mut media_topic_ids = Vec::new();
+    for (name, diff, order) in &media_topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![media_id, name, diff, order],
+        )?;
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND name = ?2",
+            rusqlite::params![media_id, name], |r| r.get(0),
+        )?;
+        media_topic_ids.push(tid);
+    }
+
+    // Lessons
+    let media_lessons: Vec<LessonRow> = vec![
+        (media_topic_ids[0], "How to Evaluate a Source", "Not all information is equally trustworthy. To evaluate a source, ask: Who wrote it? What are their credentials? When was it published? Is it supported by evidence? Does the publication have editorial standards? Primary sources (original documents, data) are generally more reliable than secondary sources (summaries, opinions).", 1),
+        (media_topic_ids[0], "The CRAAP Test", "The CRAAP test helps evaluate information: Currency (Is it recent?), Relevance (Does it relate to your topic?), Authority (Who is the author/publisher?), Accuracy (Is it supported by evidence?), Purpose (Why does this information exist? To inform, persuade, sell, or entertain?).", 2),
+        (media_topic_ids[1], "Types of Misinformation", "Misinformation is false information spread without intent to harm. Disinformation is deliberately false. Malinformation is true information shared to cause harm. Common forms include: misleading headlines, out-of-context quotes, manipulated images, satire mistaken for news, and deepfakes.", 1),
+        (media_topic_ids[1], "Recognizing Bias", "All media has some bias. Types include: confirmation bias (favoring information that confirms beliefs), selection bias (choosing which stories to cover), framing (how a story is presented), and omission (what's left out). Reading multiple sources helps identify bias.", 2),
+        (media_topic_ids[2], "Being a Good Digital Citizen", "Digital citizenship means using technology responsibly. Key principles: think before you post (it's permanent), respect others online, protect your personal information, give credit to original creators, and report harmful content. Your digital footprint follows you.", 1),
+        (media_topic_ids[2], "Online Communication", "Online communication lacks tone and body language, making misunderstandings common. Best practices: re-read before sending, assume good intent, avoid ALL CAPS (it reads as shouting), use clear language, and remember there's a real person on the other side.", 2),
+        (media_topic_ids[3], "Understanding Data Privacy", "Every time you use the internet, you leave data behind — browsing history, location data, purchases, social media activity. Companies collect this data to build profiles for advertising. Understanding what data you share and how to control it is essential digital literacy.", 1),
+        (media_topic_ids[3], "Protecting Your Privacy", "Practical privacy steps: use strong unique passwords, enable two-factor authentication, review app permissions, use privacy settings on social media, be cautious with public Wi-Fi, and understand what data terms of service allow companies to collect.", 2),
+    ];
+    for (tid, title, content, order) in &media_lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let media_explanations: Vec<ExplanationRow> = vec![
+        (media_topic_ids[0], "Primary Source", "An original document or first-hand account — the raw evidence before anyone interprets it.", Some("Like getting the recipe from the chef who created the dish, not from someone who tasted it once."), Some("Why are primary sources considered more reliable?")),
+        (media_topic_ids[1], "Confirmation Bias", "The tendency to seek out, remember, and favor information that confirms what you already believe.", Some("Like only reading reviews from people who agree with your opinion of a movie."), Some("How can you guard against confirmation bias in your own research?")),
+        (media_topic_ids[2], "Digital Footprint", "The trail of data you leave behind when you use the internet — posts, searches, likes, and more.", Some("Think of it like footprints in wet cement — they harden and become permanent."), Some("What are some things that contribute to your digital footprint?")),
+        (media_topic_ids[3], "Two-Factor Authentication", "A security method requiring two different forms of identification to access an account — something you know (password) plus something you have (phone code).", Some("Like a bank vault that needs both a key and a combination — one alone isn't enough."), Some("Why is two-factor authentication more secure than a password alone?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &media_explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Quiz questions
+    let media_quizzes: Vec<QuizRowHint> = vec![
+        (media_topic_ids[0], "What does the 'A' in the CRAAP test stand for?", "multiple_choice", "Authority and Accuracy",
+         Some("Audience"), Some("Authority and Accuracy"), Some("Authenticity"), Some("Allegiance"),
+         "There are actually two A's in CRAAP.",
+         "The two A's stand for Authority (who wrote it?) and Accuracy (is it supported by evidence?)."),
+        (media_topic_ids[0], "A primary source is:", "multiple_choice", "An original document or first-hand account",
+         Some("A Wikipedia article"), Some("An original document or first-hand account"), Some("A newspaper editorial"), Some("A textbook summary"),
+         "Think about who created it and when.",
+         "Primary sources are original, uninterpreted materials like diaries, data sets, photographs, or official documents."),
+        (media_topic_ids[0], "True or false: A source's recency is irrelevant to its reliability.", "true_false", "false",
+         None, None, None, None,
+         "Think about fast-changing fields like medicine or technology.",
+         "Currency matters because outdated information may no longer be accurate, especially in rapidly evolving fields."),
+        (media_topic_ids[1], "What is the difference between misinformation and disinformation?", "multiple_choice", "Disinformation is spread deliberately; misinformation is not",
+         Some("They are the same thing"), Some("Disinformation is spread deliberately; misinformation is not"), Some("Misinformation is more harmful"), Some("Disinformation only exists online"),
+         "Intent is the key difference.",
+         "Misinformation is false info shared without harmful intent; disinformation is deliberately created and spread to deceive."),
+        (media_topic_ids[1], "Which of these is an example of framing bias?", "multiple_choice", "Describing a glass as 'half empty' vs 'half full'",
+         Some("Publishing a story late"), Some("Describing a glass as 'half empty' vs 'half full'"), Some("Using a large font"), Some("Adding a photo to an article"),
+         "Framing is about how information is presented.",
+         "Framing bias is about how the same facts can be presented in ways that influence perception, like emphasizing positive or negative aspects."),
+        (media_topic_ids[1], "True or false: Reading only one news source is sufficient to get an unbiased view.", "true_false", "false",
+         None, None, None, None,
+         "Every source has some perspective.",
+         "All media has some bias. Reading multiple sources with different perspectives helps you form a more complete and balanced understanding."),
+        (media_topic_ids[2], "Your digital footprint includes:", "multiple_choice", "All of the above",
+         Some("Social media posts"), Some("Search history"), Some("Online purchases"), Some("All of the above"),
+         "Think about everything you do online.",
+         "Your digital footprint encompasses all traces of your online activity: posts, searches, purchases, location data, and more."),
+        (media_topic_ids[2], "True or false: Content you delete from social media is always permanently removed.", "true_false", "false",
+         None, None, None, None,
+         "Think about screenshots and cached copies.",
+         "Deleted content may persist in backups, caches, screenshots, or archives. Once something is posted online, it can be very difficult to fully remove."),
+        (media_topic_ids[3], "Two-factor authentication combines:", "multiple_choice", "Something you know and something you have",
+         Some("Two passwords"), Some("Something you know and something you have"), Some("A username and email"), Some("Two security questions"),
+         "Think about the two different types of verification.",
+         "2FA requires two different types: typically a password (something you know) plus a code sent to your phone (something you have)."),
+        (media_topic_ids[3], "Which is the best practice for passwords?", "multiple_choice", "Use a unique strong password for each account",
+         Some("Use the same password everywhere"), Some("Use a unique strong password for each account"), Some("Write passwords on a sticky note"), Some("Use your birthday"),
+         "Think about what happens if one account is compromised.",
+         "Unique strong passwords for each account mean that if one is compromised, your other accounts remain secure. A password manager helps manage this."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &media_quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    for (i, (tid, desc)) in [
+        (media_topic_ids[0], "Learn to evaluate whether information sources are trustworthy"),
+        (media_topic_ids[1], "Understand how misinformation spreads and how to spot bias"),
+        (media_topic_ids[2], "Practice responsible behavior online as a digital citizen"),
+        (media_topic_ids[3], "Protect your personal data and understand privacy"),
+    ].iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Media Literacy Essentials', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    // --- Extra Geography content ---
+    // Add more quiz questions for Geography topics (Continents & Oceans = topic ~22, Weather & Climate = ~23)
+    let geo_continents_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Continents & Oceans'", [], |r| r.get(0),
+    ).unwrap_or(0);
+
+    let geo_weather_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Weather & Climate'", [], |r| r.get(0),
+    ).unwrap_or(0);
+
+    let geo_maps_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Maps & Navigation'", [], |r| r.get(0),
+    ).unwrap_or(0);
+
+    if geo_continents_id > 0 {
+        let extra_geo_quizzes: Vec<QuizRowNoTopic> = vec![
+            ("Which is the largest ocean on Earth?", "multiple_choice", "Pacific Ocean",
+             Some("Atlantic Ocean"), Some("Pacific Ocean"), Some("Indian Ocean"), Some("Arctic Ocean"),
+             "It covers more area than all the land on Earth combined.",
+             "The Pacific Ocean is the largest and deepest ocean, covering about 63 million square miles — more than all land areas combined."),
+            ("How many continents are there?", "fill_in_blank", "7",
+             None, None, None, None,
+             "Think about the major landmasses.",
+             "The seven continents are: Africa, Antarctica, Asia, Australia/Oceania, Europe, North America, and South America."),
+            ("Which continent is the smallest by area?", "multiple_choice", "Australia/Oceania",
+             Some("Europe"), Some("Antarctica"), Some("Australia/Oceania"), Some("South America"),
+             "It's also an island nation.",
+             "Australia (sometimes called Oceania) is the smallest continent at about 8.5 million square kilometers."),
+            ("True or false: Africa is the second-largest continent.", "true_false", "true",
+             None, None, None, None,
+             "Asia is the largest.",
+             "Africa is the second-largest continent by both area and population, after Asia."),
+            ("Which ocean lies between Europe and North America?", "multiple_choice", "Atlantic Ocean",
+             Some("Pacific Ocean"), Some("Atlantic Ocean"), Some("Indian Ocean"), Some("Southern Ocean"),
+             "Think about transatlantic travel.",
+             "The Atlantic Ocean separates the Americas from Europe and Africa."),
+        ];
+        for (question, qtype, answer, a, b, c, d, hint, expl) in &extra_geo_quizzes {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                rusqlite::params![geo_continents_id, question, qtype, answer, a, b, c, d, hint, expl],
+            )?;
+        }
+
+        // Extra lessons for Geography
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![geo_continents_id, "The Five Oceans",
+                "Earth has five oceans: Pacific (largest), Atlantic (second largest), Indian (warmest), Southern (around Antarctica), and Arctic (smallest and shallowest). Together they cover about 71% of Earth's surface and contain 97% of all water on Earth. Ocean currents act like a global conveyor belt, distributing heat and influencing weather patterns worldwide.",
+                3],
+        )?;
+    }
+
+    if geo_weather_id > 0 {
+        let weather_quizzes: Vec<QuizRowNoTopic> = vec![
+            ("What is the difference between weather and climate?", "multiple_choice", "Weather is short-term; climate is long-term average",
+             Some("They are the same thing"), Some("Weather is short-term; climate is long-term average"), Some("Climate only exists in cold places"), Some("Weather doesn't change"),
+             "Think about time scales.",
+             "Weather describes atmospheric conditions over hours or days; climate describes average patterns over decades."),
+            ("Which gas is most responsible for the greenhouse effect?", "multiple_choice", "Carbon dioxide",
+             Some("Oxygen"), Some("Carbon dioxide"), Some("Nitrogen"), Some("Helium"),
+             "It's released by burning fossil fuels.",
+             "Carbon dioxide (CO₂) is the primary greenhouse gas driving climate change, mainly from burning fossil fuels."),
+            ("True or false: Humidity measures the amount of water vapor in the air.", "true_false", "true",
+             None, None, None, None,
+             "Think about muggy summer days.",
+             "Humidity is the concentration of water vapor in the air. High humidity makes hot days feel even warmer."),
+        ];
+        for (question, qtype, answer, a, b, c, d, hint, expl) in &weather_quizzes {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+                rusqlite::params![geo_weather_id, question, qtype, answer, a, b, c, d, hint, expl],
+            )?;
+        }
+    }
+
+    if geo_maps_id > 0 {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![geo_maps_id, "Latitude and Longitude",
+                "Latitude lines run east-west and measure distance north or south of the equator (0° to 90°). Longitude lines run north-south and measure distance east or west of the Prime Meridian (0° to 180°). Together, they form a grid that can pinpoint any location on Earth. For example, the Eiffel Tower is at approximately 48.86°N, 2.35°E.",
+                3],
         )?;
     }
 

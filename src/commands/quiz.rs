@@ -50,6 +50,16 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
                     println!("     {} {}", format!("{}.", j + 1).dimmed(), opt);
                 }
             }
+            "matching" => {
+                println!("     {}", "(Match each item on the left with the correct item on the right)".dimmed());
+                // Parse correct_answer pairs (e.g. "Dog=Mammal;Snake=Reptile") and display
+                let pairs: Vec<(&str, &str)> = q.correct_answer.split(';')
+                    .filter_map(|p| p.split_once('=').map(|(l, r)| (l.trim(), r.trim())))
+                    .collect();
+                for (j, (left, _)) in pairs.iter().enumerate() {
+                    println!("     {} {} → ?", format!("{}.", j + 1).dimmed(), left);
+                }
+            }
             _ => {
                 for (j, opt) in q.options.iter().enumerate() {
                     let letter = (b'a' + j as u8) as char;
