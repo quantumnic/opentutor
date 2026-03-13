@@ -1167,3 +1167,272 @@ mod tests {
 }
 
 
+
+/// Mastery level for a topic based on long-term performance indicators.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum MasteryLevel {
+    /// Not yet studied
+    New,
+    /// Actively learning (short intervals, low ease)
+    Learning,
+    /// Making progress (medium intervals, moderate ease)
+    Developing,
+    /// Well-learned (long intervals, high ease, no recent failures)
+    Mastered,
+    /// Deeply embedded in long-term memory
+    Expert,
+}
+
+#[allow(dead_code)]
+impl MasteryLevel {
+    pub fn as_str(&self) -> &str {
+        match self {
+            MasteryLevel::New => "New",
+            MasteryLevel::Learning => "Learning",
+            MasteryLevel::Developing => "Developing",
+            MasteryLevel::Mastered => "Mastered",
+            MasteryLevel::Expert => "Expert",
+        }
+    }
+
+    pub fn emoji(&self) -> &str {
+        match self {
+            MasteryLevel::New => "🌱",
+            MasteryLevel::Learning => "📖",
+            MasteryLevel::Developing => "🌿",
+            MasteryLevel::Mastered => "⭐",
+            MasteryLevel::Expert => "🏆",
+        }
+    }
+}
+
+#[allow(dead_code)]
+/// Assess the mastery level for a topic based on multiple performance signals.
+/// Considers: interval length, ease factor, consecutive successes, total attempts,
+/// accuracy rate, and leech status.
+pub fn assess_mastery(conn: &Connection, topic_id: i64) -> MasteryLevel {
+    let data: Option<(f64, i64, i64, i64, i64, f64)> = conn
+        .query_row(
+            "SELECT ease_factor, interval_days, consecutive_fails, leech_count, attempts,
+                    CASE WHEN attempts > 0 THEN CAST(correct AS REAL) / CAST(attempts AS REAL) ELSE 0.0 END
+             FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?)),
+        )
+        .ok();
+
+    match data {
+        None => MasteryLevel::New,
+        Some((ease, interval, consec_fails, leech_count, attempts, accuracy)) => {
+            // Leech or currently failing → back to Learning
+            if leech_count > 0 || consec_fails >= 2 {
+                return MasteryLevel::Learning;
+            }
+
+            // Expert: long intervals, high ease, high accuracy, sufficient history
+            if interval >= 60 && ease >= 2.3 && accuracy >= 0.85 && attempts >= 8 {
+                return MasteryLevel::Expert;
+            }
+
+            // Mastered: good intervals and ease
+            if interval >= 21 && ease >= 2.0 && accuracy >= 0.75 && attempts >= 5 {
+                return MasteryLevel::Mastered;
+            }
+
+            // Developing: medium intervals or moderate performance
+            if interval >= 5 && attempts >= 3 {
+                return MasteryLevel::Developing;
+            }
+
+            MasteryLevel::Learning
+        }
+    }
+}
+
+#[allow(dead_code)]
+/// Get a summary of mastery levels across all studied topics.
+pub fn mastery_summary(conn: &Connection) -> Result<Vec<(MasteryLevel, i64)>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT topic_id FROM user_progress",
+    )?;
+    let ids: Vec<i64> = stmt
+        .query_map([], |r| r.get(0))?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    let mut counts = std::collections::HashMap::new();
+    for id in ids {
+        let level = assess_mastery(conn, id);
+        *counts.entry(level).or_insert(0i64) += 1;
+    }
+
+    // Include count of unstudied topics
+    let total_topics: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
+    let studied: i64 = counts.values().sum();
+    let new_count = total_topics - studied;
+    if new_count > 0 {
+        counts.insert(MasteryLevel::New, new_count);
+    }
+
+    let mut result: Vec<(MasteryLevel, i64)> = counts.into_iter().collect();
+    result.sort_by_key(|(level, _)| match level {
+        MasteryLevel::New => 0,
+        MasteryLevel::Learning => 1,
+        MasteryLevel::Developing => 2,
+        MasteryLevel::Mastered => 3,
+        MasteryLevel::Expert => 4,
+    });
+    Ok(result)
+}
+
+#[allow(dead_code)]
+/// Build an optimally ordered review batch that mixes subjects for better retention.
+/// Interleaving (mixing topics from different subjects) is shown to improve long-term
+/// retention compared to blocked practice (reviewing all items from one subject at a time).
+/// This function takes prioritized due topics and reorders them so consecutive reviews
+/// alternate between subjects when possible.
+pub fn interleaved_review_batch(conn: &Connection) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
+    let cap = get_daily_review_cap(conn);
+    let topics = prioritized_due_topics(conn)?;
+
+    if topics.len() <= 2 {
+        let mut result = topics;
+        result.truncate(cap);
+        return Ok(result);
+    }
+
+    // Group by subject
+    let mut by_subject: std::collections::HashMap<String, Vec<(i64, String, String, f64)>> =
+        std::collections::HashMap::new();
+    for t in topics {
+        by_subject.entry(t.2.clone()).or_default().push(t);
+    }
+
+    // Round-robin interleave: pick one from each subject in turn
+    let mut queues: Vec<std::collections::VecDeque<(i64, String, String, f64)>> = by_subject
+        .into_values()
+        .map(|v| v.into_iter().collect())
+        .collect();
+
+    // Sort queues by highest priority item first
+    queues.sort_by(|a, b| {
+        let a_max = a.front().map(|t| t.3).unwrap_or(0.0);
+        let b_max = b.front().map(|t| t.3).unwrap_or(0.0);
+        b_max.partial_cmp(&a_max).unwrap_or(std::cmp::Ordering::Equal)
+    });
+
+    let mut result = Vec::with_capacity(cap);
+    let mut empty_count = 0;
+    while result.len() < cap && empty_count < queues.len() {
+        empty_count = 0;
+        for queue in &mut queues {
+            if result.len() >= cap {
+                break;
+            }
+            if let Some(item) = queue.pop_front() {
+                result.push(item);
+            } else {
+                empty_count += 1;
+            }
+        }
+    }
+
+    Ok(result)
+}
+
+#[cfg(test)]
+mod mastery_tests {
+    use super::*;
+    use crate::db;
+
+    #[test]
+    fn test_mastery_new_topic() {
+        let conn = db::init_memory_db().unwrap();
+        // Topic with no progress → New
+        assert_eq!(assess_mastery(&conn, 9999), MasteryLevel::New);
+    }
+
+    #[test]
+    fn test_mastery_learning() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, consecutive_fails, leech_count)
+             VALUES (1, 50.0, 2, 1, 2.0, 2, 0, 0)", []
+        ).unwrap();
+        assert_eq!(assess_mastery(&conn, 1), MasteryLevel::Learning);
+    }
+
+    #[test]
+    fn test_mastery_developing() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, consecutive_fails, leech_count)
+             VALUES (1, 70.0, 5, 4, 2.2, 10, 0, 0)", []
+        ).unwrap();
+        assert_eq!(assess_mastery(&conn, 1), MasteryLevel::Developing);
+    }
+
+    #[test]
+    fn test_mastery_mastered() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, consecutive_fails, leech_count)
+             VALUES (1, 85.0, 8, 7, 2.3, 30, 0, 0)", []
+        ).unwrap();
+        assert_eq!(assess_mastery(&conn, 1), MasteryLevel::Mastered);
+    }
+
+    #[test]
+    fn test_mastery_expert() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, consecutive_fails, leech_count)
+             VALUES (1, 95.0, 10, 9, 2.5, 90, 0, 0)", []
+        ).unwrap();
+        assert_eq!(assess_mastery(&conn, 1), MasteryLevel::Expert);
+    }
+
+    #[test]
+    fn test_mastery_leech_demotes_to_learning() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, consecutive_fails, leech_count)
+             VALUES (1, 90.0, 10, 9, 2.5, 60, 0, 1)", []
+        ).unwrap();
+        // Despite great stats, leech status pulls back to Learning
+        assert_eq!(assess_mastery(&conn, 1), MasteryLevel::Learning);
+    }
+
+    #[test]
+    fn test_mastery_consecutive_fails_demotes() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, consecutive_fails, leech_count)
+             VALUES (1, 80.0, 8, 6, 2.3, 25, 2, 0)", []
+        ).unwrap();
+        assert_eq!(assess_mastery(&conn, 1), MasteryLevel::Learning);
+    }
+
+    #[test]
+    fn test_mastery_summary_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let summary = mastery_summary(&conn).unwrap();
+        // All topics are new
+        assert!(!summary.is_empty());
+        assert!(summary.iter().any(|(level, count)| *level == MasteryLevel::New && *count > 0));
+    }
+
+    #[test]
+    fn test_mastery_level_display() {
+        assert_eq!(MasteryLevel::New.as_str(), "New");
+        assert_eq!(MasteryLevel::Expert.emoji(), "🏆");
+        assert_eq!(MasteryLevel::Learning.emoji(), "📖");
+    }
+
+    #[test]
+    fn test_interleaved_review_batch_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let batch = interleaved_review_batch(&conn).unwrap();
+        assert!(batch.is_empty());
+    }
+}

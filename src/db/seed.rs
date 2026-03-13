@@ -42,6 +42,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_extra_math_quizzes(conn)?;
     seed_creative_writing(conn)?;
     seed_earth_science(conn)?;
+    seed_data_science(conn)?;
+    seed_music_theory(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -723,7 +725,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 29); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science
+        assert_eq!(count, 31); // 16 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory
     }
 
     #[test]
@@ -733,7 +735,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 29);
+        assert_eq!(count, 31);
     }
 
     #[test]
@@ -3293,6 +3295,214 @@ fn seed_earth_science(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
             rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_data_science(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Data Science', 'Turning data into insight — statistics, machine learning, visualization, and data-driven decision making.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Data Science'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Data Wrangling", "beginner", 1),
+        ("Exploratory Data Analysis", "intermediate", 2),
+        ("Machine Learning Fundamentals", "intermediate", 3),
+        ("Neural Networks", "advanced", 4),
+        ("Data Visualization", "beginner", 5),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let wrangle_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Wrangling'", [subj_id], |r| r.get(0),
+    )?;
+    let eda_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Exploratory Data Analysis'", [subj_id], |r| r.get(0),
+    )?;
+    let ml_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Machine Learning Fundamentals'", [subj_id], |r| r.get(0),
+    )?;
+    let nn_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Neural Networks'", [subj_id], |r| r.get(0),
+    )?;
+    let viz_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Visualization'", [subj_id], |r| r.get(0),
+    )?;
+
+    let lessons: &[LessonRow] = &[
+        (wrangle_id, "Cleaning Messy Data", "Real-world data is messy. **Data wrangling** (or munging) is the process of transforming raw data into a usable format.\n\n**Common issues:**\n- **Missing values:** NaN, NULL, blank cells — handle by imputation (mean/median), deletion, or flagging\n- **Duplicates:** Exact or near-duplicate rows that inflate counts\n- **Inconsistent formats:** '2024-01-15' vs 'Jan 15, 2024' vs '15/01/2024'\n- **Outliers:** Values far from the norm — real signal or data entry errors?\n\n**The 80/20 rule of data science:** ~80% of time is spent on data wrangling, ~20% on actual analysis.\n\n**Key operations:** filtering, sorting, grouping, joining (merging datasets), pivoting (reshaping), and type conversion.", 1),
+        (eda_id, "Exploring Your Data", "**Exploratory Data Analysis (EDA)** is the detective work of data science — understanding what your data looks like before building models.\n\n**The EDA toolkit:**\n- **Summary statistics:** Mean, median, mode, standard deviation, quartiles\n- **Distributions:** Is it normal (bell curve)? Skewed? Bimodal?\n- **Correlations:** Do variables move together? Pearson r ranges from -1 to +1\n- **Grouping:** How do patterns differ across categories?\n\n**John Tukey** (inventor of EDA) said: 'Far better an approximate answer to the right question than an exact answer to the wrong question.'\n\n**Visual EDA tools:** histograms, box plots, scatter plots, heatmaps, pair plots.", 1),
+        (ml_id, "What Is Machine Learning?", "**Machine learning** is teaching computers to learn patterns from data instead of being explicitly programmed.\n\n**Three main types:**\n1. **Supervised learning:** Learn from labeled examples (input → known output)\n   - Classification: predict categories (spam/not spam)\n   - Regression: predict numbers (house prices)\n2. **Unsupervised learning:** Find hidden patterns in unlabeled data\n   - Clustering: group similar items (customer segments)\n   - Dimensionality reduction: simplify complex data (PCA)\n3. **Reinforcement learning:** Learn by trial and error with rewards\n   - Agent takes actions in an environment to maximize cumulative reward\n\n**The ML workflow:** Collect data → Clean → Split (train/test) → Train model → Evaluate → Tune → Deploy\n\n**Overfitting** = memorizing training data (performs poorly on new data)\n**Underfitting** = too simple to capture patterns", 1),
+        (nn_id, "Introduction to Neural Networks", "**Neural networks** are computing systems inspired by the brain's interconnected neurons.\n\n**Architecture:**\n- **Input layer:** Receives features (data)\n- **Hidden layers:** Process information through weighted connections\n- **Output layer:** Produces predictions\n\n**How a neuron works:**\n1. Receive inputs (x₁, x₂, ...)\n2. Multiply by weights (w₁, w₂, ...)\n3. Sum: z = Σ(wᵢ × xᵢ) + bias\n4. Apply activation function: a = f(z)\n\n**Common activation functions:**\n- **ReLU:** max(0, x) — most popular for hidden layers\n- **Sigmoid:** 1/(1+e⁻ˣ) — squashes to [0,1], good for binary output\n- **Softmax:** Converts to probability distribution (multi-class)\n\n**Training:** Backpropagation adjusts weights to minimize the loss function using gradient descent. Learning rate controls step size.", 1),
+        (viz_id, "Telling Stories with Data", "**Data visualization** transforms numbers into insight through visual encoding.\n\n**Choose the right chart:**\n- **Bar chart:** Compare categories\n- **Line chart:** Show trends over time\n- **Scatter plot:** Reveal relationships between two variables\n- **Histogram:** Show distribution of a single variable\n- **Heatmap:** Display patterns in matrices (correlations)\n- **Box plot:** Summarize distribution + outliers\n- **Pie chart:** Show parts of a whole (use sparingly!)\n\n**Principles of good visualization (Edward Tufte):**\n- Maximize the data-ink ratio (remove chartjunk)\n- Show the data, not decoration\n- Don't distort or mislead\n- Label clearly, use consistent scales\n\n**Color matters:** Use sequential palettes for ordered data, diverging for +/- from a midpoint, categorical for distinct groups. ~8% of men have color vision deficiency — always test accessibility.", 1),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: &[ExplanationRow] = &[
+        (wrangle_id, "Missing Value Imputation", "Replacing missing values with estimated ones. Common strategies: mean/median (numeric), mode (categorical), forward/backward fill (time series), or model-based (KNN, regression). Each has trade-offs — mean imputation reduces variance, while deletion (listwise) can introduce bias if data isn't missing completely at random.", Some("Like filling gaps in a puzzle — you estimate the missing piece from its neighbors."), Some("When would deleting rows with missing values be worse than imputing?")),
+        (eda_id, "Correlation vs. Causation", "Just because two variables move together doesn't mean one causes the other. Correlation measures linear association (Pearson r). Causation requires: temporal precedence, covariation, and ruling out confounds. Famous spurious correlation: ice cream sales and drowning rates both rise in summer — but ice cream doesn't cause drowning.", Some("Two clocks showing the same time doesn't mean one controls the other — they share a common cause (the time)."), Some("How would you design an experiment to establish causation?")),
+        (ml_id, "Bias-Variance Tradeoff", "A model's total error = bias² + variance + irreducible noise. High bias = underfitting (too simple). High variance = overfitting (too complex). The sweet spot minimizes both. Regularization (L1/L2) adds a penalty for complexity, reducing variance at the cost of slight bias increase.", Some("Like adjusting a telescope: too blurry (high bias) vs. too shaky (high variance). You want clear AND stable."), Some("How does increasing training data affect bias and variance?")),
+        (nn_id, "Backpropagation", "The algorithm that trains neural networks by computing gradients of the loss function with respect to each weight, then updating weights to reduce the loss. Uses the chain rule of calculus to propagate error backwards from the output layer through hidden layers. Combined with gradient descent (or variants like Adam), it iteratively improves the network.", Some("Like tracing blame backwards — if the output is wrong, figure out which weights contributed most to the error, and adjust them proportionally."), Some("Why might very deep networks suffer from vanishing gradients?")),
+        (viz_id, "Data-Ink Ratio", "Edward Tufte's principle: the proportion of a graphic's ink devoted to non-redundant display of data-information. Maximize this ratio by removing gridlines, borders, backgrounds, 3D effects, and other 'chartjunk' that doesn't convey information. Every visual element should earn its place.", Some("Like editing a sentence — remove every word that doesn't add meaning."), Some("Can a minimalist chart ever be TOO minimal? When?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: &[QuizRow] = &[
+        (wrangle_id, "Approximately what percentage of a data scientist's time is spent on data wrangling?", "multiple_choice", "80%", Some("20%"), Some("50%"), Some("80%"), Some("95%"), None, "The 80/20 rule of data science: roughly 80% of time goes to data wrangling and preparation, leaving 20% for modeling and analysis."),
+        (wrangle_id, "Replacing missing values with estimated ones is called ___.", "fill_in_blank", "imputation", None, None, None, None, Some("Im-put-ation, not amputation!"), "Imputation replaces missing data with substituted values — common methods include mean, median, mode, and model-based approaches."),
+        (wrangle_id, "Which is NOT a common data quality issue?", "multiple_choice", "Data being too clean", Some("Missing values"), Some("Duplicate rows"), Some("Inconsistent date formats"), Some("Data being too clean"), None, "Missing values, duplicates, and inconsistent formats are all common issues. Data being 'too clean' is every data scientist's dream, not a problem!"),
+        (eda_id, "Pearson correlation coefficient (r) ranges from:", "multiple_choice", "-1 to +1", Some("0 to 1"), Some("-1 to +1"), Some("-100 to +100"), Some("0 to 100"), None, "Pearson's r ranges from -1 (perfect negative correlation) through 0 (no correlation) to +1 (perfect positive correlation)."),
+        (eda_id, "Who is considered the inventor of Exploratory Data Analysis?", "multiple_choice", "John Tukey", Some("Ronald Fisher"), Some("John Tukey"), Some("Karl Pearson"), Some("Florence Nightingale"), None, "John Tukey pioneered EDA in his 1977 book, emphasizing the importance of looking at data before making assumptions."),
+        (eda_id, "True or false: Correlation between two variables proves that one causes the other.", "true_false", "false", Some("true"), Some("false"), None, None, None, "Correlation does not imply causation. Two variables may correlate due to a shared confounding variable or pure coincidence."),
+        (ml_id, "Predicting whether an email is spam or not is an example of:", "multiple_choice", "Classification", Some("Regression"), Some("Classification"), Some("Clustering"), Some("Dimensionality reduction"), None, "Spam detection is a classification task — predicting a categorical label (spam vs. not spam) from features."),
+        (ml_id, "When a model memorizes training data but fails on new data, it is ___.", "fill_in_blank", "overfitting", None, None, None, None, Some("Over-..."), "Overfitting occurs when a model learns noise and specific patterns in training data that don't generalize to unseen data."),
+        (ml_id, "Which type of machine learning uses labeled training examples?", "multiple_choice", "Supervised learning", Some("Supervised learning"), Some("Unsupervised learning"), Some("Reinforcement learning"), Some("Transfer learning"), None, "Supervised learning trains on labeled data (input-output pairs) to learn a mapping function."),
+        (nn_id, "The most popular activation function for hidden layers in modern neural networks is:", "multiple_choice", "ReLU", Some("Sigmoid"), Some("Tanh"), Some("ReLU"), Some("Step function"), None, "ReLU (Rectified Linear Unit) = max(0, x) is the most widely used activation due to computational efficiency and reduced vanishing gradient problems."),
+        (nn_id, "The algorithm that trains neural networks by computing gradients backwards is called ___.", "fill_in_blank", "backpropagation", None, None, None, None, Some("Back-..."), "Backpropagation uses the chain rule of calculus to compute gradients of the loss with respect to each weight, enabling gradient descent to update the network."),
+        (nn_id, "True or false: A neural network with no hidden layers can learn non-linear patterns.", "true_false", "false", Some("true"), Some("false"), None, None, None, "Without hidden layers, a neural network is just a linear model (perceptron). Hidden layers with non-linear activation functions enable learning complex, non-linear patterns."),
+        (viz_id, "Which chart type is best for showing trends over time?", "multiple_choice", "Line chart", Some("Pie chart"), Some("Line chart"), Some("Bar chart"), Some("Scatter plot"), None, "Line charts excel at showing how values change over time, with the x-axis representing time and the y-axis the measured variable."),
+        (viz_id, "Edward Tufte's principle about maximizing data vs. decoration is called the ___.", "fill_in_blank", "data-ink ratio", None, None, None, None, Some("___-___ ratio"), "The data-ink ratio measures the proportion of a chart's 'ink' devoted to actual data. Tufte advocates maximizing it by removing chartjunk."),
+        (viz_id, "Approximately what percentage of men have some form of color vision deficiency?", "multiple_choice", "8%", Some("1%"), Some("4%"), Some("8%"), Some("15%"), None, "About 8% of men (and 0.5% of women) have color vision deficiency. Good visualizations use colorblind-friendly palettes."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path for Data Science
+    let path_topics = [
+        (viz_id, "Start with visualization — learn to see patterns in data"),
+        (wrangle_id, "Master data cleaning — the foundation of all analysis"),
+        (eda_id, "Explore data systematically before modeling"),
+        (ml_id, "Learn core machine learning concepts and algorithms"),
+        (nn_id, "Dive into neural networks and deep learning"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Data Science Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_music_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Music Theory', 'Understanding the building blocks of music — scales, chords, rhythm, harmony, and form.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Music Theory'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Scales and Keys", "beginner", 1),
+        ("Chords and Harmony", "intermediate", 2),
+        ("Rhythm and Meter", "beginner", 3),
+        ("Musical Form", "intermediate", 4),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let scales_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Scales and Keys'", [subj_id], |r| r.get(0),
+    )?;
+    let chords_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chords and Harmony'", [subj_id], |r| r.get(0),
+    )?;
+    let rhythm_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Rhythm and Meter'", [subj_id], |r| r.get(0),
+    )?;
+    let form_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Musical Form'", [subj_id], |r| r.get(0),
+    )?;
+
+    let lessons: &[LessonRow] = &[
+        (scales_id, "The Major Scale", "A **scale** is a sequence of notes in ascending/descending order. The **major scale** follows a specific pattern of whole (W) and half (H) steps:\n\n**W-W-H-W-W-W-H**\n\nStarting on C: C-D-E-F-G-A-B-C (all white keys on piano — no sharps or flats)\n\n**Key signatures** tell you which sharps or flats to use:\n- **Sharp keys (Circle of Fifths clockwise):** G(1♯), D(2♯), A(3♯), E(4♯), B(5♯), F♯(6♯)\n- **Flat keys (Circle of Fifths counter-clockwise):** F(1♭), B♭(2♭), E♭(3♭), A♭(4♭), D♭(5♭), G♭(6♭)\n\nEvery major scale has a **relative minor** that shares the same key signature (starts on the 6th degree). C major's relative minor is A minor.", 1),
+        (chords_id, "Building Chords", "A **chord** is three or more notes sounded together.\n\n**Triads** (3 notes, built in thirds):\n- **Major:** Root + Major 3rd + Perfect 5th (happy sound) → C-E-G\n- **Minor:** Root + Minor 3rd + Perfect 5th (sad sound) → C-E♭-G\n- **Diminished:** Root + Minor 3rd + Diminished 5th (tense) → C-E♭-G♭\n- **Augmented:** Root + Major 3rd + Augmented 5th (dreamy) → C-E-G♯\n\n**Seventh chords** add a 4th note:\n- **Major 7th:** Cmaj7 = C-E-G-B (smooth, jazzy)\n- **Dominant 7th:** C7 = C-E-G-B♭ (bluesy, wants to resolve)\n- **Minor 7th:** Cm7 = C-E♭-G-B♭ (mellow)\n\n**Chord progressions** are sequences that create movement. The most common: **I-V-vi-IV** (used in countless pop songs).", 2),
+        (rhythm_id, "Understanding Rhythm", "**Rhythm** is the pattern of sounds and silences in time.\n\n**Note values:**\n- Whole note = 4 beats\n- Half note = 2 beats\n- Quarter note = 1 beat\n- Eighth note = ½ beat\n- Sixteenth note = ¼ beat\n\n**Time signatures** tell you the meter:\n- **4/4 (Common time):** 4 quarter-note beats per measure (most pop/rock)\n- **3/4 (Waltz time):** 3 quarter-note beats per measure\n- **6/8 (Compound duple):** 6 eighth-note beats, grouped in 2 sets of 3\n\n**Tempo** is the speed (BPM):\n- Largo: 40-60 BPM (very slow)\n- Andante: 76-108 BPM (walking pace)\n- Allegro: 120-156 BPM (fast, lively)\n- Presto: 168-200 BPM (very fast)\n\n**Syncopation** = emphasis on normally weak beats — creates groove and tension.", 1),
+        (form_id, "Musical Structure", "**Form** is the architecture of a piece — how sections are organized.\n\n**Common forms:**\n- **Binary (AB):** Two contrasting sections. Common in Baroque dances.\n- **Ternary (ABA):** Statement-contrast-return. Da capo arias, minuets.\n- **Rondo (ABACA...):** Main theme returns between contrasting episodes.\n- **Sonata form:** Exposition (themes) → Development (transformation) → Recapitulation (return). The backbone of Classical-era first movements.\n- **Verse-Chorus:** Modern pop structure. Verse (story) + Chorus (hook).\n- **12-Bar Blues:** I-I-I-I / IV-IV-I-I / V-IV-I-V — foundation of blues, rock, and jazz.\n\n**Bridge** = contrasting section that provides variety before the final chorus.\n**Coda** = concluding section that wraps up the piece.", 1),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: &[ExplanationRow] = &[
+        (scales_id, "Circle of Fifths", "A visual diagram arranging all 12 major keys by ascending perfect fifths (clockwise) and descending fifths/ascending fourths (counter-clockwise). Adjacent keys differ by one sharp or flat, making it invaluable for understanding key relationships, transposition, and chord progressions.", Some("Like a clock face where each hour is a musical key — neighboring hours sound most naturally connected."), Some("Why do adjacent keys on the Circle of Fifths share so many chords?")),
+        (chords_id, "Chord Inversions", "Rearranging which note is in the bass. Root position: root on bottom. First inversion: 3rd on bottom. Second inversion: 5th on bottom. Inversions create smoother voice leading between chords and change the 'weight' or character of the chord without changing its function.", Some("Like rearranging furniture — same pieces, different layout, different feel."), Some("How do inversions help create smooth bass lines?")),
+        (rhythm_id, "Polyrhythm", "Two or more conflicting rhythmic patterns played simultaneously. Common example: 3 against 2 (triplets over duplets). Found extensively in African music, jazz, progressive rock, and Afro-Cuban styles. Creates complexity and forward motion by layering rhythmic tension.", Some("Like patting your head while rubbing your stomach — two different motions happening at once that feel right together."), Some("What is the difference between polyrhythm and syncopation?")),
+        (form_id, "Sonata Form", "The most important form in Classical music. Three sections: Exposition (presents two contrasting themes in different keys), Development (transforms and fragments the themes dramatically), and Recapitulation (restates both themes in the home key). Often bookended by an introduction and coda.", Some("Like a three-act story: introduce characters (exposition), put them in conflict (development), resolve everything (recapitulation)."), Some("Why does the recapitulation bring both themes back in the home key?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: &[QuizRow] = &[
+        (scales_id, "The pattern of whole and half steps in a major scale is:", "multiple_choice", "W-W-H-W-W-W-H", Some("W-H-W-W-H-W-W"), Some("W-W-H-W-W-W-H"), Some("H-W-W-H-W-W-W"), Some("W-W-W-H-W-W-H"), None, "The major scale follows Whole-Whole-Half-Whole-Whole-Whole-Half. This pattern produces the familiar 'do-re-mi' sound."),
+        (scales_id, "C major's relative minor is ___.", "fill_in_blank", "A minor", None, None, None, None, Some("Start on the 6th degree of C major..."), "The relative minor starts on the 6th degree of the major scale. In C major: C(1) D(2) E(3) F(4) G(5) A(6) — so A minor."),
+        (scales_id, "How many sharps does the key of D major have?", "multiple_choice", "2", Some("0"), Some("1"), Some("2"), Some("3"), None, "D major has 2 sharps: F♯ and C♯. Following the Circle of Fifths: G(1♯), D(2♯)."),
+        (chords_id, "A major triad consists of a root, a major third, and a ___.", "fill_in_blank", "perfect fifth", None, None, None, None, Some("The fifth is neither augmented nor diminished..."), "A major triad = Root + Major 3rd + Perfect 5th. For example, C major = C-E-G."),
+        (chords_id, "The most common chord progression in pop music is:", "multiple_choice", "I-V-vi-IV", Some("I-IV-V-I"), Some("I-V-vi-IV"), Some("ii-V-I"), Some("I-vi-IV-V"), None, "I-V-vi-IV is the most ubiquitous pop progression, used in songs from 'Let It Be' to 'No Woman No Cry' to countless modern hits."),
+        (chords_id, "True or false: A diminished triad contains a minor third and a diminished fifth.", "true_false", "true", Some("true"), Some("false"), None, None, None, "A diminished triad is built with a minor 3rd (3 semitones) and a diminished 5th (6 semitones from the root)."),
+        (rhythm_id, "A whole note lasts ___ beats in 4/4 time.", "fill_in_blank", "4", None, None, None, None, Some("It fills the whole measure..."), "A whole note sustains for 4 beats — the entire duration of one measure in 4/4 time."),
+        (rhythm_id, "A waltz is typically written in ___ time.", "fill_in_blank", "3/4", None, None, None, None, Some("ONE-two-three, ONE-two-three..."), "Waltzes use 3/4 time: three quarter-note beats per measure, with emphasis on beat 1."),
+        (rhythm_id, "What tempo marking means 'walking pace' (76-108 BPM)?", "multiple_choice", "Andante", Some("Largo"), Some("Andante"), Some("Allegro"), Some("Presto"), None, "Andante (Italian for 'walking') indicates a moderate, walking-pace tempo of about 76-108 BPM."),
+        (form_id, "The three sections of sonata form are:", "multiple_choice", "Exposition, Development, Recapitulation", Some("Verse, Chorus, Bridge"), Some("Exposition, Development, Recapitulation"), Some("Introduction, Theme, Coda"), Some("A, B, A"), None, "Sonata form: Exposition (present themes) → Development (transform them) → Recapitulation (restate in home key)."),
+        (form_id, "The ___ Blues form uses the chord progression I-I-I-I / IV-IV-I-I / V-IV-I-V.", "fill_in_blank", "12-bar", None, None, None, None, Some("How many measures?"), "The 12-bar blues is a 12-measure chord progression that forms the foundation of blues, rock, and jazz music."),
+        (form_id, "In a Rondo form (ABACA), what section keeps returning?", "multiple_choice", "A", Some("A"), Some("B"), Some("C"), Some("All sections return equally"), None, "In a Rondo, the A section (main theme) returns between each contrasting episode (B, C, etc.)."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_topics = [
+        (rhythm_id, "Start with rhythm — the heartbeat of music"),
+        (scales_id, "Learn scales and keys — the melodic building blocks"),
+        (chords_id, "Build chords from scales — the foundation of harmony"),
+        (form_id, "Understand how musical sections are organized into larger structures"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Music Theory Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
         )?;
     }
 

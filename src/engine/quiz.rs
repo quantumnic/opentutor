@@ -235,6 +235,12 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
         return check_ordering_answer(&correct, &answer);
     }
 
+    // For matching questions, the correct_answer is a semicolon-separated list of
+    // "left=right" pairs. The user's answer should contain the same pairs in any order.
+    if question.question_type == "matching" {
+        return check_matching_answer(&correct, &answer);
+    }
+
     if answer == correct {
         return true;
     }
@@ -267,6 +273,42 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     }
 
     false
+}
+
+/// Check matching answers: the correct answer and user answer are semicolon-separated
+/// "left=right" pairs. Order doesn't matter, but all pairs must match.
+#[allow(dead_code)]
+fn check_matching_answer(correct: &str, answer: &str) -> bool {
+    let mut correct_pairs: Vec<(String, String)> = correct
+        .split(';')
+        .filter_map(|pair| {
+            let parts: Vec<&str> = pair.splitn(2, '=').collect();
+            if parts.len() == 2 {
+                Some((parts[0].trim().to_lowercase(), parts[1].trim().to_lowercase()))
+            } else {
+                None
+            }
+        })
+        .collect();
+    let mut answer_pairs: Vec<(String, String)> = answer
+        .split(';')
+        .filter_map(|pair| {
+            let parts: Vec<&str> = pair.splitn(2, '=').collect();
+            if parts.len() == 2 {
+                Some((parts[0].trim().to_lowercase(), parts[1].trim().to_lowercase()))
+            } else {
+                None
+            }
+        })
+        .collect();
+
+    if correct_pairs.len() != answer_pairs.len() {
+        return false;
+    }
+
+    correct_pairs.sort();
+    answer_pairs.sort();
+    correct_pairs == answer_pairs
 }
 
 /// Check ordering answers: compare comma-separated sequences.
@@ -466,6 +508,41 @@ mod tests {
     #[test]
     fn test_fuzzy_match_too_many_edits() {
         assert!(!fuzzy_match("odiseos", "odysseus")); // 3 edits, only 1-2 allowed
+    }
+
+    #[test]
+    fn test_check_matching_answer_correct() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Match these:".into(),
+            question_type: "matching".into(),
+            difficulty: "medium".into(),
+            correct_answer: "Dog=Mammal;Snake=Reptile;Frog=Amphibian".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Basic animal classification.".into(),
+        };
+        assert!(check_answer(&q, "Dog=Mammal;Snake=Reptile;Frog=Amphibian"));
+        // Order doesn't matter
+        assert!(check_answer(&q, "Frog=Amphibian;Dog=Mammal;Snake=Reptile"));
+        // Case insensitive
+        assert!(check_answer(&q, "dog=mammal;snake=reptile;frog=amphibian"));
+    }
+
+    #[test]
+    fn test_check_matching_answer_wrong() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Match these:".into(),
+            question_type: "matching".into(),
+            difficulty: "medium".into(),
+            correct_answer: "Dog=Mammal;Snake=Reptile".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Classification.".into(),
+        };
+        assert!(!check_answer(&q, "Dog=Reptile;Snake=Mammal"));
+        assert!(!check_answer(&q, "Dog=Mammal")); // Missing pair
     }
 
     #[test]
