@@ -151,6 +151,11 @@ enum Commands {
     Velocity,
     /// Show optimal study focus based on forgetting curve analysis
     Focus,
+    /// Look up terms across all subjects (glossary)
+    Glossary {
+        /// Term to search (lists all if omitted)
+        term: Option<String>,
+    },
 }
 
 fn main() {
@@ -194,6 +199,7 @@ fn main() {
         Commands::Mix { count, subject } => commands::mix::run(&conn, count, subject.as_deref()),
         Commands::Velocity => commands::velocity::run(&conn),
         Commands::Focus => commands::focus::run(&conn),
+        Commands::Glossary { term } => commands::glossary::run(&conn, &term),
     };
 
     if let Err(e) = result {

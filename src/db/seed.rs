@@ -46,6 +46,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_data_science(conn)?;
     seed_music_theory(conn)?;
     seed_civics_and_media(conn)?;
+    seed_world_languages(conn)?;
+    seed_geography_expanded(conn)?;
+    seed_psychology_expanded(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -727,7 +730,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 33); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy
+        assert_eq!(count, 34); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages
     }
 
     #[test]
@@ -737,7 +740,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 33);
+        assert_eq!(count, 34);
     }
 
     #[test]
@@ -869,18 +872,18 @@ mod tests {
         let conn = Connection::open_in_memory().unwrap();
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
-        for name in &["Psychology", "Environmental Science"] {
+        for (name, min_topics, min_lessons) in &[("Psychology", 7, 8), ("Environmental Science", 4, 8)] {
             let topic_count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
                 [name], |r| r.get(0)
             ).unwrap();
-            assert_eq!(topic_count, 4, "{} should have 4 topics", name);
+            assert!(topic_count >= *min_topics, "{} should have at least {} topics, got {}", name, min_topics, topic_count);
 
             let lesson_count: i64 = conn.query_row(
                 "SELECT COUNT(*) FROM lessons l JOIN topics t ON t.id = l.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
                 [name], |r| r.get(0)
             ).unwrap();
-            assert!(lesson_count >= 8, "{} should have at least 8 lessons, got {}", name, lesson_count);
+            assert!(lesson_count >= *min_lessons, "{} should have at least {} lessons, got {}", name, min_lessons, lesson_count);
         }
     }
 
@@ -3897,6 +3900,228 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
             rusqlite::params![geo_maps_id, "Latitude and Longitude",
                 "Latitude lines run east-west and measure distance north or south of the equator (0° to 90°). Longitude lines run north-south and measure distance east or west of the Prime Meridian (0° to 180°). Together, they form a grid that can pinpoint any location on Earth. For example, the Eiffel Tower is at approximately 48.86°N, 2.35°E.",
                 3],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_world_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add subject
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('World Languages', 'Introduction to languages of the world — basic vocabulary, grammar, and cultural context.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'World Languages'", [], |r| r.get(0),
+    )?;
+
+    // Topics
+    let topics = [
+        ("German Basics", "beginner", 1),
+        ("Spanish Basics", "beginner", 2),
+        ("French Basics", "beginner", 3),
+        ("Language Families", "intermediate", 4),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let german_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'German Basics'", [], |r| r.get(0))?;
+    let spanish_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Spanish Basics'", [], |r| r.get(0))?;
+    let french_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'French Basics'", [], |r| r.get(0))?;
+    let families_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Language Families'", [], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (german_id, "Greetings in German", "Hallo = Hello\nGuten Morgen = Good morning\nGuten Tag = Good day\nGuten Abend = Good evening\nTschüss = Bye\nAuf Wiedersehen = Goodbye (formal)\nDanke = Thank you\nBitte = Please / You're welcome", 1),
+        (german_id, "Numbers 1-10 in German", "eins = 1, zwei = 2, drei = 3, vier = 4, fünf = 5\nsechs = 6, sieben = 7, acht = 8, neun = 9, zehn = 10\nGerman numbers are straightforward — learn these and you can build larger numbers.\n11 = elf, 12 = zwölf, then 13-19 follow the pattern: dreizehn, vierzehn, etc.", 2),
+        (spanish_id, "Greetings in Spanish", "Hola = Hello\nBuenos días = Good morning\nBuenas tardes = Good afternoon\nBuenas noches = Good night\nAdiós = Goodbye\nPor favor = Please\nGracias = Thank you\nDe nada = You're welcome", 1),
+        (spanish_id, "Numbers 1-10 in Spanish", "uno = 1, dos = 2, tres = 3, cuatro = 4, cinco = 5\nseis = 6, siete = 7, ocho = 8, nueve = 9, diez = 10\nSpanish numbers are used throughout Latin America and Spain.\n11 = once, 12 = doce, 13 = trece, 14 = catorce, 15 = quince", 2),
+        (french_id, "Greetings in French", "Bonjour = Hello / Good day\nBonsoir = Good evening\nSalut = Hi (informal)\nAu revoir = Goodbye\nMerci = Thank you\nS'il vous plaît = Please (formal)\nDe rien = You're welcome\nComment allez-vous? = How are you? (formal)", 1),
+        (french_id, "Numbers 1-10 in French", "un = 1, deux = 2, trois = 3, quatre = 4, cinq = 5\nsix = 6, sept = 7, huit = 8, neuf = 9, dix = 10\nFrench numbers get interesting at 70: soixante-dix (60+10), 80: quatre-vingts (4×20), 90: quatre-vingt-dix (4×20+10).", 2),
+        (families_id, "Major Language Families", "Indo-European: Includes English, Spanish, Hindi, German, French, Russian — spoken by ~3 billion people.\nSino-Tibetan: Mandarin Chinese, Cantonese, Burmese — ~1.5 billion speakers.\nAfroasiatic: Arabic, Hebrew, Amharic, Hausa.\nNiger-Congo: Swahili, Yoruba, Zulu — largest family by number of languages.\nAustronesian: Malay, Tagalog, Hawaiian, Maori.\nDravidian: Tamil, Telugu, Kannada — mainly in South India.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<ExplanationRow> = vec![
+        (german_id, "German Cases", "German has four grammatical cases: Nominative (subject), Accusative (direct object), Dative (indirect object), and Genitive (possession). Each case changes the article before a noun. For example, 'der Hund' (the dog, nominative) becomes 'den Hund' (accusative).", Some("Think of cases like different hats a noun wears depending on its job in the sentence."), Some("Can you think of how 'I' vs 'me' in English is similar to German cases?")),
+        (spanish_id, "Spanish Gender", "Every Spanish noun has a gender: masculine or feminine. Generally, words ending in -o are masculine (el libro = the book) and words ending in -a are feminine (la mesa = the table). The article changes accordingly: el (masc) / la (fem).", Some("Imagine every object in Spanish is either wearing a blue hat (masculine) or a pink hat (feminine)."), Some("Why do you think 'el agua' uses a masculine article even though agua ends in -a?")),
+        (french_id, "French Liaison", "In French, normally silent consonants at the end of a word are pronounced when followed by a vowel sound. This is called 'liaison.' For example: 'les amis' is pronounced 'lez-ami' — the s in 'les' connects to the vowel in 'amis.'", Some("It's like words holding hands across a gap — they connect their sounds when a vowel follows."), Some("Can you spot the liaison in 'nous avons' (we have)?")),
+        (families_id, "Cognates", "Cognates are words in different languages that share a common origin and similar form. For example: English 'mother', German 'Mutter', Spanish 'madre', French 'mère' — all from Proto-Indo-European *méh₂tēr. Recognizing cognates helps you learn new languages faster!", Some("Cognates are like linguistic cousins — they grew up in different countries but still look alike at the family reunion."), Some("Can you find cognates between English and Spanish for the word 'telephone'?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let quiz_questions: Vec<QuizRowHint> = vec![
+        (german_id, "What does 'Guten Morgen' mean in English?", "multiple_choice", "Good morning", Some("Good night"), Some("Good morning"), Some("Goodbye"), Some("Thank you"), "B", "'Morgen' means morning, 'Guten' means good."),
+        (german_id, "How do you say 'thank you' in German?", "fill_in_blank", "Danke", None, None, None, None, "Danke", "'Danke' is one of the most common German words. 'Danke schön' is the more formal version."),
+        (german_id, "What is the German word for the number 5?", "fill_in_blank", "fünf", None, None, None, None, "fünf", "German numbers 1-5: eins, zwei, drei, vier, fünf. Note the umlaut (ü) in fünf."),
+        (spanish_id, "How do you say 'please' in Spanish?", "multiple_choice", "Por favor", Some("Gracias"), Some("De nada"), Some("Por favor"), Some("Adiós"), "C", "'Por favor' literally translates to 'as a favor.'"),
+        (spanish_id, "What is 'siete' in English?", "fill_in_blank", "seven", None, None, None, None, "7", "The Spanish numbers: seis (6), siete (7), ocho (8)."),
+        (spanish_id, "What gender is the Spanish word 'libro' (book)?", "true_false", "True", None, None, None, None, "True", "Words ending in -o are typically masculine in Spanish: el libro."),
+        (french_id, "What does 'Merci' mean?", "multiple_choice", "Thank you", Some("Hello"), Some("Goodbye"), Some("Thank you"), Some("Please"), "C", "'Merci' is the standard French word for thank you. 'Merci beaucoup' means thank you very much."),
+        (french_id, "How do you say 'goodbye' in French?", "fill_in_blank", "Au revoir", None, None, None, None, "Au revoir", "'Au revoir' literally means 'until seeing again.'"),
+        (families_id, "Which language family does English belong to?", "multiple_choice", "Indo-European", Some("Sino-Tibetan"), Some("Afroasiatic"), Some("Indo-European"), Some("Austronesian"), "C", "English is part of the Germanic branch of the Indo-European family."),
+        (families_id, "True or False: Mandarin Chinese and English belong to the same language family.", "true_false", "False", None, None, None, None, "False", "Mandarin is Sino-Tibetan; English is Indo-European. They are completely unrelated language families."),
+    ];
+    for (tid, question, qtype, correct, oa, ob, oc, od, hint, explanation) in &quiz_questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'medium')",
+            rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, hint, explanation],
+        )?;
+    }
+
+    // Learning path
+    let path_steps = [
+        (1, families_id, "Understand how languages are related"),
+        (2, german_id, "Learn basic German greetings and numbers"),
+        (3, spanish_id, "Learn basic Spanish greetings and numbers"),
+        (4, french_id, "Learn basic French greetings and numbers"),
+    ];
+    for (order, tid, desc) in &path_steps {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('world languages', ?1, ?2, ?3)",
+            rusqlite::params![order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_geography_expanded(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Geography'", [], |r| r.get(0),
+    )?;
+
+    // Add more topics
+    let topics = [
+        ("Climate Zones", "intermediate", 10),
+        ("Oceans and Seas", "beginner", 11),
+        ("Plate Tectonics", "intermediate", 12),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let climate_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Climate Zones'", [], |r| r.get(0))?;
+    let oceans_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Oceans and Seas'", [], |r| r.get(0))?;
+    let tectonics_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Plate Tectonics'", [], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (climate_id, "The Five Major Climate Zones", "Tropical: Hot and wet year-round, near the equator (Amazon, Congo).\nDry (Arid): Very little rainfall (Sahara, Gobi Desert).\nTemperate: Moderate temperatures, distinct seasons (Western Europe, Eastern US).\nContinental: Extreme seasonal variation, cold winters (Russia, Canada).\nPolar: Freezing year-round (Antarctica, Arctic).\nKöppen classification uses temperature and precipitation to define these zones precisely.", 1),
+        (oceans_id, "The Five Oceans", "Pacific Ocean: Largest and deepest, covers more area than all land combined.\nAtlantic Ocean: Second largest, separates Americas from Europe/Africa.\nIndian Ocean: Third largest, warmest ocean.\nSouthern Ocean: Encircles Antarctica, recognized as a distinct ocean in 2000.\nArctic Ocean: Smallest and shallowest, partially covered in sea ice year-round.", 1),
+        (tectonics_id, "How Plate Tectonics Works", "Earth's outer shell (lithosphere) is broken into ~15 major plates that float on the semi-fluid asthenosphere below.\nPlates move 1-10 cm per year driven by convection currents in the mantle.\nConvergent boundaries: plates collide → mountains (Himalayas) or subduction zones (Mariana Trench).\nDivergent boundaries: plates pull apart → mid-ocean ridges, rift valleys.\nTransform boundaries: plates slide past each other → earthquakes (San Andreas Fault).", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    conn.execute(
+        "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, 'Plate Tectonics', 'The theory that Earth''s outer layer is divided into large plates that move, float, and interact, causing earthquakes, volcanoes, and mountain formation.', 'Imagine Earth''s surface as a cracked eggshell floating on a soft-boiled egg — the pieces can shift and bump into each other.', 'If continents are still moving, what might the world map look like in 250 million years?')",
+        [tectonics_id],
+    )?;
+    conn.execute(
+        "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, 'Climate Zones', 'Earth''s climate zones are determined primarily by latitude, altitude, and proximity to oceans. The equator receives the most direct sunlight, creating tropical zones, while the poles receive the least.', 'Think of Earth like a rotisserie chicken — the middle (equator) gets the most heat, while the top and bottom stay cooler.', 'Why do coastal cities often have milder climates than inland cities at the same latitude?')",
+        [climate_id],
+    )?;
+
+    // Quiz questions
+    let quizzes: Vec<QuizRowHint> = vec![
+        (oceans_id, "Which is the largest ocean on Earth?", "multiple_choice", "Pacific Ocean", Some("Atlantic Ocean"), Some("Pacific Ocean"), Some("Indian Ocean"), Some("Arctic Ocean"), "B", "The Pacific Ocean covers about 165.25 million km² — more than all land on Earth combined."),
+        (oceans_id, "True or False: The Southern Ocean was officially recognized as a distinct ocean in 2000.", "true_false", "True", None, None, None, None, "True", "National Geographic officially recognized the Southern Ocean in 2000, though it was debated for decades."),
+        (climate_id, "Which climate zone experiences extreme seasonal variation with very cold winters?", "multiple_choice", "Continental", Some("Tropical"), Some("Temperate"), Some("Continental"), Some("Polar"), "C", "Continental climates are found far from ocean influence, leading to hot summers and very cold winters."),
+        (tectonics_id, "What happens at a convergent plate boundary?", "multiple_choice", "Plates collide", Some("Plates slide past each other"), Some("Plates pull apart"), Some("Plates collide"), Some("Plates disappear"), "C", "At convergent boundaries, plates push together, creating mountains or subduction zones."),
+        (tectonics_id, "The San Andreas Fault is an example of which type of plate boundary?", "fill_in_blank", "transform", None, None, None, None, "transform", "At transform boundaries, plates slide horizontally past each other, causing earthquakes."),
+    ];
+    for (tid, question, qtype, correct, oa, ob, oc, od, hint, explanation) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'medium')",
+            rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, hint, explanation],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_psychology_expanded(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Psychology'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Memory and Learning", "intermediate", 10),
+        ("Cognitive Biases", "intermediate", 11),
+        ("Developmental Psychology", "beginner", 12),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let memory_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Memory and Learning'", [], |r| r.get(0))?;
+    let biases_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Cognitive Biases'", [], |r| r.get(0))?;
+    let dev_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Developmental Psychology'", [], |r| r.get(0))?;
+
+    let lessons: Vec<LessonRow> = vec![
+        (memory_id, "How Memory Works", "Memory has three stages:\n1. Encoding: Converting sensory input into a form the brain can store.\n2. Storage: Maintaining information over time — short-term (seconds to minutes) vs long-term (days to lifetime).\n3. Retrieval: Accessing stored information when needed.\n\nKey concepts:\n- Working memory holds ~4 items at once (updated from Miller's 'magical number 7').\n- Spaced repetition strengthens long-term memory by reviewing at optimal intervals.\n- Sleep is critical for memory consolidation — the brain replays and strengthens memories during sleep.", 1),
+        (biases_id, "Common Cognitive Biases", "Cognitive biases are systematic errors in thinking:\n\nConfirmation Bias: Seeking information that confirms what you already believe.\nAnchoring: Over-relying on the first piece of information encountered.\nDunning-Kruger Effect: Low-skilled individuals overestimate their ability; experts underestimate theirs.\nAvailability Heuristic: Judging likelihood based on how easily examples come to mind.\nSunk Cost Fallacy: Continuing something because of past investment, not future value.\nHalo Effect: Letting one positive trait influence overall judgment.", 1),
+        (dev_id, "Piaget's Stages of Development", "Jean Piaget identified four stages of cognitive development:\n\n1. Sensorimotor (0-2 years): Learning through senses and movement. Object permanence develops.\n2. Preoperational (2-7 years): Symbolic thinking, but egocentric — difficulty seeing others' perspectives.\n3. Concrete Operational (7-11 years): Logical thinking about concrete events. Understanding conservation.\n4. Formal Operational (12+): Abstract and hypothetical thinking. Scientific reasoning emerges.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (memory_id, "Spaced Repetition", "Spaced repetition is a learning technique where reviews are scheduled at increasing intervals. It exploits the 'spacing effect' — we remember better when study sessions are spread out over time rather than crammed together.", Some("It's like watering a plant — a little water spread across many days helps it grow better than dumping a bucket all at once."), Some("Why do you think cramming the night before an exam doesn't work as well as studying a little each day?")),
+        (biases_id, "Confirmation Bias", "The tendency to search for, interpret, and remember information that confirms our pre-existing beliefs, while ignoring contradictory evidence. This affects everything from scientific research to political opinions.", Some("Imagine wearing tinted glasses — everything looks the color of your lenses, and you forget the world has other colors."), Some("Can you think of a time when you only noticed evidence that supported what you already believed?")),
+        (dev_id, "Object Permanence", "The understanding that objects continue to exist even when they cannot be seen. Infants develop this around 8-12 months. Before this, 'out of sight' literally means 'out of mind' — peek-a-boo is genuinely surprising!", Some("For a baby without object permanence, you hiding behind your hands is like you teleporting to another dimension and back."), Some("How might lack of object permanence affect how a baby reacts when a parent leaves the room?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (memory_id, "How many items can working memory typically hold at once?", "multiple_choice", "About 4", Some("About 4"), Some("About 20"), Some("About 100"), Some("Unlimited"), "A", "Modern research (Cowan, 2001) suggests working memory holds about 4 'chunks' of information, updated from Miller's classic estimate of 7±2."),
+        (memory_id, "True or False: Sleep is important for memory consolidation.", "true_false", "True", None, None, None, None, "True", "During sleep, the brain replays and strengthens neural connections formed during learning, moving memories from short-term to long-term storage."),
+        (biases_id, "What is the Dunning-Kruger Effect?", "multiple_choice", "Low-skilled people overestimate their ability", Some("Experts overestimate their ability"), Some("Low-skilled people overestimate their ability"), Some("Everyone accurately estimates their ability"), Some("Memory gets worse with age"), "B", "The Dunning-Kruger effect describes how people with limited knowledge in an area tend to overestimate their competence, while true experts often underestimate theirs."),
+        (biases_id, "The tendency to continue investing in something because of past investment is called:", "fill_in_blank", "sunk cost fallacy", None, None, None, None, "sunk cost", "The sunk cost fallacy leads us to throw good money after bad, because we don't want our past investment to be 'wasted.'"),
+        (dev_id, "At what age do infants typically develop object permanence?", "multiple_choice", "8-12 months", Some("Birth"), Some("8-12 months"), Some("3-4 years"), Some("6-7 years"), "B", "Object permanence — understanding that things exist even when hidden — develops around 8-12 months according to Piaget."),
+    ];
+    for (tid, question, qtype, correct, oa, ob, oc, od, hint, explanation) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'medium')",
+            rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, hint, explanation],
         )?;
     }
 

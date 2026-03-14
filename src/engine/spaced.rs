@@ -180,7 +180,8 @@ pub fn update_spaced_repetition(
                     let quality_bonus = if quality == 5 { 1.1 } else { 1.0 };
                     let same_day_factor = if is_same_day { SAME_DAY_REVIEW_FACTOR } else { 1.0 };
                     let spacing = spacing_bonus(conn, topic_id);
-                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * spacing)
+                    let interleave = interleaving_bonus(conn);
+                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * spacing * interleave)
                         .round()
                         .max(n as f64) as i64 // Never shrink interval on success
                 }
@@ -628,6 +629,33 @@ pub fn spacing_bonus(conn: &Connection, topic_id: i64) -> f64 {
     // Bonus scales from 1.0 (1 day) to 1.2 (7+ distinct days in last 2 weeks)
     let bonus = 1.0 + (distinct_days.min(7) as f64 - 1.0).max(0.0) * 0.033;
     bonus.min(1.2)
+}
+
+/// Calculate an interleaving bonus: if the user reviewed topics from multiple
+/// subjects in the current session, they get a small quality boost.
+/// Research shows interleaved practice improves long-term retention by 10-30%
+/// compared to blocked practice (Rohrer & Taylor, 2007).
+pub fn interleaving_bonus(conn: &Connection) -> f64 {
+    let distinct_subjects: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT s.id)
+             FROM session_log sl
+             JOIN topics t ON t.id = sl.topic_id
+             JOIN subjects s ON s.id = t.subject_id
+             WHERE sl.activity_type IN ('review', 'quiz')
+             AND DATE(sl.timestamp) = DATE('now')",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    // Bonus: 1.0 for single subject, up to 1.15 for 4+ subjects interleaved
+    match distinct_subjects {
+        0..=1 => 1.0,
+        2 => 1.05,
+        3 => 1.10,
+        _ => 1.15,
+    }
 }
 
 /// Default daily review cap (configurable via `opentutor config daily_review_cap`)
@@ -1455,6 +1483,25 @@ mod mastery_tests {
         let conn = db::init_memory_db().unwrap();
         let batch = interleaved_review_batch(&conn).unwrap();
         assert!(batch.is_empty());
+    }
+
+    #[test]
+    fn test_interleaving_bonus_no_reviews() {
+        let conn = db::init_memory_db().unwrap();
+        let bonus = interleaving_bonus(&conn);
+        assert!((bonus - 1.0).abs() < f64::EPSILON, "No reviews should give bonus 1.0");
+    }
+
+    #[test]
+    fn test_interleaving_bonus_single_subject() {
+        let conn = db::init_memory_db().unwrap();
+        // Log a review for a topic in subject 1
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, score) VALUES (1, 'review', 80.0)",
+            [],
+        ).unwrap();
+        let bonus = interleaving_bonus(&conn);
+        assert!((bonus - 1.0).abs() < f64::EPSILON, "Single subject should give bonus 1.0");
     }
 
     #[test]
