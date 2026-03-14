@@ -56,6 +56,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_discrete_mathematics(conn)?;
     seed_linear_algebra(conn)?;
     seed_electrical_engineering(conn)?;
+    seed_robotics_ai(conn)?;
+    seed_number_theory(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -737,7 +739,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 40); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra + Electrical Engineering
+        assert_eq!(count, 42); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra + Electrical Engineering
     }
 
     #[test]
@@ -747,7 +749,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 40);
+        assert_eq!(count, 42);
     }
 
     #[test]
@@ -5287,6 +5289,264 @@ pub fn seed_electrical_engineering(conn: &Connection) -> Result<(), rusqlite::Er
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Electrical Engineering Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+// ── Robotics & AI Subject ────────────────────────────────────────────────
+pub fn seed_robotics_ai(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Robotics & AI'", [], |r| r.get(0))
+        .unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Robotics & AI', 'Intelligent machines — from sensors and actuators to neural networks and reinforcement learning.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Robotics & AI'", [], |r| r.get(0))?;
+
+    let topics = [
+        ("Sensors & Perception", "beginner"),
+        ("Actuators & Motion", "beginner"),
+        ("Search Algorithms", "intermediate"),
+        ("Neural Networks", "intermediate"),
+        ("Reinforcement Learning", "advanced"),
+        ("Computer Vision", "intermediate"),
+        ("Natural Language Processing", "advanced"),
+        ("Robot Kinematics", "advanced"),
+    ];
+    for (i, (name, diff)) in topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, i + 1],
+        )?;
+    }
+
+    let sensor_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Sensors & Perception' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let actuator_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Actuators & Motion' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let search_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Search Algorithms' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let nn_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Neural Networks' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let rl_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Reinforcement Learning' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let cv_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Computer Vision' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let nlp_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Natural Language Processing' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let kin_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Robot Kinematics' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (sensor_id, "Introduction to Sensors", "Robots perceive the world through sensors. Common types include ultrasonic (distance), infrared (proximity), LiDAR (3D mapping), cameras (vision), and IMUs (orientation). Each sensor has a range, accuracy, and update rate that determines its suitability for a task.", 1),
+        (sensor_id, "Sensor Fusion", "No single sensor is perfect. Sensor fusion combines data from multiple sources — e.g., a Kalman filter merging GPS and IMU data — to produce a more accurate and robust estimate of the robot's state.", 2),
+        (actuator_id, "Motors and Servos", "Actuators convert electrical signals into physical motion. DC motors provide continuous rotation, servos give precise angle control, and stepper motors offer discrete positioning. The choice depends on torque, speed, and precision requirements.", 1),
+        (actuator_id, "Locomotion Strategies", "Wheeled robots are simplest (differential drive, omnidirectional). Legged robots handle rough terrain. Drones use rotors for flight. Soft robots use pneumatic or hydraulic actuators for flexible, adaptive movement.", 2),
+        (search_id, "Graph Search: BFS & DFS", "Search algorithms explore a graph of states to find a goal. Breadth-first search (BFS) explores level by level (optimal for unweighted graphs). Depth-first search (DFS) goes deep first (memory efficient but not optimal).", 1),
+        (search_id, "A* and Heuristic Search", "A* combines path cost g(n) with a heuristic estimate h(n) to the goal. If h is admissible (never overestimates), A* finds the optimal path. It is the foundation of most robot path-planning systems.", 2),
+        (nn_id, "Perceptrons to Deep Networks", "A neural network is a stack of layers that transform inputs through weighted connections and nonlinear activation functions. A single perceptron can only learn linear boundaries; deep networks with multiple layers learn hierarchical features — edges, shapes, objects.", 1),
+        (nn_id, "Backpropagation", "Training a neural network uses gradient descent: compute the loss (error), propagate gradients backward through the network using the chain rule, and update weights to minimize the loss. Learning rate, batch size, and regularization are key hyperparameters.", 2),
+        (rl_id, "Markov Decision Processes", "Reinforcement learning models problems as MDPs: an agent in state s takes action a, transitions to state s' with probability P(s'|s,a), and receives reward r. The goal is to learn a policy π(s) that maximizes cumulative discounted reward.", 1),
+        (rl_id, "Q-Learning and Policy Gradient", "Q-learning estimates the value of each (state, action) pair. Deep Q-Networks (DQN) use neural networks for large state spaces. Policy gradient methods (like PPO and A3C) directly optimize the policy, which handles continuous action spaces better.", 2),
+        (cv_id, "Image Processing Basics", "Computer vision starts with image processing: converting to grayscale, edge detection (Sobel, Canny), filtering (Gaussian blur, median filter), and thresholding. These operations extract features that higher-level algorithms can interpret.", 1),
+        (cv_id, "Convolutional Neural Networks", "CNNs are the backbone of modern vision. Convolutional layers detect local patterns (edges, textures), pooling layers reduce spatial dimensions, and fully connected layers produce classification. Architectures like ResNet and YOLO handle object detection in real time.", 2),
+        (nlp_id, "Tokenization and Embeddings", "NLP converts text into numbers. Tokenization splits text into words or subwords. Embeddings (Word2Vec, GloVe) map tokens to dense vectors where semantic similarity corresponds to geometric proximity.", 1),
+        (nlp_id, "Transformers and Attention", "The Transformer architecture (Vaswani et al., 2017) replaced RNNs with self-attention: each token attends to every other token in parallel. This enables models like BERT (bidirectional understanding) and GPT (autoregressive generation) that power modern AI.", 2),
+        (kin_id, "Forward and Inverse Kinematics", "Forward kinematics: given joint angles, compute the end-effector position. Inverse kinematics: given a target position, find the joint angles. FK is straightforward geometry; IK may have multiple solutions or none.", 1),
+        (kin_id, "Degrees of Freedom", "A robot arm's degrees of freedom (DOF) determine its workspace. 6-DOF arms can reach any position and orientation in 3D space. Redundant arms (7+ DOF) offer extra flexibility to avoid obstacles or optimize posture.", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (sensor_id, "LiDAR", "LiDAR (Light Detection and Ranging) fires laser pulses and measures the time-of-flight to build a 3D point cloud of the environment. Used in self-driving cars and mapping drones.", Some("Think of LiDAR as a bat's echolocation but with light instead of sound — it bounces photons off surfaces to map the world."), Some("Why might LiDAR struggle in heavy rain or fog?")),
+        (nn_id, "Activation Function", "An activation function introduces nonlinearity into a neural network. Without it, stacking linear layers would just produce another linear function. Common choices: ReLU (max(0,x)), sigmoid, and tanh.", Some("An activation function is like a bouncer at a club — it decides which signals get through and how strong they are."), Some("What happens if you use a linear activation everywhere?")),
+        (rl_id, "Exploration vs Exploitation", "An RL agent must balance trying new actions (exploration) to discover better strategies versus using its current best strategy (exploitation). Epsilon-greedy, UCB, and entropy bonus are common approaches.", Some("Imagine choosing a restaurant: do you try the new place (explore) or go to your favorite (exploit)?"), Some("Why would pure exploitation fail in a changing environment?")),
+        (cv_id, "Convolution", "A convolution slides a small filter (kernel) over an image, computing dot products to produce a feature map. Different kernels detect different patterns: horizontal edges, vertical edges, corners, textures.", Some("A convolution is like running a magnifying glass over a photo — each position reveals specific details."), Some("What is the effect of increasing the kernel size?")),
+        (nlp_id, "Attention Mechanism", "Attention computes a weighted sum of values, where weights are determined by query-key compatibility. It allows a model to focus on relevant parts of the input regardless of distance.", Some("Attention is like highlighting the important words in a sentence — the model learns which words matter for each prediction."), Some("How does multi-head attention differ from single-head?")),
+        (kin_id, "Jacobian Matrix", "The Jacobian relates joint velocities to end-effector velocities. It's essential for velocity control, singularity detection, and solving inverse kinematics iteratively.", Some("The Jacobian is like a translation table between the language of joints and the language of the end-effector."), Some("What happens at a singularity of the Jacobian?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let quizzes: &[QuizRow] = &[
+        (sensor_id, "Which sensor type creates a 3D point cloud using laser pulses?", "multiple_choice", "LiDAR", Some("Ultrasonic"), Some("LiDAR"), Some("Infrared"), Some("Camera"), None, "LiDAR measures time-of-flight of laser pulses to build 3D maps."),
+        (sensor_id, "True or false: A Kalman filter is used to combine data from multiple sensors.", "true_false", "true", None, None, None, None, None, "Kalman filters are the most common sensor fusion technique."),
+        (sensor_id, "An IMU measures ___ and angular velocity.", "fill_in_blank", "acceleration", None, None, None, None, None, "IMU stands for Inertial Measurement Unit — it contains accelerometers and gyroscopes."),
+        (actuator_id, "Which motor type provides precise angular positioning?", "multiple_choice", "Servo motor", Some("DC motor"), Some("Servo motor"), Some("Stepper motor"), Some("Linear actuator"), None, "Servos have built-in feedback for precise angle control."),
+        (actuator_id, "True or false: Differential drive robots can rotate in place.", "true_false", "true", None, None, None, None, None, "By spinning wheels in opposite directions, the robot pivots around its center."),
+        (search_id, "Which search algorithm is guaranteed to find the shortest path in an unweighted graph?", "multiple_choice", "BFS", Some("DFS"), Some("BFS"), Some("Random walk"), Some("Greedy search"), None, "BFS explores level by level, ensuring the first path found is shortest."),
+        (search_id, "A* uses f(n) = g(n) + h(n). What does h(n) represent?", "fill_in_blank", "heuristic estimate to goal", None, None, None, None, None, "h(n) is the heuristic function — an estimate of the remaining cost to reach the goal."),
+        (search_id, "Order the algorithms from least to most memory usage: A*, DFS, BFS", "ordering", "DFS,BFS,A*", None, None, None, None, None, "DFS uses O(d) memory (depth), BFS uses O(b^d), A* stores the open+closed lists."),
+        (nn_id, "What problem does the ReLU activation function solve compared to sigmoid?", "multiple_choice", "Vanishing gradient problem", Some("Overfitting"), Some("Vanishing gradient problem"), Some("Underfitting"), Some("Memory overflow"), None, "ReLU's gradient is 1 for positive values, preventing gradient vanishing during backpropagation."),
+        (nn_id, "The process of computing gradients layer by layer is called ___.", "fill_in_blank", "backpropagation", None, None, None, None, None, "Backpropagation uses the chain rule to compute gradients from output to input."),
+        (nn_id, "True or false: A single-layer perceptron can learn the XOR function.", "true_false", "false", None, None, None, None, None, "XOR is not linearly separable — it requires at least one hidden layer."),
+        (rl_id, "In Q-learning, Q(s,a) estimates the expected ___.", "fill_in_blank", "cumulative reward", None, None, None, None, None, "Q-values represent the expected total discounted future reward for taking action a in state s."),
+        (rl_id, "Which RL approach directly optimizes the policy without learning a value function?", "multiple_choice", "Policy gradient", Some("Q-learning"), Some("Dynamic programming"), Some("Policy gradient"), Some("Monte Carlo tree search"), None, "Policy gradient methods parameterize and directly optimize the policy."),
+        (rl_id, "Match the RL concept with its description: Epsilon-greedy=Random actions with probability epsilon;Discount factor=Reduces weight of future rewards;Replay buffer=Stores past transitions for training", "matching", "Epsilon-greedy=Random actions with probability epsilon;Discount factor=Reduces weight of future rewards;Replay buffer=Stores past transitions for training", None, None, None, None, None, "These are fundamental components of modern RL systems."),
+        (cv_id, "Which CNN architecture introduced residual (skip) connections?", "multiple_choice", "ResNet", Some("AlexNet"), Some("VGG"), Some("ResNet"), Some("LeNet"), None, "ResNet (2015) introduced skip connections to train very deep networks (100+ layers)."),
+        (cv_id, "The Canny edge detector includes ___ suppression to thin edges.", "fill_in_blank", "non-maximum", None, None, None, None, None, "Non-maximum suppression keeps only the local maxima of gradient magnitude, thinning edges to one pixel wide."),
+        (cv_id, "True or false: Max pooling reduces the spatial dimensions of a feature map.", "true_false", "true", None, None, None, None, None, "Max pooling selects the maximum value in each patch, reducing width and height."),
+        (nlp_id, "Which model architecture replaced RNNs for most NLP tasks after 2017?", "multiple_choice", "Transformer", Some("LSTM"), Some("Transformer"), Some("CNN"), Some("GAN"), None, "The Transformer (Vaswani et al., 2017) uses self-attention for parallel processing of sequences."),
+        (nlp_id, "Word2Vec learns word ___ by predicting context words.", "fill_in_blank", "embeddings", None, None, None, None, None, "Word2Vec maps words to dense vectors where similar words are geometrically close."),
+        (nlp_id, "Order these NLP milestones chronologically: Transformer, Word2Vec, GPT-3, BERT", "ordering", "Word2Vec,Transformer,BERT,GPT-3", None, None, None, None, None, "Word2Vec (2013), Transformer (2017), BERT (2018), GPT-3 (2020)."),
+        (kin_id, "How many degrees of freedom does a standard industrial robot arm have?", "multiple_choice", "6", Some("3"), Some("4"), Some("6"), Some("12"), None, "6 DOF allows reaching any position and orientation in 3D space."),
+        (kin_id, "Forward kinematics computes end-effector position from ___.", "fill_in_blank", "joint angles", None, None, None, None, None, "FK is the straightforward direction: given joints, compute the tool position."),
+        (kin_id, "True or false: Inverse kinematics always has a unique solution.", "true_false", "false", None, None, None, None, None, "IK can have zero, one, or multiple solutions depending on the configuration."),
+    ];
+    for (tid, question, qtype, answer, oa, ob, oc, od, _hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            rusqlite::params![tid, question, qtype, answer, oa, ob, oc, od, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_steps: &[(i64, &str)] = &[
+        (sensor_id, "Start with how robots perceive the world — sensors and sensor fusion"),
+        (actuator_id, "Learn how robots move — motors, servos, and locomotion strategies"),
+        (search_id, "Explore pathfinding — BFS, DFS, and A* for robot navigation"),
+        (cv_id, "Dive into computer vision — image processing and CNNs"),
+        (nn_id, "Understand neural networks — the brain behind intelligent robots"),
+        (rl_id, "Master reinforcement learning — teaching robots through trial and error"),
+        (nlp_id, "Explore natural language processing — enabling robots to understand text"),
+        (kin_id, "Complete your journey with robot kinematics — precise arm control"),
+    ];
+    for (i, (tid, desc)) in path_steps.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Robotics & AI Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+// ── Number Theory Subject ────────────────────────────────────────────────
+pub fn seed_number_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Number Theory'", [], |r| r.get(0))
+        .unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Number Theory', 'The queen of mathematics — primes, divisibility, modular arithmetic, and the elegant properties of integers.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Number Theory'", [], |r| r.get(0))?;
+
+    let topics = [
+        ("Divisibility & GCD", "beginner"),
+        ("Prime Numbers", "beginner"),
+        ("Modular Arithmetic", "intermediate"),
+        ("Diophantine Equations", "intermediate"),
+        ("Euler's Totient Function", "advanced"),
+        ("Cryptographic Applications", "advanced"),
+    ];
+    for (i, (name, diff)) in topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, i + 1],
+        )?;
+    }
+
+    let div_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Divisibility & GCD' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let prime_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Prime Numbers' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let mod_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Modular Arithmetic' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let dioph_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Diophantine Equations' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let euler_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = ?1 AND subject_id = ?2", rusqlite::params!["Euler's Totient Function", subj_id], |r| r.get(0))?;
+    let crypto_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Cryptographic Applications' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (div_id, "Divisibility Rules", "An integer a divides b (written a|b) if there exists an integer k such that b = a·k. The GCD (Greatest Common Divisor) of two numbers is the largest number that divides both. Euclid's algorithm computes GCD efficiently: gcd(a,b) = gcd(b, a mod b).", 1),
+        (div_id, "The Euclidean Algorithm", "To find gcd(252, 105): 252 = 2×105 + 42, then 105 = 2×42 + 21, then 42 = 2×21 + 0. So gcd(252,105) = 21. The Extended Euclidean Algorithm also finds integers x,y such that ax + by = gcd(a,b).", 2),
+        (prime_id, "What Makes a Prime", "A prime number p > 1 has exactly two divisors: 1 and itself. The Fundamental Theorem of Arithmetic says every integer > 1 has a unique prime factorization. Primes are the atoms of number theory.", 1),
+        (prime_id, "The Sieve of Eratosthenes", "To find all primes up to N: start with 2, mark all multiples of 2 as composite, advance to the next unmarked number (3), mark its multiples, and repeat up to √N. Time complexity: O(N log log N).", 2),
+        (prime_id, "Famous Conjectures", "The Twin Prime Conjecture (infinitely many primes p where p+2 is also prime) and Goldbach's Conjecture (every even number ≥ 4 is the sum of two primes) remain unproven. The Riemann Hypothesis connects primes to the zeros of the zeta function.", 3),
+        (mod_id, "Clock Arithmetic", "Modular arithmetic works like a clock: 17 mod 12 = 5 (5 hours past 12). Formally, a ≡ b (mod n) means n divides (a-b). Addition and multiplication work naturally: (a+b) mod n = ((a mod n)+(b mod n)) mod n.", 1),
+        (mod_id, "Fermat's Little Theorem", "If p is prime and gcd(a,p) = 1, then a^(p-1) ≡ 1 (mod p). This is the basis of primality testing and is fundamental to RSA encryption. Example: 2^6 = 64 ≡ 1 (mod 7).", 2),
+        (dioph_id, "Linear Diophantine Equations", "The equation ax + by = c has integer solutions if and only if gcd(a,b) divides c. If (x₀,y₀) is one solution, then all solutions are x = x₀ + (b/d)t, y = y₀ - (a/d)t where d = gcd(a,b) and t is any integer.", 1),
+        (dioph_id, "The Chinese Remainder Theorem", "If n₁,n₂,...,nk are pairwise coprime, the system x ≡ a₁ (mod n₁), x ≡ a₂ (mod n₂), ..., x ≡ ak (mod nk) has a unique solution modulo N = n₁·n₂·...·nk. This is used in RSA and parallel computation.", 2),
+        (euler_id, "Euler's Totient", "φ(n) counts the integers from 1 to n that are coprime to n. For prime p: φ(p) = p-1. For prime power: φ(p^k) = p^k - p^(k-1). Euler's theorem: if gcd(a,n) = 1, then a^φ(n) ≡ 1 (mod n).", 1),
+        (euler_id, "Computing the Totient", "For n = p₁^a₁ · p₂^a₂ · ... · pk^ak: φ(n) = n · ∏(1 - 1/pᵢ). Example: φ(12) = 12 · (1-1/2)(1-1/3) = 12 · 1/2 · 2/3 = 4. The integers coprime to 12 are {1,5,7,11}.", 2),
+        (crypto_id, "RSA Encryption", "RSA relies on number theory: pick large primes p,q; compute n=pq and φ(n)=(p-1)(q-1); choose e coprime to φ(n); find d such that ed ≡ 1 (mod φ(n)). Public key: (n,e). Encrypt: c = m^e mod n. Decrypt: m = c^d mod n.", 1),
+        (crypto_id, "Diffie-Hellman Key Exchange", "Alice and Bob agree on a prime p and generator g. Alice picks secret a, sends g^a mod p. Bob picks secret b, sends g^b mod p. Both compute the shared secret g^(ab) mod p. Security relies on the discrete logarithm problem.", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (div_id, "GCD", "The Greatest Common Divisor of two numbers is the largest integer that divides both without a remainder. Euclid's algorithm finds it by repeated division.", Some("Finding the GCD is like finding the largest tile that perfectly covers two rectangular floors."), Some("What is gcd(48, 18)?")),
+        (prime_id, "Prime Factorization", "Every integer greater than 1 can be written as a product of primes in exactly one way (up to order). For example, 60 = 2² × 3 × 5.", Some("Prime factorization is like breaking a molecule into its constituent atoms — primes are the indivisible building blocks."), Some("What is the prime factorization of 84?")),
+        (mod_id, "Modular Inverse", "The modular inverse of a mod n is a number b such that a·b ≡ 1 (mod n). It exists if and only if gcd(a,n) = 1. Found via the Extended Euclidean Algorithm.", Some("A modular inverse is like an 'undo button' for multiplication on a circular number line."), Some("What is the inverse of 3 mod 7?")),
+        (euler_id, "Euler's Theorem", "If gcd(a,n) = 1, then a^φ(n) ≡ 1 (mod n). This generalizes Fermat's Little Theorem to composite moduli.", Some("Euler's theorem says: if you keep multiplying a by itself mod n, you always cycle back to 1 after φ(n) steps."), Some("How does Euler's theorem help in RSA decryption?")),
+        (crypto_id, "Discrete Logarithm", "Given g, p, and g^x mod p, finding x is computationally hard for large primes. This one-way function is the security foundation of Diffie-Hellman and ElGamal.", Some("The discrete log is like a one-way lock: easy to scramble, nearly impossible to unscramble without the key."), Some("Why can't you just try all possible x values?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let quizzes: &[QuizRow] = &[
+        (div_id, "What is gcd(48, 18)?", "fill_in_blank", "6", None, None, None, None, None, "48 = 2×18 + 12, 18 = 1×12 + 6, 12 = 2×6 + 0. So gcd = 6."),
+        (div_id, "True or false: If a|b and a|c, then a|(b+c).", "true_false", "true", None, None, None, None, None, "If b = a·k₁ and c = a·k₂, then b+c = a(k₁+k₂)."),
+        (div_id, "The Euclidean algorithm computes GCD using repeated ___.", "fill_in_blank", "division", None, None, None, None, None, "Each step replaces the larger number with the remainder of division."),
+        (prime_id, "Which of these is NOT a prime number?", "multiple_choice", "91", Some("97"), Some("91"), Some("89"), Some("83"), None, "91 = 7 × 13."),
+        (prime_id, "True or false: There are infinitely many prime numbers.", "true_false", "true", None, None, None, None, None, "Euclid proved this around 300 BCE by contradiction."),
+        (prime_id, "The Sieve of Eratosthenes only needs to check multiples up to ___.", "fill_in_blank", "square root of N", None, None, None, None, None, "Any composite ≤ N must have a factor ≤ √N."),
+        (prime_id, "What is the prime factorization of 60?", "fill_in_blank", "2^2 * 3 * 5", None, None, None, None, None, "60 = 4 × 15 = 2² × 3 × 5."),
+        (mod_id, "What is 17 mod 5?", "fill_in_blank", "2", None, None, None, None, None, "17 = 3×5 + 2."),
+        (mod_id, "By Fermat's Little Theorem, 2^10 mod 11 = ___.", "fill_in_blank", "1", None, None, None, None, None, "Since 11 is prime and gcd(2,11)=1, 2^(11-1) = 2^10 ≡ 1 (mod 11)."),
+        (mod_id, "True or false: a ≡ b (mod n) means n divides (a - b).", "true_false", "true", None, None, None, None, None, "This is the definition of modular congruence."),
+        (dioph_id, "The equation 6x + 10y = 3 has integer solutions. True or false?", "true_false", "false", None, None, None, None, None, "gcd(6,10) = 2, and 2 does not divide 3."),
+        (dioph_id, "The Chinese Remainder Theorem requires that the moduli are pairwise ___.", "fill_in_blank", "coprime", None, None, None, None, None, "Pairwise coprime means gcd(nᵢ, nⱼ) = 1 for all i ≠ j."),
+        (euler_id, "What is φ(12)?", "fill_in_blank", "4", None, None, None, None, None, "φ(12) = 12 × (1-1/2) × (1-1/3) = 4. Coprime to 12: {1,5,7,11}."),
+        (euler_id, "φ(p) for a prime p equals ___.", "fill_in_blank", "p-1", None, None, None, None, None, "Every integer from 1 to p-1 is coprime to a prime p."),
+        (euler_id, "True or false: Euler's theorem generalizes Fermat's Little Theorem.", "true_false", "true", None, None, None, None, None, "For prime p, φ(p) = p-1, so Euler's theorem reduces to Fermat's."),
+        (crypto_id, "In RSA, the public key consists of n and ___.", "fill_in_blank", "e", None, None, None, None, None, "The public key is (n, e) where n = pq and e is coprime to φ(n)."),
+        (crypto_id, "Which mathematical problem makes RSA secure?", "multiple_choice", "Integer factorization", Some("Integer factorization"), Some("Graph coloring"), Some("Sorting"), Some("Matrix inversion"), None, "RSA security depends on the difficulty of factoring the product of two large primes."),
+        (crypto_id, "Diffie-Hellman key exchange relies on the difficulty of the ___ problem.", "fill_in_blank", "discrete logarithm", None, None, None, None, None, "Given g^x mod p, finding x is computationally infeasible for large primes."),
+        (crypto_id, "Order the RSA steps: Choose primes p and q, Compute n=pq, Select public exponent e, Compute private exponent d", "ordering", "Choose primes p and q,Compute n=pq,Select public exponent e,Compute private exponent d", None, None, None, None, None, "You need p and q first, then n, then e (coprime to φ(n)), then d (modular inverse of e)."),
+    ];
+    for (tid, question, qtype, answer, oa, ob, oc, od, _hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            rusqlite::params![tid, question, qtype, answer, oa, ob, oc, od, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_steps: &[(i64, &str)] = &[
+        (div_id, "Start with divisibility rules and the Euclidean algorithm"),
+        (prime_id, "Explore prime numbers — the atoms of arithmetic"),
+        (mod_id, "Learn modular arithmetic — the clock-like algebra of remainders"),
+        (dioph_id, "Solve Diophantine equations — integer solutions to polynomial equations"),
+        (euler_id, "Master Euler's totient function and its powerful theorem"),
+        (crypto_id, "Apply number theory to cryptography — RSA and Diffie-Hellman"),
+    ];
+    for (i, (tid, desc)) in path_steps.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Number Theory Journey', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
         )?;
     }

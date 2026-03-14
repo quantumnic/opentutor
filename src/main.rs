@@ -36,6 +36,9 @@ enum Commands {
         /// Filter by difficulty (easy, medium, hard)
         #[arg(short, long)]
         difficulty: Option<String>,
+        /// Timed mode: track response time for confidence-weighted scoring
+        #[arg(short, long)]
+        timed: bool,
     },
     /// Get a simple explanation of a concept
     Explain {
@@ -197,7 +200,7 @@ fn main() {
 
     let result = match cli.command {
         Commands::Learn { subject } => commands::learn::run(&conn, &subject),
-        Commands::Quiz { topic, count, difficulty } => commands::quiz::run(&conn, &topic, count, difficulty.as_deref()),
+        Commands::Quiz { topic, count, difficulty, timed } => commands::quiz::run(&conn, &topic, count, difficulty.as_deref(), timed),
         Commands::Explain { concept } => commands::explain::run(&conn, &concept),
         Commands::Progress => commands::progress::run(&conn),
         Commands::Subjects => commands::subjects::run(&conn),

@@ -149,6 +149,9 @@ pub fn update_spaced_repetition(
         1.0
     };
 
+    // Compute stability decay for long-abandoned cards
+    let decay = stability_decay_factor(conn, topic_id);
+
     let (new_ease, new_interval) = if quality >= 3 {
         if is_lapsed {
             // Graduated re-learning: pick a step based on how far along the
@@ -162,8 +165,11 @@ pub fn update_spaced_repetition(
                 // Beyond re-learning: restore to reduced interval
                 (interval as f64 * 0.5).max(RELEARN_STEPS[2] as f64).round() as i64
             };
-            let new_ease = (ease - 0.15).max(MIN_EASE);
-            (new_ease, step_interval.min(MAX_INTERVAL))
+            // Apply stability decay: severely abandoned cards get shorter relearn intervals
+            let decayed_ease_penalty = if decay < 0.8 { 0.25 } else { 0.15 };
+            let new_ease = (ease - decayed_ease_penalty).max(MIN_EASE);
+            let decayed_interval = (step_interval as f64 * decay).round().max(1.0) as i64;
+            (new_ease, decayed_interval.min(MAX_INTERVAL))
         } else {
             // Normal correct answer — SM-2 graduation with FSRS-5 initial stability
             // First review uses FSRS-5 stability estimate based on quality rating
@@ -275,6 +281,50 @@ pub fn update_spaced_repetition(
     let _ = record_time_of_day_performance(conn, current_hour, quality);
 
     Ok(())
+}
+
+/// Calculate a stability decay factor for long-abandoned cards.
+/// Cards that haven't been reviewed in > 3× their scheduled interval suffer
+/// accelerated forgetting — stability erodes over time. This models the
+/// empirical finding that memories become increasingly fragile when left
+/// unreinforced far beyond their optimal review point.
+/// Returns a multiplier in [0.3, 1.0] where 1.0 = no decay.
+pub fn stability_decay_factor(conn: &Connection, topic_id: i64) -> f64 {
+    let data: Option<(i64, Option<String>, Option<String>)> = conn
+        .query_row(
+            "SELECT interval_days, next_review, last_reviewed FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+        )
+        .ok();
+
+    match data {
+        Some((interval, Some(_next_review), Some(_last_reviewed))) if interval > 0 => {
+            let overdue_days: f64 = conn
+                .query_row(
+                    "SELECT MAX(0, julianday('now') - julianday(next_review))
+                     FROM user_progress WHERE topic_id = ?1",
+                    [topic_id],
+                    |r| r.get(0),
+                )
+                .unwrap_or(0.0);
+
+            if overdue_days <= 0.0 {
+                return 1.0; // Not overdue
+            }
+
+            let overdue_ratio = overdue_days / interval as f64;
+            if overdue_ratio <= 3.0 {
+                return 1.0; // Within normal lapse range
+            }
+
+            // Exponential decay: factor = e^(-0.1 * (ratio - 3))
+            // Capped at 0.3 to prevent complete erasure
+            let decay = (-0.1 * (overdue_ratio - 3.0)).exp();
+            decay.clamp(0.3, 1.0)
+        }
+        _ => 1.0,
+    }
 }
 
 /// Check if a card has lapsed (overdue by more than the lapse threshold).
@@ -1788,6 +1838,39 @@ mod mastery_tests {
         let (_, _, _, days_until, retention) = &forecast[0];
         assert!(*retention > 0.9, "Just-reviewed should have high retention, got {}", retention);
         assert!(*days_until > 0.0, "Should have positive days until critical, got {}", days_until);
+    }
+
+    #[test]
+    fn test_stability_decay_not_overdue() {
+        let conn = db::init_memory_db().unwrap();
+        // No progress → no decay
+        let decay = stability_decay_factor(&conn, 9999);
+        assert!((decay - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_stability_decay_mildly_overdue() {
+        let conn = db::init_memory_db().unwrap();
+        // Overdue by 2× interval (within 3× threshold) → no decay
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review, last_reviewed)
+             VALUES (1, 80.0, 5, 4, 2.5, 10, datetime('now', '-20 days'), datetime('now', '-30 days'))", []
+        ).unwrap();
+        let decay = stability_decay_factor(&conn, 1);
+        assert!((decay - 1.0).abs() < f64::EPSILON, "2× overdue should not trigger decay, got {}", decay);
+    }
+
+    #[test]
+    fn test_stability_decay_severely_overdue() {
+        let conn = db::init_memory_db().unwrap();
+        // Overdue by 10× interval → significant decay
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review, last_reviewed)
+             VALUES (1, 80.0, 5, 4, 2.5, 10, datetime('now', '-100 days'), datetime('now', '-110 days'))", []
+        ).unwrap();
+        let decay = stability_decay_factor(&conn, 1);
+        assert!(decay < 1.0, "10× overdue should trigger decay, got {}", decay);
+        assert!(decay >= 0.3, "Decay should be capped at 0.3, got {}", decay);
     }
 
     #[test]

@@ -4,7 +4,7 @@ use crate::display;
 use crate::commands::achievements;
 use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
-pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str>, timed: bool) -> Result<(), Box<dyn std::error::Error>> {
     // Find topic (case-insensitive, partial match)
     let topic_row: Result<(i64, String), _> = conn.query_row(
         "SELECT id, name FROM topics WHERE LOWER(name) LIKE '%' || LOWER(?1) || '%'",
@@ -28,8 +28,13 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
     }
 
     display::print_header(&format!("Quiz: {}", topic_name));
-    println!("  {} questions | Type the answer or letter (a/b/c/d) or true/false\n",
-        questions.len().to_string().bold());
+    if timed {
+        println!("  {} questions | {} | Type the answer or letter (a/b/c/d) or true/false\n",
+            questions.len().to_string().bold(), "⏱ TIMED MODE".bold().bright_yellow());
+    } else {
+        println!("  {} questions | Type the answer or letter (a/b/c/d) or true/false\n",
+            questions.len().to_string().bold());
+    }
 
     let mut correct_count = 0;
     let total = questions.len();
@@ -87,7 +92,16 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
 
     let score = (correct_count as f64 / total as f64) * 100.0;
     let quality = if score >= 90.0 { 5 } else if score >= 70.0 { 4 } else if score >= 50.0 { 3 } else { 2 };
-    spaced::update_spaced_repetition(conn, topic_id, quality)?;
+    // In timed mode, apply confidence-weighted quality based on assumed fast recall
+    let effective_quality = if timed {
+        // Timed quiz: fast correct answers get full quality, boost by 1 if perfect
+        let timed_q = adaptive::confidence_weighted_quality(score >= 50.0, 5_000);
+        quality.max(timed_q)
+    } else {
+        quality
+    };
+    let effective_quality = spaced::fatigue_adjusted_quality(conn, effective_quality);
+    spaced::update_spaced_repetition(conn, topic_id, effective_quality)?;
     adaptive::log_activity(conn, topic_id, "quiz", Some(score))?;
 
     display::print_header("Quiz Results");
@@ -137,48 +151,66 @@ mod tests {
     #[test]
     fn test_quiz_valid_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Arithmetic", 3, None).unwrap();
+        run(&conn, "Arithmetic", 3, None, false).unwrap();
     }
 
     #[test]
     fn test_quiz_partial_match() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "fraction", 2, None).unwrap();
+        run(&conn, "fraction", 2, None, false).unwrap();
     }
 
     #[test]
     fn test_quiz_invalid_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Nonexistent", 5, None).unwrap();
+        run(&conn, "Nonexistent", 5, None, false).unwrap();
     }
 
     #[test]
     fn test_quiz_fill_in_blank() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Arithmetic", 10, None).unwrap();
+        run(&conn, "Arithmetic", 10, None, false).unwrap();
     }
 
     #[test]
     fn test_quiz_music_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Musical Notes", 3, None).unwrap();
+        run(&conn, "Musical Notes", 3, None, false).unwrap();
     }
 
     #[test]
     fn test_quiz_art_topic() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Color Theory", 3, None).unwrap();
+        run(&conn, "Color Theory", 3, None, false).unwrap();
     }
 
     #[test]
     fn test_quiz_difficulty_filter() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Arithmetic", 3, Some("easy")).unwrap();
+        run(&conn, "Arithmetic", 3, Some("easy"), false).unwrap();
     }
 
     #[test]
     fn test_quiz_difficulty_hard() {
         let conn = db::init_memory_db().unwrap();
-        run(&conn, "Arithmetic", 3, Some("hard")).unwrap();
+        run(&conn, "Arithmetic", 3, Some("hard"), false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_timed_mode() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Arithmetic", 3, None, true).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_robotics_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Neural Networks", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_number_theory_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Prime Numbers", 3, None, false).unwrap();
     }
 }
