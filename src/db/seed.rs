@@ -54,6 +54,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_extra_quizzes_round2(conn)?;
     seed_cybersecurity(conn)?;
     seed_discrete_mathematics(conn)?;
+    seed_linear_algebra(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -735,7 +736,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 38); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity
+        assert_eq!(count, 39); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra
     }
 
     #[test]
@@ -745,7 +746,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 38);
+        assert_eq!(count, 39);
     }
 
     #[test]
@@ -4731,7 +4732,7 @@ pub fn seed_discrete_mathematics(conn: &Connection) -> Result<(), rusqlite::Erro
     let recur_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Recurrence Relations'", [subj_id], |r| r.get(0))?;
 
     // --- Lessons ---
-    let lessons: &[(i64, &str, &str, i64)] = &[
+    let lessons: &[LessonRow] = &[
         (sets_id, "Sets and Set Operations", "A **set** is an unordered collection of distinct objects.\n\nNotation: A = {1, 2, 3}, B = {2, 3, 4}\n\n**Operations:**\n- Union (A ∪ B): elements in A or B or both → {1, 2, 3, 4}\n- Intersection (A ∩ B): elements in both A and B → {2, 3}\n- Difference (A \\ B): elements in A but not B → {1}\n- Complement (A'): everything NOT in A (relative to a universal set)\n- Symmetric difference (A △ B): elements in exactly one of A or B → {1, 4}\n\n**Special sets:**\n- ∅ (empty set): contains no elements\n- ℕ = {0, 1, 2, ...} (natural numbers)\n- ℤ = {..., -2, -1, 0, 1, 2, ...} (integers)\n- |A| = cardinality (number of elements)\n\n**Power set** P(A): set of all subsets. If |A| = n, then |P(A)| = 2ⁿ.", 1),
         (sets_id, "Propositional Logic", "**Propositional logic** deals with statements that are true or false.\n\n**Connectives:**\n- ¬p (NOT): negation\n- p ∧ q (AND): both true\n- p ∨ q (OR): at least one true\n- p → q (IF-THEN): false only when p is true and q is false\n- p ↔ q (IFF): both same truth value\n\n**Truth tables** enumerate all possibilities.\n\n**Key equivalences:**\n- De Morgan: ¬(p ∧ q) ≡ ¬p ∨ ¬q\n- De Morgan: ¬(p ∨ q) ≡ ¬p ∧ ¬q\n- Contrapositive: (p → q) ≡ (¬q → ¬p)\n- Implication: (p → q) ≡ (¬p ∨ q)\n\n**Quantifiers:**\n- ∀x P(x): for all x, P(x) is true\n- ∃x P(x): there exists an x where P(x) is true", 2),
         (graph_id, "Introduction to Graphs", "A **graph** G = (V, E) consists of vertices (V) and edges (E).\n\n**Types:**\n- Undirected: edges have no direction (friendships)\n- Directed (digraph): edges have direction (Twitter follows)\n- Weighted: edges have values (road distances)\n\n**Terminology:**\n- Degree: number of edges at a vertex\n- Path: sequence of vertices connected by edges\n- Cycle: path that starts and ends at the same vertex\n- Connected: path exists between any two vertices\n- Complete graph Kn: every vertex connected to every other\n\n**Handshaking lemma:** The sum of all vertex degrees = 2 × |E|.\n(Every edge contributes to the degree of exactly two vertices.)\n\n**Adjacency matrix:** n×n matrix where entry (i,j) = 1 if edge exists.", 1),
@@ -4818,6 +4819,243 @@ pub fn seed_discrete_mathematics(conn: &Connection) -> Result<(), rusqlite::Erro
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Discrete Mathematics Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_linear_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let la_id: i64 = conn.query_row(
+        "INSERT INTO subjects (name, description) VALUES ('Linear Algebra', 'The mathematics of vectors, matrices, and linear transformations — essential for computer graphics, machine learning, and engineering.') RETURNING id",
+        [], |r| r.get(0),
+    )?;
+
+    // Topics
+    let vectors_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Vectors & Vector Spaces', 'beginner', 1) RETURNING id",
+        [la_id], |r| r.get(0),
+    )?;
+    let matrices_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Matrices & Operations', 'beginner', 2) RETURNING id",
+        [la_id], |r| r.get(0),
+    )?;
+    let systems_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Systems of Linear Equations', 'intermediate', 3) RETURNING id",
+        [la_id], |r| r.get(0),
+    )?;
+    let determinants_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Determinants', 'intermediate', 4) RETURNING id",
+        [la_id], |r| r.get(0),
+    )?;
+    let eigen_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Eigenvalues & Eigenvectors', 'advanced', 5) RETURNING id",
+        [la_id], |r| r.get(0),
+    )?;
+    let transforms_id: i64 = conn.query_row(
+        "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Linear Transformations', 'advanced', 6) RETURNING id",
+        [la_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (vectors_id, "What Are Vectors?",
+         "A vector is a quantity with both magnitude and direction. In linear algebra, vectors are ordered lists of numbers (components). A 2D vector like (3, 4) points 3 units right and 4 units up.\n\nVectors can be added component-wise: (1, 2) + (3, 4) = (4, 6). Scalar multiplication scales each component: 2 × (3, 4) = (6, 8).\n\nA vector space is a collection of vectors that is closed under addition and scalar multiplication. The standard vector spaces ℝ² (2D) and ℝ³ (3D) are the most common examples.", 1),
+        (vectors_id, "Dot Product & Orthogonality",
+         "The dot product of two vectors a·b = a₁b₁ + a₂b₂ + ... + aₙbₙ. It measures how much two vectors point in the same direction.\n\nKey properties: a·b = |a||b|cos(θ), where θ is the angle between them. If a·b = 0, the vectors are orthogonal (perpendicular).\n\nThe dot product gives us vector length: |a| = √(a·a). This is the Euclidean norm.", 2),
+        (matrices_id, "Introduction to Matrices",
+         "A matrix is a rectangular array of numbers arranged in rows and columns. An m×n matrix has m rows and n columns.\n\nMatrix addition works element-wise (same dimensions required). Scalar multiplication multiplies every entry by a scalar.\n\nThe identity matrix I has 1s on the diagonal and 0s elsewhere. For any matrix A: AI = IA = A.", 1),
+        (matrices_id, "Matrix Multiplication",
+         "To multiply matrices A (m×n) and B (n×p), the result C is m×p where C[i,j] = sum of A[i,k]×B[k,j] for k=1..n.\n\nKey rule: the number of columns in A must equal the number of rows in B.\n\nMatrix multiplication is NOT commutative: AB ≠ BA in general. But it IS associative: (AB)C = A(BC).", 2),
+        (systems_id, "Solving Linear Systems",
+         "A system of linear equations can be written as Ax = b, where A is the coefficient matrix, x is the unknown vector, and b is the constants vector.\n\nGaussian elimination transforms the augmented matrix [A|b] into row echelon form using three operations: swap rows, multiply a row by a nonzero scalar, add a multiple of one row to another.\n\nA system has a unique solution when the coefficient matrix has full rank, no solution when the system is inconsistent, or infinitely many solutions when there are free variables.", 1),
+        (determinants_id, "What Are Determinants?",
+         "The determinant is a scalar value computed from a square matrix that encodes important geometric and algebraic information.\n\nFor a 2×2 matrix [[a,b],[c,d]], det = ad - bc. For larger matrices, use cofactor expansion along any row or column.\n\nGeometric meaning: |det(A)| equals the factor by which A scales areas (2D) or volumes (3D). If det(A) < 0, the transformation reverses orientation. If det(A) = 0, the matrix is singular (not invertible).", 1),
+        (eigen_id, "Eigenvalues and Eigenvectors",
+         "An eigenvector v of matrix A satisfies Av = λv, where λ is the eigenvalue. The eigenvector's direction is unchanged by the transformation — only its magnitude is scaled by λ.\n\nTo find eigenvalues: solve det(A - λI) = 0 (the characteristic equation). Then for each λ, solve (A - λI)v = 0 to find eigenvectors.\n\nEigenvalues reveal the stretching factors of a linear transformation. They are crucial in stability analysis, PCA (principal component analysis), Google's PageRank, and quantum mechanics.", 1),
+        (transforms_id, "Linear Transformations",
+         "A linear transformation T: V → W satisfies T(u+v) = T(u)+T(v) and T(cv) = cT(v). Every linear transformation between finite-dimensional spaces can be represented by a matrix.\n\nCommon 2D transformations: rotation by θ uses matrix [[cos θ, -sin θ], [sin θ, cos θ]]; reflection across x-axis uses [[1,0],[0,-1]]; scaling uses [[sx,0],[0,sy]].\n\nThe kernel (null space) of T is the set of vectors mapped to zero. The image (range) is the set of all outputs. The rank-nullity theorem states: dim(kernel) + dim(image) = dim(domain).", 1),
+    ];
+
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (vectors_id, "Vector Addition", "Adding vectors means combining their components: (a₁+b₁, a₂+b₂). Geometrically, place one vector's tail at the other's head.",
+         Some("Think of walking: go 3 blocks east then 4 blocks north. Your total displacement is the vector (3,4). Adding another walk (1,2) means you end up at (4,6)."),
+         Some("If v = (2, -1) and w = (3, 5), what is v + w?")),
+        (matrices_id, "Matrix Inverse", "The inverse A⁻¹ satisfies AA⁻¹ = A⁻¹A = I. Only square matrices with nonzero determinant have inverses.",
+         Some("An inverse is like an undo button. If matrix A rotates 90° clockwise, A⁻¹ rotates 90° counterclockwise."),
+         Some("Why can't a matrix with determinant 0 be inverted?")),
+        (eigen_id, "Characteristic Equation", "det(A - λI) = 0 is a polynomial in λ. Its degree equals the matrix size. The roots are the eigenvalues.",
+         Some("Finding eigenvalues is like finding the resonant frequencies of a vibrating string — they're the natural modes of the system."),
+         Some("What is the characteristic equation of [[2,1],[0,3]]?")),
+    ];
+
+    for (tid, concept, expl, analogy, followup) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Quiz questions — Vectors
+    let vector_qs: &[QuizRowNoTopic] = &[
+        ("What is the dot product of (1, 2, 3) and (4, 5, 6)?", "fill_in_blank", "32", None, None, None, None,
+         "Think: 1×4 + 2×5 + 3×6", "1×4 + 2×5 + 3×6 = 4 + 10 + 18 = 32"),
+        ("Two vectors are orthogonal when their dot product equals ___", "fill_in_blank", "0", None, None, None, None,
+         "Perpendicular vectors have no component in the same direction", "Orthogonal means perpendicular. The dot product a·b = |a||b|cos(90°) = 0."),
+        ("What is the magnitude of vector (3, 4)?", "fill_in_blank", "5", None, None, None, None,
+         "Use the Pythagorean theorem", "√(3² + 4²) = √(9+16) = √25 = 5"),
+        ("Which operation is NOT valid for vectors?", "multiple_choice", "Division of two vectors",
+         Some("Addition"), Some("Scalar multiplication"), Some("Dot product"), Some("Division of two vectors"),
+         "There is no standard vector division", "Vector division is not defined. You can add, scale, and take dot/cross products, but not divide vectors."),
+        ("What is 3 × (2, -1)?", "fill_in_blank", "(6, -3)", None, None, None, None,
+         "Multiply each component by the scalar", "Scalar multiplication: 3×2=6, 3×(-1)=-3, giving (6, -3)."),
+        ("True or false: The zero vector is in every vector space.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "Think about what closure under scalar multiplication implies", "Multiplying any vector by 0 gives the zero vector, so every vector space must contain it."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in vector_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![vectors_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Quiz questions — Matrices
+    let matrix_qs: &[QuizRowNoTopic] = &[
+        ("What is the size of the product of a 3×2 matrix and a 2×5 matrix?", "fill_in_blank", "3x5", None, None, None, None,
+         "The result has as many rows as the first matrix and as many columns as the second",
+         "(m×n)(n×p) = m×p, so 3×5."),
+        ("True or false: Matrix multiplication is commutative.", "true_false", "false", Some("True"), Some("False"), None, None,
+         "Try multiplying two small matrices in both orders", "In general AB ≠ BA. Matrix multiplication is associative but NOT commutative."),
+        ("What is the identity matrix for 2×2 matrices?", "multiple_choice", "[[1,0],[0,1]]",
+         Some("[[1,1],[1,1]]"), Some("[[1,0],[0,1]]"), Some("[[0,1],[1,0]]"), Some("[[1,0],[0,0]]"),
+         "The identity has 1s on the diagonal", "The 2×2 identity matrix I = [[1,0],[0,1]] satisfies AI = IA = A for any 2×2 matrix A."),
+        ("How many elements does a 4×3 matrix contain?", "fill_in_blank", "12", None, None, None, None,
+         "Count rows × columns", "A 4×3 matrix has 4 rows and 3 columns = 12 elements total."),
+        ("The transpose of a matrix swaps its ___ and ___.", "fill_in_blank", "rows and columns", None, None, None, None,
+         "The (i,j) entry becomes the (j,i) entry", "Transposing a matrix reflects it across the main diagonal, swapping rows and columns."),
+        ("Can you multiply a 2×3 matrix by a 4×2 matrix?", "true_false", "false", Some("True"), Some("False"), None, None,
+         "Check: columns of first must equal rows of second", "No. The first matrix has 3 columns but the second has 4 rows. They must match."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in matrix_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![matrices_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Quiz questions — Systems
+    let system_qs: &[QuizRowNoTopic] = &[
+        ("In Gaussian elimination, which operation is NOT allowed?", "multiple_choice", "Multiply a row by zero",
+         Some("Swap two rows"), Some("Add a multiple of one row to another"), Some("Multiply a row by a nonzero scalar"), Some("Multiply a row by zero"),
+         "All three elementary row operations preserve the solution set", "Multiplying a row by zero destroys information and is not a valid row operation."),
+        ("A system Ax = b has no solution when the system is ___.", "fill_in_blank", "inconsistent", None, None, None, None,
+         "What do we call contradictory equations?", "An inconsistent system has contradictory equations (e.g., 0 = 5), meaning no solution exists."),
+        ("What does 'full rank' mean for an m×n matrix?", "multiple_choice", "rank = min(m, n)",
+         Some("rank = 0"), Some("rank = max(m, n)"), Some("rank = min(m, n)"), Some("rank = m + n"),
+         "Rank counts linearly independent rows or columns", "Full rank means the rank equals the smaller of m and n — all possible rows/columns are independent."),
+        ("True or false: A homogeneous system Ax = 0 always has at least one solution.", "true_false", "true",
+         Some("True"), Some("False"), None, None,
+         "What happens when you plug in x = 0?", "x = 0 (the trivial solution) always satisfies Ax = 0."),
+        ("Row echelon form requires all entries ___ a pivot to be zero.", "fill_in_blank", "below", None, None, None, None,
+         "Think about the staircase pattern", "In row echelon form, each pivot is to the right of the one above, and all entries below each pivot are zero."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in system_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![systems_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Quiz questions — Determinants
+    let det_qs: &[QuizRowNoTopic] = &[
+        ("What is det([[3, 1], [2, 4]])?", "fill_in_blank", "10", None, None, None, None,
+         "For 2×2: ad - bc", "det = 3×4 - 1×2 = 12 - 2 = 10."),
+        ("If det(A) = 0, then A is ___.", "fill_in_blank", "singular", None, None, None, None,
+         "What do we call a matrix that cannot be inverted?", "A singular matrix has determinant 0 and is not invertible."),
+        ("True or false: det(AB) = det(A) × det(B).", "true_false", "true", Some("True"), Some("False"), None, None,
+         "This is a fundamental property of determinants", "The determinant is multiplicative: det(AB) = det(A)·det(B) for square matrices of the same size."),
+        ("What is det([[1, 0], [0, 1]])?", "fill_in_blank", "1", None, None, None, None,
+         "This is the identity matrix", "det(I) = 1×1 - 0×0 = 1. The identity always has determinant 1."),
+        ("Swapping two rows of a matrix ___ the sign of the determinant.", "fill_in_blank", "changes", None, None, None, None,
+         "Row swap affects orientation", "Each row swap negates the determinant. Two swaps return it to the original sign."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in det_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![determinants_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Quiz questions — Eigenvalues
+    let eigen_qs: &[QuizRowNoTopic] = &[
+        ("If Av = 3v, then 3 is a(n) ___ of A.", "fill_in_blank", "eigenvalue", None, None, None, None,
+         "What scalar satisfies Av = λv?", "In Av = λv, the scalar λ = 3 is an eigenvalue and v is the corresponding eigenvector."),
+        ("What equation do we solve to find eigenvalues?", "multiple_choice", "det(A - λI) = 0",
+         Some("det(A + λI) = 0"), Some("det(A - λI) = 0"), Some("det(A) = λ"), Some("Av = b"),
+         "Set up the characteristic equation", "The characteristic equation det(A - λI) = 0 yields a polynomial whose roots are the eigenvalues."),
+        ("How many eigenvalues (counted with multiplicity) does a 3×3 matrix have?", "fill_in_blank", "3", None, None, None, None,
+         "The characteristic polynomial has degree n for an n×n matrix", "A 3×3 matrix has a degree-3 characteristic polynomial, so exactly 3 eigenvalues (counting multiplicity, possibly complex)."),
+        ("True or false: Eigenvectors corresponding to distinct eigenvalues are linearly independent.", "true_false", "true",
+         Some("True"), Some("False"), None, None,
+         "This is a key theorem in linear algebra", "Eigenvectors for distinct eigenvalues are always linearly independent. This is fundamental for diagonalization."),
+        ("If A has eigenvalues 2 and 5, what is det(A)?", "fill_in_blank", "10", None, None, None, None,
+         "The determinant equals the product of all eigenvalues", "det(A) = product of eigenvalues = 2 × 5 = 10."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in eigen_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![eigen_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Quiz questions — Transformations
+    let transform_qs: &[QuizRowNoTopic] = &[
+        ("A linear transformation must preserve ___ and scalar multiplication.", "fill_in_blank", "addition", None, None, None, None,
+         "T(u+v) = T(u) + T(v) is one condition", "Linearity means T(u+v) = T(u)+T(v) and T(cv) = cT(v) — it preserves addition and scalar multiplication."),
+        ("The kernel of a transformation is the set of vectors mapped to ___.", "fill_in_blank", "zero", None, None, None, None,
+         "Also called the null space", "The kernel (null space) = {v : T(v) = 0}. It measures how much information the transformation 'loses'."),
+        ("The rank-nullity theorem states: dim(kernel) + dim(image) = ___.", "fill_in_blank", "dim(domain)", None, None, None, None,
+         "The dimensions must add up", "Rank-nullity: nullity + rank = dimension of the domain. It's a conservation law for dimensions."),
+        ("Which matrix represents a 90° counter-clockwise rotation in 2D?", "multiple_choice", "[[0,-1],[1,0]]",
+         Some("[[1,0],[0,1]]"), Some("[[0,-1],[1,0]]"), Some("[[0,1],[-1,0]]"), Some("[[-1,0],[0,-1]]"),
+         "Apply to (1,0): it should go to (0,1)", "cos(90°)=0, sin(90°)=1, so the rotation matrix is [[0,-1],[1,0]]."),
+        ("True or false: Every matrix represents a linear transformation.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "Consider what multiplication by a matrix does to vectors", "Yes. Multiplying by a matrix is always a linear transformation (it satisfies both linearity conditions)."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in transform_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![transforms_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_steps: &[(i64, &str)] = &[
+        (vectors_id, "Start with vectors — the fundamental objects of linear algebra"),
+        (matrices_id, "Learn matrices — the computational workhorses"),
+        (systems_id, "Master solving systems of equations with Gaussian elimination"),
+        (determinants_id, "Understand determinants — key to invertibility and volume"),
+        (eigen_id, "Explore eigenvalues — the 'DNA' of a matrix"),
+        (transforms_id, "Advanced: see matrices as geometric transformations"),
+    ];
+    for (i, (tid, desc)) in path_steps.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Linear Algebra Foundations', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
         )?;
     }

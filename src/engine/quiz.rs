@@ -261,6 +261,178 @@ fn numeric_match(answer: &str, correct: &str) -> bool {
     }
 }
 
+/// Partial credit result for nuanced scoring.
+/// Full = 1.0, Partial = 0.25–0.75, Wrong = 0.0
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct AnswerResult {
+    pub correct: bool,
+    pub credit: f64,
+    pub feedback: AnswerFeedback,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum AnswerFeedback {
+    Correct,
+    NearMiss,      // Close but not quite (typo, partial match)
+    HalfRight,     // Got some parts right (ordering/matching)
+    Wrong,
+}
+
+impl AnswerResult {
+    pub fn full() -> Self {
+        Self { correct: true, credit: 1.0, feedback: AnswerFeedback::Correct }
+    }
+    pub fn near_miss() -> Self {
+        Self { correct: false, credit: 0.5, feedback: AnswerFeedback::NearMiss }
+    }
+    pub fn half_right(credit: f64) -> Self {
+        Self { correct: false, credit: credit.clamp(0.0, 0.75), feedback: AnswerFeedback::HalfRight }
+    }
+    pub fn wrong() -> Self {
+        Self { correct: false, credit: 0.0, feedback: AnswerFeedback::Wrong }
+    }
+}
+
+/// Check an answer with partial credit scoring.
+/// Returns an AnswerResult with credit between 0.0 and 1.0.
+#[allow(dead_code)]
+pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResult {
+    let answer_lower = answer.trim().to_lowercase();
+    let correct_lower = question.correct_answer.trim().to_lowercase();
+
+    // Exact match is always full credit
+    if answer_lower == correct_lower {
+        return AnswerResult::full();
+    }
+
+    // Ordering: partial credit for partially correct order
+    if question.question_type == "ordering" {
+        return check_ordering_scored(&correct_lower, &answer_lower);
+    }
+
+    // Matching: partial credit for some correct pairs
+    if question.question_type == "matching" {
+        return check_matching_scored(&correct_lower, &answer_lower);
+    }
+
+    // Fill-in-blank: near-miss detection
+    if question.question_type == "fill_in_blank" {
+        if fuzzy_match(&answer_lower, &correct_lower) {
+            return AnswerResult::full(); // Close enough = full credit
+        }
+        // Check if it's a near miss (2-3 edits for longer strings)
+        let max_len = answer_lower.len().max(correct_lower.len());
+        if max_len > 4 {
+            let dist = levenshtein(&answer_lower, &correct_lower);
+            let allowed_near = (max_len / 3).clamp(2, 4);
+            if dist <= allowed_near {
+                return AnswerResult::near_miss();
+            }
+        }
+        // Numeric near-match
+        if let (Some(a), Some(b)) = (parse_numeric(&answer_lower), parse_numeric(&correct_lower)) {
+            let rel_error = ((a - b) / b.abs().max(1e-9)).abs();
+            if rel_error < 0.01 {
+                return AnswerResult::full();
+            } else if rel_error < 0.15 {
+                return AnswerResult::near_miss();
+            }
+        }
+        return AnswerResult::wrong();
+    }
+
+    // True/false shortcuts
+    if question.question_type == "true_false" {
+        let is_correct = match answer_lower.as_str() {
+            "t" => correct_lower == "true",
+            "f" => correct_lower == "false",
+            _ => false,
+        };
+        return if is_correct { AnswerResult::full() } else { AnswerResult::wrong() };
+    }
+
+    // Multiple choice by letter
+    if let Some(idx) = match answer_lower.as_str() {
+        "a" => Some(0), "b" => Some(1), "c" => Some(2), "d" => Some(3), _ => None,
+    } {
+        if let Some(opt) = question.options.get(idx) {
+            if opt.trim().to_lowercase() == correct_lower {
+                return AnswerResult::full();
+            }
+        }
+    }
+
+    AnswerResult::wrong()
+}
+
+/// Partial credit for ordering: fraction of items in correct position.
+fn check_ordering_scored(correct: &str, answer: &str) -> AnswerResult {
+    let correct_items: Vec<&str> = correct.split(',').map(|s| s.trim()).collect();
+    let answer_items: Vec<&str> = answer.split(',').map(|s| s.trim()).collect();
+
+    if correct_items.len() != answer_items.len() {
+        return AnswerResult::wrong();
+    }
+
+    if correct_items == answer_items {
+        return AnswerResult::full();
+    }
+
+    // Check numeric shorthand
+    let numeric: Vec<usize> = answer_items.iter().filter_map(|s| s.parse().ok()).collect();
+    if numeric.len() == answer_items.len() {
+        let expected: Vec<usize> = (1..=correct_items.len()).collect();
+        if numeric == expected {
+            return AnswerResult::full();
+        }
+    }
+
+    // Count items in correct position
+    let correct_positions = correct_items.iter().zip(answer_items.iter())
+        .filter(|(c, a)| c == a)
+        .count();
+    let fraction = correct_positions as f64 / correct_items.len() as f64;
+
+    if fraction >= 1.0 {
+        AnswerResult::full()
+    } else if fraction > 0.0 {
+        AnswerResult::half_right(fraction * 0.75)
+    } else {
+        AnswerResult::wrong()
+    }
+}
+
+/// Partial credit for matching: fraction of pairs correct.
+fn check_matching_scored(correct: &str, answer: &str) -> AnswerResult {
+    let parse_pairs = |s: &str| -> Vec<(String, String)> {
+        s.split(';')
+            .filter_map(|p| p.split_once('=').map(|(l, r)| (l.trim().to_lowercase(), r.trim().to_lowercase())))
+            .collect()
+    };
+
+    let correct_pairs = parse_pairs(correct);
+    let answer_pairs = parse_pairs(answer);
+
+    if correct_pairs.is_empty() || answer_pairs.is_empty() {
+        return AnswerResult::wrong();
+    }
+
+    let mut correct_count = 0;
+    for cp in &correct_pairs {
+        if answer_pairs.contains(cp) {
+            correct_count += 1;
+        }
+    }
+
+    if correct_count == correct_pairs.len() {
+        AnswerResult::full()
+    } else if correct_count > 0 {
+        AnswerResult::half_right(correct_count as f64 / correct_pairs.len() as f64 * 0.75)
+    } else {
+        AnswerResult::wrong()
+    }
+}
+
 #[allow(dead_code)]
 pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     let answer = answer.trim().to_lowercase();
@@ -710,6 +882,168 @@ mod tests {
             .filter_map(|r| r.ok())
             .collect();
         assert!(topics.len() >= 6, "Game Theory should have at least 6 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    // ── Partial Credit Scoring Tests ──────────────────────────────────
+
+    #[test]
+    fn test_scored_exact_match_full_credit() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "What is 2+2?".into(),
+            question_type: "fill_in_blank".into(),
+            difficulty: "easy".into(),
+            correct_answer: "4".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Basic math.".into(),
+        };
+        let result = check_answer_scored(&q, "4");
+        assert!(result.correct);
+        assert!((result.credit - 1.0).abs() < f64::EPSILON);
+        assert_eq!(result.feedback, AnswerFeedback::Correct);
+    }
+
+    #[test]
+    fn test_scored_near_miss_fill_in_blank() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Who wrote Hamlet?".into(),
+            question_type: "fill_in_blank".into(),
+            difficulty: "medium".into(),
+            correct_answer: "Shakespeare".into(),
+            options: vec![],
+            hint: None,
+            explanation: "William Shakespeare.".into(),
+        };
+        // Close typo gets full credit (within fuzzy_match range)
+        let result = check_answer_scored(&q, "Shakespear");
+        assert!(result.credit >= 0.5, "One-letter-off should get at least partial credit, got {}", result.credit);
+        // Totally wrong
+        let result = check_answer_scored(&q, "Tolkien");
+        assert!((result.credit - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_scored_ordering_partial_credit() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Order these:".into(),
+            question_type: "ordering".into(),
+            difficulty: "medium".into(),
+            correct_answer: "alpha,beta,gamma,delta".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Greek alphabet.".into(),
+        };
+        // Fully correct
+        let result = check_answer_scored(&q, "alpha,beta,gamma,delta");
+        assert!(result.correct);
+        assert!((result.credit - 1.0).abs() < f64::EPSILON);
+
+        // 2 out of 4 correct positions
+        let result = check_answer_scored(&q, "alpha,gamma,beta,delta");
+        assert!(!result.correct);
+        assert!(result.credit > 0.0, "Should get partial credit for some correct positions");
+        assert!(result.credit < 1.0);
+    }
+
+    #[test]
+    fn test_scored_matching_partial_credit() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Match:".into(),
+            question_type: "matching".into(),
+            difficulty: "medium".into(),
+            correct_answer: "Dog=Mammal;Snake=Reptile;Frog=Amphibian".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Classification.".into(),
+        };
+        // All correct
+        let result = check_answer_scored(&q, "Dog=Mammal;Snake=Reptile;Frog=Amphibian");
+        assert!(result.correct);
+
+        // One correct, two wrong
+        let result = check_answer_scored(&q, "Dog=Mammal;Snake=Amphibian;Frog=Reptile");
+        assert!(!result.correct);
+        assert!(result.credit > 0.0, "One correct pair should give partial credit");
+        assert!(result.credit <= 0.75);
+    }
+
+    #[test]
+    fn test_scored_multiple_choice_wrong() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Capital of France?".into(),
+            question_type: "multiple_choice".into(),
+            difficulty: "easy".into(),
+            correct_answer: "Paris".into(),
+            options: vec!["London".into(), "Paris".into(), "Berlin".into(), "Rome".into()],
+            hint: None,
+            explanation: "Paris.".into(),
+        };
+        let result = check_answer_scored(&q, "London");
+        assert!(!result.correct);
+        assert!((result.credit - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_scored_true_false() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "Water boils at 100°C.".into(),
+            question_type: "true_false".into(),
+            difficulty: "easy".into(),
+            correct_answer: "true".into(),
+            options: vec!["true".into(), "false".into()],
+            hint: None,
+            explanation: "At sea level.".into(),
+        };
+        assert!(check_answer_scored(&q, "t").correct);
+        assert!(!check_answer_scored(&q, "f").correct);
+    }
+
+    #[test]
+    fn test_scored_numeric_near_miss() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "What is pi to 2 decimal places?".into(),
+            question_type: "fill_in_blank".into(),
+            difficulty: "medium".into(),
+            correct_answer: "3.14".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Pi ≈ 3.14159...".into(),
+        };
+        // Exact
+        assert!(check_answer_scored(&q, "3.14").correct);
+        // Close numeric value
+        let result = check_answer_scored(&q, "3.15");
+        assert!(result.credit >= 0.5, "Close numeric answer should get partial credit");
+    }
+
+    #[test]
+    fn test_linear_algebra_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let la_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Linear Algebra'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(la_id.is_some(), "Linear Algebra subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([la_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(topics.len() >= 5, "Linear Algebra should have at least 5 topics, got {}", topics.len());
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
             assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);

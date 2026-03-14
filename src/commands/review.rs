@@ -195,6 +195,15 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         let _ = spaced::record_time_of_day(conn, quality);
         adaptive::log_activity(conn, *topic_id, "review", Some(score))?;
 
+        // Check for difficulty auto-promotion after reviewing
+        if let Some(new_diff) = spaced::auto_promote_difficulty(conn, *topic_id) {
+            println!(
+                "    📈 {} promoted to {} difficulty!",
+                topic_name.bold(),
+                new_diff.bold().bright_green()
+            );
+        }
+
         display::print_divider();
         println!();
     }

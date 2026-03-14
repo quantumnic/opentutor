@@ -102,6 +102,15 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
         display::print_info("Keep learning! Use 'opentutor learn' to review. 💪");
     }
 
+    // Check for difficulty auto-promotion
+    if let Some(new_diff) = spaced::auto_promote_difficulty(conn, topic_id) {
+        println!();
+        display::print_success(&format!(
+            "📈 Topic '{}' promoted to {} difficulty! Keep it up!",
+            topic_name, new_diff
+        ));
+    }
+
     // Check for perfect quiz achievement
     if correct_count == total && total >= 5 {
         if let Ok(Some(name)) = achievements::unlock_perfect_quiz(conn) {

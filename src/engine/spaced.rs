@@ -1840,6 +1840,52 @@ mod mastery_tests {
     }
 }
 
+/// Auto-promote a topic's difficulty when the user demonstrates mastery.
+/// Criteria: ease_factor >= 2.3, interval >= 14 days, accuracy >= 80%, attempts >= 5.
+/// Returns Some(new_difficulty) if promoted, None otherwise.
+pub fn auto_promote_difficulty(conn: &Connection, topic_id: i64) -> Option<String> {
+    let data: Option<(f64, i64, i64, i64)> = conn
+        .query_row(
+            "SELECT ease_factor, interval_days, attempts,
+                    CASE WHEN attempts > 0 THEN correct ELSE 0 END
+             FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok();
+
+    let (ease, interval, attempts, correct) = data?;
+    if attempts < 5 || ease < 2.3 || interval < 14 {
+        return None;
+    }
+    let accuracy = correct as f64 / attempts as f64;
+    if accuracy < 0.80 {
+        return None;
+    }
+
+    let current_difficulty: String = conn
+        .query_row(
+            "SELECT difficulty FROM topics WHERE id = ?1",
+            [topic_id],
+            |r| r.get(0),
+        )
+        .unwrap_or_else(|_| "beginner".to_string());
+
+    let new_difficulty = match current_difficulty.as_str() {
+        "beginner" => "intermediate",
+        "intermediate" => "advanced",
+        _ => return None, // Already advanced
+    };
+
+    conn.execute(
+        "UPDATE topics SET difficulty = ?1 WHERE id = ?2",
+        rusqlite::params![new_difficulty, topic_id],
+    )
+    .ok()?;
+
+    Some(new_difficulty.to_string())
+}
+
 /// Calculate learning momentum for a topic — how quickly ease factor is improving.
 /// Returns a value where positive = improving, negative = declining, 0 = stable/no data.
 /// Looks at the last N reviews and fits a simple linear slope on quality ratings.
@@ -1926,6 +1972,74 @@ mod momentum_tests {
     use super::*;
     use crate::db;
     use crate::engine::adaptive;
+
+    #[test]
+    fn test_auto_promote_no_progress() {
+        let conn = db::init_memory_db().unwrap();
+        assert!(auto_promote_difficulty(&conn, 9999).is_none());
+    }
+
+    #[test]
+    fn test_auto_promote_not_ready() {
+        let conn = db::init_memory_db().unwrap();
+        // Too few attempts
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 90.0, 3, 3, 2.5, 20)", []
+        ).unwrap();
+        assert!(auto_promote_difficulty(&conn, 1).is_none());
+    }
+
+    #[test]
+    fn test_auto_promote_beginner_to_intermediate() {
+        let conn = db::init_memory_db().unwrap();
+        // Meet all criteria
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 90.0, 10, 9, 2.5, 21)", []
+        ).unwrap();
+        let result = auto_promote_difficulty(&conn, 1);
+        assert_eq!(result, Some("intermediate".to_string()));
+        // Verify DB was updated
+        let diff: String = conn.query_row(
+            "SELECT difficulty FROM topics WHERE id = 1", [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(diff, "intermediate");
+    }
+
+    #[test]
+    fn test_auto_promote_intermediate_to_advanced() {
+        let conn = db::init_memory_db().unwrap();
+        // Set topic to intermediate first
+        conn.execute("UPDATE topics SET difficulty = 'intermediate' WHERE id = 1", []).unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 95.0, 12, 11, 2.6, 30)", []
+        ).unwrap();
+        let result = auto_promote_difficulty(&conn, 1);
+        assert_eq!(result, Some("advanced".to_string()));
+    }
+
+    #[test]
+    fn test_auto_promote_already_advanced() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute("UPDATE topics SET difficulty = 'advanced' WHERE id = 1", []).unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 95.0, 15, 14, 2.8, 60)", []
+        ).unwrap();
+        assert!(auto_promote_difficulty(&conn, 1).is_none());
+    }
+
+    #[test]
+    fn test_auto_promote_low_accuracy() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
+             VALUES (1, 50.0, 10, 5, 2.5, 21)", []
+        ).unwrap();
+        assert!(auto_promote_difficulty(&conn, 1).is_none());
+    }
 
     #[test]
     fn test_momentum_no_data() {
