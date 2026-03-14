@@ -95,6 +95,12 @@ enum Commands {
     Leech,
     /// Quick one-screen summary of your learning state
     Summary,
+    /// Interleaved practice — mix questions from different subjects for deeper learning
+    Interleave {
+        /// Number of questions
+        #[arg(short, long, default_value = "10")]
+        count: usize,
+    },
     /// View your recent session activity history
     History {
         /// Number of entries to show
@@ -203,6 +209,7 @@ fn main() {
         Commands::Recommend => commands::recommend::run(&conn),
         Commands::Leech => commands::leech::run(&conn),
         Commands::Summary => commands::summary::run(&conn),
+        Commands::Interleave { count } => commands::interleave::run(&conn, count),
         Commands::History { limit } => commands::history::run(&conn, limit),
         Commands::Streak => commands::streak::run(&conn),
         Commands::Config { key, value } => commands::config::run(&conn, &key, &value),

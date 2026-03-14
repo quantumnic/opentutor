@@ -172,6 +172,15 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             total_due.to_string().bright_yellow());
     }
 
+    // Show optimal study time if we have data
+    if let Some((hour, quality)) = spaced::optimal_review_window(conn) {
+        let end = (hour + 2) % 24;
+        println!(
+            "  ⏰ {} Your best study hours: {:02}:00–{:02}:00 (avg quality {:.1})",
+            "Tip:".bold().bright_cyan(), hour, end, quality
+        );
+    }
+
     println!();
     display::print_success("Great job showing up today! Consistency beats intensity. 📅");
 

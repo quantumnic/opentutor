@@ -13,6 +13,7 @@ pub mod glossary;
 pub mod forecast;
 pub mod heatmap;
 pub mod history;
+pub mod interleave;
 pub mod learn;
 pub mod leech;
 pub mod mistakes;

@@ -1884,6 +1884,43 @@ pub fn learning_momentum(conn: &Connection, topic_id: i64) -> f64 {
     numerator / denominator
 }
 
+/// Compute the optimal review window: the hour range when the user performs best.
+/// Returns (best_hour, avg_quality) based on time_of_day_stats.
+/// If no data exists, returns None.
+pub fn optimal_review_window(conn: &Connection) -> Option<(u8, f64)> {
+    let result: Result<(i64, f64), _> = conn.query_row(
+        "SELECT hour_bucket, avg_quality FROM time_of_day_stats
+         WHERE total_reviews >= 3
+         ORDER BY avg_quality DESC, total_reviews DESC
+         LIMIT 1",
+        [],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    );
+    match result {
+        Ok((hour, quality)) => Some((hour as u8, quality)),
+        Err(_) => None,
+    }
+}
+
+/// Record the current hour's review quality for time-of-day tracking.
+pub fn record_time_of_day(conn: &Connection, quality: u8) -> Result<(), rusqlite::Error> {
+    let hour: i64 = conn.query_row(
+        "SELECT CAST(strftime('%H', 'now', 'localtime') AS INTEGER)",
+        [],
+        |r| r.get(0),
+    )?;
+    conn.execute(
+        "INSERT INTO time_of_day_stats (hour_bucket, total_reviews, correct_reviews, avg_quality)
+         VALUES (?1, 1, ?2, ?3)
+         ON CONFLICT(hour_bucket) DO UPDATE SET
+           total_reviews = total_reviews + 1,
+           correct_reviews = correct_reviews + ?2,
+           avg_quality = (avg_quality * total_reviews + ?3) / (total_reviews + 1)",
+        rusqlite::params![hour, if quality >= 3 { 1 } else { 0 }, quality as f64],
+    )?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod momentum_tests {
     use super::*;

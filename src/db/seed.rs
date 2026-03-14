@@ -53,6 +53,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_architecture(conn)?;
     seed_extra_quizzes_round2(conn)?;
     seed_cybersecurity(conn)?;
+    seed_discrete_mathematics(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -734,7 +735,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 37); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity
+        assert_eq!(count, 38); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity
     }
 
     #[test]
@@ -744,7 +745,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 37);
+        assert_eq!(count, 38);
     }
 
     #[test]
@@ -4688,6 +4689,136 @@ pub fn seed_cybersecurity(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
             rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_discrete_mathematics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let has_topics: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Discrete Mathematics'",
+        [], |r| r.get(0),
+    ).unwrap_or(false);
+    if has_topics { return Ok(()); }
+
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Discrete Mathematics', 'The mathematics of countable structures — sets, graphs, combinatorics, number theory, and proof techniques that underpin computer science.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Discrete Mathematics'", [], |r| r.get(0))?;
+
+    let topics = [
+        (subj_id, "Sets & Logic", "beginner", 1),
+        (subj_id, "Graph Theory", "intermediate", 2),
+        (subj_id, "Combinatorics", "intermediate", 3),
+        (subj_id, "Number Theory", "intermediate", 4),
+        (subj_id, "Proof Techniques", "advanced", 5),
+        (subj_id, "Recurrence Relations", "advanced", 6),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let sets_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Sets & Logic'", [subj_id], |r| r.get(0))?;
+    let graph_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Graph Theory'", [subj_id], |r| r.get(0))?;
+    let comb_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Combinatorics'", [subj_id], |r| r.get(0))?;
+    let numth_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Number Theory'", [subj_id], |r| r.get(0))?;
+    let proof_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Proof Techniques'", [subj_id], |r| r.get(0))?;
+    let recur_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Recurrence Relations'", [subj_id], |r| r.get(0))?;
+
+    // --- Lessons ---
+    let lessons: &[(i64, &str, &str, i64)] = &[
+        (sets_id, "Sets and Set Operations", "A **set** is an unordered collection of distinct objects.\n\nNotation: A = {1, 2, 3}, B = {2, 3, 4}\n\n**Operations:**\n- Union (A ∪ B): elements in A or B or both → {1, 2, 3, 4}\n- Intersection (A ∩ B): elements in both A and B → {2, 3}\n- Difference (A \\ B): elements in A but not B → {1}\n- Complement (A'): everything NOT in A (relative to a universal set)\n- Symmetric difference (A △ B): elements in exactly one of A or B → {1, 4}\n\n**Special sets:**\n- ∅ (empty set): contains no elements\n- ℕ = {0, 1, 2, ...} (natural numbers)\n- ℤ = {..., -2, -1, 0, 1, 2, ...} (integers)\n- |A| = cardinality (number of elements)\n\n**Power set** P(A): set of all subsets. If |A| = n, then |P(A)| = 2ⁿ.", 1),
+        (sets_id, "Propositional Logic", "**Propositional logic** deals with statements that are true or false.\n\n**Connectives:**\n- ¬p (NOT): negation\n- p ∧ q (AND): both true\n- p ∨ q (OR): at least one true\n- p → q (IF-THEN): false only when p is true and q is false\n- p ↔ q (IFF): both same truth value\n\n**Truth tables** enumerate all possibilities.\n\n**Key equivalences:**\n- De Morgan: ¬(p ∧ q) ≡ ¬p ∨ ¬q\n- De Morgan: ¬(p ∨ q) ≡ ¬p ∧ ¬q\n- Contrapositive: (p → q) ≡ (¬q → ¬p)\n- Implication: (p → q) ≡ (¬p ∨ q)\n\n**Quantifiers:**\n- ∀x P(x): for all x, P(x) is true\n- ∃x P(x): there exists an x where P(x) is true", 2),
+        (graph_id, "Introduction to Graphs", "A **graph** G = (V, E) consists of vertices (V) and edges (E).\n\n**Types:**\n- Undirected: edges have no direction (friendships)\n- Directed (digraph): edges have direction (Twitter follows)\n- Weighted: edges have values (road distances)\n\n**Terminology:**\n- Degree: number of edges at a vertex\n- Path: sequence of vertices connected by edges\n- Cycle: path that starts and ends at the same vertex\n- Connected: path exists between any two vertices\n- Complete graph Kn: every vertex connected to every other\n\n**Handshaking lemma:** The sum of all vertex degrees = 2 × |E|.\n(Every edge contributes to the degree of exactly two vertices.)\n\n**Adjacency matrix:** n×n matrix where entry (i,j) = 1 if edge exists.", 1),
+        (graph_id, "Trees and Special Graphs", "A **tree** is a connected graph with no cycles.\n\nProperties:\n- n vertices → exactly n-1 edges\n- Exactly one path between any two vertices\n- Removing any edge disconnects the graph\n- Adding any edge creates exactly one cycle\n\n**Rooted trees:** one vertex designated as root. Used in file systems, HTML DOM, family trees.\n\n**Binary trees:** each node has at most 2 children.\n- Full: every node has 0 or 2 children\n- Complete: all levels filled except possibly the last\n- Height h tree has at most 2^(h+1) - 1 nodes\n\n**Spanning tree:** subgraph that includes all vertices and is a tree.\n- Minimum spanning tree (MST): spanning tree with minimum total edge weight.\n- Algorithms: Kruskal's (sort edges, add if no cycle) and Prim's (grow from a vertex).", 2),
+        (comb_id, "Counting Principles", "**Fundamental counting:**\n- Addition principle: if task A has m ways and task B has n ways (mutually exclusive), total = m + n.\n- Multiplication principle: if task A has m ways AND task B has n ways, total = m × n.\n\n**Permutations** (order matters):\n- P(n,r) = n! / (n-r)! = ways to arrange r items from n\n- P(5,3) = 60 (e.g., gold/silver/bronze from 5 athletes)\n\n**Combinations** (order doesn't matter):\n- C(n,r) = n! / (r!(n-r)!) = ways to choose r items from n\n- C(5,3) = 10 (e.g., choosing a committee of 3 from 5)\n\n**Key identities:**\n- C(n,r) = C(n, n-r) — symmetry\n- C(n,0) = C(n,n) = 1\n- Sum of row n in Pascal's triangle = 2ⁿ\n- Pascal's rule: C(n,r) = C(n-1,r-1) + C(n-1,r)", 1),
+        (comb_id, "Pigeonhole & Inclusion-Exclusion", "**Pigeonhole Principle:** If n+1 pigeons sit in n holes, at least one hole has ≥ 2 pigeons.\n\nExamples:\n- Among 13 people, at least 2 share a birth month.\n- In any group of 5 integers, at least 2 have the same remainder when divided by 4.\n\n**Generalized:** If n items go into k boxes, at least one box has ≥ ⌈n/k⌉ items.\n\n**Inclusion-Exclusion Principle:**\n|A ∪ B| = |A| + |B| - |A ∩ B|\n|A ∪ B ∪ C| = |A| + |B| + |C| - |A∩B| - |A∩C| - |B∩C| + |A∩B∩C|\n\nUsed to count elements in unions by alternately adding and subtracting intersections.\n\nExample: How many integers 1-100 are divisible by 2 or 3?\n|div2| = 50, |div3| = 33, |div6| = 16\nAnswer = 50 + 33 - 16 = 67.", 2),
+        (numth_id, "Divisibility and Primes", "**Divisibility:** a divides b (a|b) if b = ka for some integer k.\n\n**Prime numbers:** only divisible by 1 and themselves.\n- 2 is the only even prime.\n- Fundamental Theorem of Arithmetic: every integer > 1 has a unique prime factorization.\n- There are infinitely many primes (Euclid's proof by contradiction).\n\n**GCD and LCM:**\n- GCD(a,b): greatest common divisor.\n- LCM(a,b): least common multiple.\n- GCD(a,b) × LCM(a,b) = a × b\n\n**Euclidean algorithm** for GCD:\n  GCD(252, 105): 252 = 2×105 + 42 → GCD(105,42)\n  105 = 2×42 + 21 → GCD(42,21)\n  42 = 2×21 + 0 → GCD = 21\n\n**Sieve of Eratosthenes:** systematically find all primes up to n by crossing out multiples.", 1),
+        (numth_id, "Modular Arithmetic", "**Modular arithmetic** is 'clock arithmetic.'\n\na ≡ b (mod n) means n divides (a - b).\n17 ≡ 2 (mod 5) because 17 - 2 = 15 is divisible by 5.\n\n**Properties:**\n- (a + b) mod n = ((a mod n) + (b mod n)) mod n\n- (a × b) mod n = ((a mod n) × (b mod n)) mod n\n- (aᵏ) mod n can be computed efficiently via repeated squaring\n\n**Fermat's Little Theorem:** If p is prime and gcd(a,p) = 1:\n  aᵖ⁻¹ ≡ 1 (mod p)\n\n**Applications:**\n- Cryptography (RSA relies on modular exponentiation)\n- Hash functions\n- Check digits (ISBN, credit cards)\n- Day-of-week calculations", 2),
+        (proof_id, "Proof Techniques", "**Direct proof:** Assume premises, derive conclusion step by step.\n  'If n is even, then n² is even.'\n  Proof: n = 2k → n² = 4k² = 2(2k²), which is even. ∎\n\n**Proof by contradiction:** Assume the negation, derive a contradiction.\n  '√2 is irrational.'\n  Assume √2 = p/q (fully reduced). Then 2q² = p², so p² is even → p is even.\n  Let p = 2m. Then 2q² = 4m² → q² = 2m² → q is even.\n  But p and q both even contradicts 'fully reduced.' ∎\n\n**Proof by contrapositive:** Prove ¬q → ¬p instead of p → q.\n  'If n² is odd, then n is odd.'\n  Contrapositive: 'If n is even, then n² is even.' (Easy to prove directly.)\n\n**Proof by cases:** Split into exhaustive cases, prove each.\n  'For all integers n, n² + n is even.'\n  Case 1: n even → n² + n = even + even = even.\n  Case 2: n odd → n² + n = odd + odd = even. ∎", 1),
+        (proof_id, "Mathematical Induction", "**Mathematical induction** proves statements for all natural numbers.\n\n**Structure:**\n1. **Base case:** Prove P(0) or P(1).\n2. **Inductive step:** Assume P(k) (inductive hypothesis). Prove P(k+1).\n3. Conclude: P(n) holds for all n ≥ base.\n\n**Example:** Prove 1 + 2 + ... + n = n(n+1)/2.\nBase: n=1 → 1 = 1(2)/2 = 1. ✓\nInductive step: Assume 1+...+k = k(k+1)/2.\n  Then 1+...+k+(k+1) = k(k+1)/2 + (k+1) = (k+1)(k+2)/2. ✓\n\n**Strong induction:** Assume P(1), P(2), ..., P(k) to prove P(k+1).\nUseful when P(k+1) depends on multiple predecessors.\n\n**Structural induction:** For recursively defined structures (trees, formulas).\nBase: prove for base structures. Step: prove for composite structures assuming sub-structures satisfy the property.", 2),
+        (recur_id, "Solving Recurrence Relations", "A **recurrence relation** defines a sequence where each term depends on previous terms.\n\n**Examples:**\n- Fibonacci: F(n) = F(n-1) + F(n-2), F(0)=0, F(1)=1\n- Tower of Hanoi: T(n) = 2T(n-1) + 1, T(1)=1\n\n**Methods:**\n1. **Substitution:** Guess and verify by induction.\n2. **Iteration (unrolling):** Expand until a pattern emerges.\n3. **Characteristic equation (for linear recurrences):**\n   aₙ = c₁aₙ₋₁ + c₂aₙ₋₂ → solve t² = c₁t + c₂\n   Roots r₁, r₂ → aₙ = A·r₁ⁿ + B·r₂ⁿ\n   (Use initial conditions to find A, B.)\n\nFibonacci: t² = t + 1 → roots (1±√5)/2\nClosed form: F(n) = (φⁿ - ψⁿ)/√5 where φ = (1+√5)/2 ≈ 1.618 (golden ratio).\n\n**Master Theorem** for divide-and-conquer recurrences:\nT(n) = aT(n/b) + f(n) → three cases depending on how f(n) compares to n^(log_b a).", 1),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // --- Explanations ---
+    let explanations: &[ExplanationRow] = &[
+        (sets_id, "De Morgan's Laws", "De Morgan's Laws relate AND, OR, and NOT:\n¬(p ∧ q) ≡ ¬p ∨ ¬q — 'not (both)' means 'not one or not the other'\n¬(p ∨ q) ≡ ¬p ∧ ¬q — 'not (either)' means 'not one and not the other'\nThey work for sets too: (A ∩ B)' = A' ∪ B'", Some("Think of a club where you must be tall AND rich to enter. Saying 'you CAN'T enter' means you're NOT tall OR NOT rich."), Some("How are De Morgan's Laws used in programming (e.g., simplifying if-statements)?")),
+        (graph_id, "Handshaking Lemma", "The sum of all vertex degrees in a graph equals twice the number of edges. Each edge contributes 1 to the degree of each of its endpoints, so it's counted exactly twice.", Some("If everyone at a party shakes hands, and you count how many handshakes each person did, the total count is exactly double the number of handshakes — because each handshake involves two people."), Some("What does the Handshaking Lemma tell us about the number of vertices with odd degree?")),
+        (comb_id, "Pigeonhole Principle", "If you put more items into containers than there are containers, at least one container must have more than one item. Simple but surprisingly powerful for existence proofs.", Some("If you have 13 socks and 12 drawers, at least one drawer has ≥ 2 socks. You don't know WHICH drawer, but you know it exists."), Some("Can you prove that in any group of 6 people, at least 3 are mutual friends or at least 3 are mutual strangers?")),
+        (numth_id, "Euclidean Algorithm", "An efficient method for computing GCD. Repeatedly replace the larger number with the remainder of dividing the two. The last non-zero remainder is the GCD. Runs in O(log(min(a,b))) steps.", Some("Like measuring with a ruler that's too short: lay it end to end, and the leftover tells you to try a shorter ruler. Eventually you find a length that fits perfectly."), Some("Why does the Euclidean algorithm always terminate?")),
+        (proof_id, "Proof by Contradiction", "Assume the opposite of what you want to prove, then show this leads to a logical impossibility. Since the assumption leads to nonsense, the original statement must be true.", Some("Like proving you locked the door by assuming you didn't — then noticing the door is still locked. The assumption is impossible, so you must have locked it."), Some("What's the difference between proof by contradiction and proof by contrapositive?")),
+        (recur_id, "The Golden Ratio", "φ = (1+√5)/2 ≈ 1.618 appears in the closed-form solution of the Fibonacci sequence. It's the positive root of x² = x + 1. The ratio of consecutive Fibonacci numbers converges to φ. It appears in nature, art, and architecture.", Some("The golden ratio is mathematics' most recurring celebrity — it shows up everywhere from sunflower spirals to the Parthenon's proportions to stock market analysis."), Some("Why does F(n+1)/F(n) converge to the golden ratio?")),
+    ];
+    for (tid, concept, expl, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, follow_up],
+        )?;
+    }
+
+    // --- Quiz Questions ---
+    let quizzes: &[QuizRow] = &[
+        // Sets & Logic
+        (sets_id, "If A = {1,2,3} and B = {2,3,4}, what is A ∪ B?", "multiple_choice", "{1,2,3,4}", Some("{1,2,3,4}"), Some("{2,3}"), Some("{1,4}"), Some("{1,2,3}"), None, "Union includes all elements from both sets: {1,2,3} ∪ {2,3,4} = {1,2,3,4}."),
+        (sets_id, "If |A| = 4, how many elements does the power set P(A) have?", "multiple_choice", "16", Some("4"), Some("8"), Some("16"), Some("32"), Some("2 raised to what power?"), "The power set of a set with n elements has 2ⁿ elements. 2⁴ = 16."),
+        (sets_id, "De Morgan's Law states: ¬(p ∧ q) ≡", "multiple_choice", "¬p ∨ ¬q", Some("¬p ∧ ¬q"), Some("¬p ∨ ¬q"), Some("p ∨ q"), Some("¬p → ¬q"), None, "De Morgan: NOT (p AND q) = (NOT p) OR (NOT q)."),
+        (sets_id, "The contrapositive of 'if p then q' is:", "multiple_choice", "if ¬q then ¬p", Some("if q then p"), Some("if ¬p then ¬q"), Some("if ¬q then ¬p"), Some("if p then ¬q"), None, "The contrapositive reverses and negates: (p → q) ≡ (¬q → ¬p). It's always logically equivalent."),
+        (sets_id, "True or false: The empty set is a subset of every set.", "true_false", "true", Some("true"), Some("false"), None, None, None, "The empty set ∅ is a subset of every set — the statement '∀x ∈ ∅, x ∈ A' is vacuously true."),
+        // Graph Theory
+        (graph_id, "A tree with 10 vertices has ___ edges.", "fill_in_blank", "9", None, None, None, None, Some("n vertices → n-? edges"), "A tree with n vertices always has exactly n-1 edges. So 10 vertices → 9 edges."),
+        (graph_id, "The sum of all vertex degrees in any graph equals:", "multiple_choice", "Twice the number of edges", Some("The number of edges"), Some("Twice the number of edges"), Some("The number of vertices"), Some("Three times the number of edges"), None, "The Handshaking Lemma: Σ deg(v) = 2|E|. Each edge contributes 2 to the total degree."),
+        (graph_id, "In a complete graph K₅, how many edges are there?", "multiple_choice", "10", Some("5"), Some("10"), Some("15"), Some("20"), Some("C(n,2) for Kn"), "K₅ has C(5,2) = 10 edges. Every pair of vertices is connected."),
+        (graph_id, "True or false: Every tree is a connected graph.", "true_false", "true", Some("true"), Some("false"), None, None, None, "By definition, a tree is a connected acyclic graph. If it weren't connected, it would be a forest."),
+        // Combinatorics
+        (comb_id, "How many ways can 5 people finish 1st, 2nd, 3rd in a race?", "multiple_choice", "60", Some("10"), Some("30"), Some("60"), Some("120"), Some("P(5,3) = ?"), "P(5,3) = 5!/(5-3)! = 5×4×3 = 60. Order matters (it's a permutation)."),
+        (comb_id, "C(10,3) = ___", "fill_in_blank", "120", None, None, None, None, Some("10! / (3! × 7!)"), "C(10,3) = 10!/(3! × 7!) = (10×9×8)/(3×2×1) = 720/6 = 120."),
+        (comb_id, "True or false: C(n,r) = C(n, n-r).", "true_false", "true", Some("true"), Some("false"), None, None, None, "Choosing r items to include is the same as choosing n-r items to exclude. This symmetry is a key property."),
+        (comb_id, "Among 13 people, at least ___ share a birth month.", "fill_in_blank", "2", None, None, None, None, Some("Pigeonhole principle: 13 people, 12 months"), "By the Pigeonhole Principle: 13 people in 12 months means at least ⌈13/12⌉ = 2 share a month."),
+        // Number Theory
+        (numth_id, "GCD(48, 18) = ___", "fill_in_blank", "6", None, None, None, None, Some("Use the Euclidean algorithm"), "48 = 2×18 + 12, then 18 = 1×12 + 6, then 12 = 2×6 + 0. GCD = 6."),
+        (numth_id, "The only even prime number is:", "fill_in_blank", "2", None, None, None, None, Some("All other even numbers are divisible by..."), "2 is the only even prime. Every other even number is divisible by 2, hence not prime."),
+        (numth_id, "17 mod 5 = ___", "fill_in_blank", "2", None, None, None, None, Some("17 = 3×5 + ?"), "17 = 3×5 + 2, so 17 mod 5 = 2."),
+        (numth_id, "True or false: Every integer greater than 1 has a unique prime factorization.", "true_false", "true", Some("true"), Some("false"), None, None, None, "This is the Fundamental Theorem of Arithmetic — every integer > 1 can be expressed as a product of primes in exactly one way (up to order)."),
+        // Proof Techniques
+        (proof_id, "To prove P(n) for all n by induction, you need:", "multiple_choice", "A base case and an inductive step", Some("Just a base case"), Some("A base case and an inductive step"), Some("Just an inductive step"), Some("A counterexample"), None, "Mathematical induction requires: (1) proving the base case and (2) proving that if P(k) holds, then P(k+1) holds."),
+        (proof_id, "Proof by contradiction starts by:", "multiple_choice", "Assuming the negation of the statement", Some("Proving the statement directly"), Some("Assuming the negation of the statement"), Some("Finding a counterexample"), Some("Using induction"), None, "Proof by contradiction assumes ¬P (the opposite of what you want to prove) and derives a logical contradiction."),
+        (proof_id, "True or false: Strong induction assumes P(1) through P(k) to prove P(k+1).", "true_false", "true", Some("true"), Some("false"), None, None, None, "Strong induction uses all prior cases P(1)...P(k) in the inductive step, unlike ordinary induction which only uses P(k)."),
+        // Recurrence Relations
+        (recur_id, "The Fibonacci recurrence is F(n) = F(n-1) + F(n-2). What is F(7)?", "multiple_choice", "13", Some("8"), Some("11"), Some("13"), Some("21"), Some("F(0)=0, F(1)=1, compute step by step"), "F: 0,1,1,2,3,5,8,13. So F(7) = 13."),
+        (recur_id, "The golden ratio φ ≈ ___", "fill_in_blank", "1.618", None, None, None, None, Some("(1+√5)/2"), "φ = (1+√5)/2 ≈ 1.618033... It's the positive root of x² = x + 1."),
+        (recur_id, "The Tower of Hanoi with 4 disks requires ___ moves.", "fill_in_blank", "15", None, None, None, None, Some("T(n) = 2ⁿ - 1"), "T(n) = 2ⁿ - 1. For n=4: 2⁴ - 1 = 15 moves."),
+    ];
+    for (tid, question, qtype, answer, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, question, qtype, answer, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // --- Learning Path ---
+    let path_steps: &[(i64, &str)] = &[
+        (sets_id, "Start with sets and propositional logic — the language of discrete math"),
+        (proof_id, "Learn proof techniques — the tools you'll use everywhere"),
+        (numth_id, "Explore number theory — primes, divisibility, and modular arithmetic"),
+        (comb_id, "Master combinatorics — counting, permutations, and combinations"),
+        (graph_id, "Study graph theory — vertices, edges, trees, and algorithms"),
+        (recur_id, "Advanced: solve recurrence relations and analyze algorithms"),
+    ];
+    for (i, (tid, desc)) in path_steps.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Discrete Mathematics Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
         )?;
     }
 
