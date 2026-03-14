@@ -176,6 +176,12 @@ enum Commands {
         #[arg(short, long, default_value = "14")]
         days: usize,
     },
+    /// Generate a personalized study plan based on your progress
+    StudyPlan {
+        /// Number of days to plan for
+        #[arg(short, long, default_value = "7")]
+        days: usize,
+    },
 }
 
 fn main() {
@@ -224,6 +230,7 @@ fn main() {
         Commands::Heatmap { weeks } => commands::heatmap::run(&conn, weeks),
         Commands::BestHours => commands::best_hours::run(&conn),
         Commands::Trend { days } => commands::trend::run(&conn, days),
+        Commands::StudyPlan { days } => commands::study_plan::run(&conn, days),
     };
 
     if let Err(e) = result {

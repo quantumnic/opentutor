@@ -27,6 +27,7 @@ pub mod review;
 pub mod search;
 pub mod stats;
 pub mod streak;
+pub mod study_plan;
 pub mod subjects;
 pub mod summary;
 pub mod trend;

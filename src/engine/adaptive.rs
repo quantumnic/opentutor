@@ -75,6 +75,93 @@ pub fn log_activity(
     Ok(())
 }
 
+#[allow(dead_code)]
+/// Compute a confidence-weighted quality score (0-5) from correctness and response time.
+/// Fast correct answers → higher quality (5), slow correct → 3-4, incorrect → 0-2.
+/// `time_ms` is the time taken to answer in milliseconds.
+pub fn confidence_weighted_quality(correct: bool, time_ms: u64) -> u8 {
+    if !correct {
+        // Even wrong answers: very fast wrong = 2 (close guess), slow = 0
+        return if time_ms < 5_000 { 2 } else if time_ms < 15_000 { 1 } else { 0 };
+    }
+
+    // Correct answers: faster = higher confidence
+    match time_ms {
+        0..=3_000 => 5,       // Very fast: strong recall
+        3_001..=8_000 => 4,   // Moderate: decent recall
+        8_001..=20_000 => 3,  // Slow: barely recalled
+        _ => 3,               // Very slow but correct: still a pass
+    }
+}
+
+#[allow(dead_code)]
+/// Summary of a review session for post-session analytics.
+#[derive(Debug, Clone)]
+pub struct SessionSummary {
+    pub topics_reviewed: usize,
+    pub correct: usize,
+    pub incorrect: usize,
+    pub accuracy: f64,
+    pub avg_quality: f64,
+    pub subjects_covered: usize,
+    pub leeches_encountered: usize,
+    pub promotions: Vec<(String, String)>, // (topic_name, new_difficulty)
+}
+
+#[allow(dead_code)]
+/// Build a session summary from today's activity log.
+pub fn todays_session_summary(conn: &Connection) -> SessionSummary {
+    let total: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM session_log WHERE activity_type IN ('review', 'quiz') AND DATE(timestamp) = DATE('now')",
+            [], |r| r.get(0),
+        ).unwrap_or(0);
+
+    let correct: i64 = conn
+        .query_row(
+            "SELECT COUNT(*) FROM session_log WHERE activity_type IN ('review', 'quiz') AND score >= 50.0 AND DATE(timestamp) = DATE('now')",
+            [], |r| r.get(0),
+        ).unwrap_or(0);
+
+    let avg_quality: f64 = conn
+        .query_row(
+            "SELECT COALESCE(AVG(score), 0) FROM session_log WHERE activity_type IN ('review', 'quiz') AND DATE(timestamp) = DATE('now')",
+            [], |r| r.get(0),
+        ).unwrap_or(0.0);
+
+    let subjects: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT t.subject_id) FROM session_log sl
+             JOIN topics t ON t.id = sl.topic_id
+             WHERE sl.activity_type IN ('review', 'quiz') AND DATE(sl.timestamp) = DATE('now')",
+            [], |r| r.get(0),
+        ).unwrap_or(0);
+
+    let leeches: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT sl.topic_id) FROM session_log sl
+             JOIN user_progress p ON p.topic_id = sl.topic_id
+             WHERE sl.activity_type IN ('review', 'quiz')
+             AND DATE(sl.timestamp) = DATE('now')
+             AND p.leech_count > 0",
+            [], |r| r.get(0),
+        ).unwrap_or(0);
+
+    let incorrect = total - correct;
+    let accuracy = if total > 0 { correct as f64 / total as f64 * 100.0 } else { 0.0 };
+
+    SessionSummary {
+        topics_reviewed: total as usize,
+        correct: correct as usize,
+        incorrect: incorrect as usize,
+        accuracy,
+        avg_quality: avg_quality / 20.0, // normalize 0-100 to 0-5 scale
+        subjects_covered: subjects as usize,
+        leeches_encountered: leeches as usize,
+        promotions: Vec::new(), // filled by caller if any auto-promotions occurred
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -114,5 +201,42 @@ mod tests {
             "SELECT COUNT(*) FROM session_log WHERE topic_id = 1", [], |r| r.get(0)
         ).unwrap();
         assert_eq!(count, 1);
+    }
+
+    #[test]
+    fn test_confidence_weighted_quality_correct_fast() {
+        assert_eq!(confidence_weighted_quality(true, 2000), 5);
+    }
+
+    #[test]
+    fn test_confidence_weighted_quality_correct_slow() {
+        assert_eq!(confidence_weighted_quality(true, 15000), 3);
+    }
+
+    #[test]
+    fn test_confidence_weighted_quality_incorrect() {
+        assert_eq!(confidence_weighted_quality(false, 3000), 2);
+        assert_eq!(confidence_weighted_quality(false, 10000), 1);
+        assert_eq!(confidence_weighted_quality(false, 20000), 0);
+    }
+
+    #[test]
+    fn test_session_summary_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let summary = todays_session_summary(&conn);
+        assert_eq!(summary.topics_reviewed, 0);
+        assert_eq!(summary.accuracy, 0.0);
+    }
+
+    #[test]
+    fn test_session_summary_with_data() {
+        let conn = db::init_memory_db().unwrap();
+        log_activity(&conn, 1, "review", Some(80.0)).unwrap();
+        log_activity(&conn, 2, "quiz", Some(60.0)).unwrap();
+        log_activity(&conn, 3, "review", Some(30.0)).unwrap();
+        let summary = todays_session_summary(&conn);
+        assert_eq!(summary.topics_reviewed, 3);
+        assert_eq!(summary.correct, 2); // 80 and 60 >= 50
+        assert_eq!(summary.incorrect, 1);
     }
 }

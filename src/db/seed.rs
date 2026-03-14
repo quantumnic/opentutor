@@ -55,6 +55,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_cybersecurity(conn)?;
     seed_discrete_mathematics(conn)?;
     seed_linear_algebra(conn)?;
+    seed_electrical_engineering(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -736,7 +737,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 39); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra
+        assert_eq!(count, 40); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra + Electrical Engineering
     }
 
     #[test]
@@ -746,7 +747,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 39);
+        assert_eq!(count, 40);
     }
 
     #[test]
@@ -5056,6 +5057,236 @@ fn seed_linear_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Linear Algebra Foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_electrical_engineering(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Subject
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Electrical Engineering', 'Circuits, signals, digital logic, and the principles that power modern technology.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Electrical Engineering'", [], |r| r.get(0),
+    )?;
+
+    // Topics
+    let topics: &[(&str, &str, i64)] = &[
+        ("Circuit Fundamentals", "beginner", 1),
+        ("Ohm's Law & Kirchhoff's Laws", "beginner", 2),
+        ("Capacitors & Inductors", "intermediate", 3),
+        ("AC Circuit Analysis", "intermediate", 4),
+        ("Digital Logic Gates", "beginner", 5),
+        ("Semiconductor Basics", "intermediate", 6),
+    ];
+    for (name, diff, order) in topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let circuit_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Circuit Fundamentals' AND subject_id = ?1", [subj_id], |r| r.get(0),
+    )?;
+    let ohm_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Ohm''s Law & Kirchhoff''s Laws' AND subject_id = ?1", [subj_id], |r| r.get(0),
+    )?;
+    let cap_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Capacitors & Inductors' AND subject_id = ?1", [subj_id], |r| r.get(0),
+    )?;
+    let ac_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'AC Circuit Analysis' AND subject_id = ?1", [subj_id], |r| r.get(0),
+    )?;
+    let logic_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Digital Logic Gates' AND subject_id = ?1", [subj_id], |r| r.get(0),
+    )?;
+    let semi_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Semiconductor Basics' AND subject_id = ?1", [subj_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: &[(i64, &str, &str, i64)] = &[
+        (circuit_id, "What is an Electrical Circuit?",
+         "An electrical circuit is a closed loop that allows electric current to flow.\n\nKey components:\n- **Voltage source** (battery/generator): provides the 'push' (EMF)\n- **Conductor** (wire): provides the path\n- **Load** (resistor/LED/motor): does useful work\n- **Switch**: controls the flow\n\nCircuits come in two basic configurations:\n- **Series**: components connected end-to-end (same current flows through all)\n- **Parallel**: components connected side-by-side (same voltage across all)\n\nThink of it like water flowing through pipes: voltage is water pressure, current is flow rate, and resistance is pipe narrowness.", 1),
+        (ohm_id, "Ohm's Law and Kirchhoff's Laws",
+         "**Ohm's Law: V = I × R**\n- V = voltage (volts), I = current (amps), R = resistance (ohms)\n- Double the voltage → double the current (for fixed resistance)\n\n**Kirchhoff's Current Law (KCL):**\nThe total current entering a node equals the total current leaving it.\nΣI_in = ΣI_out (conservation of charge)\n\n**Kirchhoff's Voltage Law (KVL):**\nThe sum of all voltages around any closed loop is zero.\nΣV = 0 (conservation of energy)\n\nThese three laws are the foundation for analyzing any circuit, no matter how complex.", 1),
+        (cap_id, "Capacitors and Inductors",
+         "**Capacitors** store energy in an electric field between two plates.\n- Capacitance C measured in Farads (F)\n- Q = C × V (charge = capacitance × voltage)\n- Energy stored: E = ½CV²\n- Block DC, pass AC (impedance decreases with frequency)\n\n**Inductors** store energy in a magnetic field created by current through a coil.\n- Inductance L measured in Henrys (H)\n- V = L × dI/dt (voltage opposes changes in current)\n- Energy stored: E = ½LI²\n- Pass DC, block AC (impedance increases with frequency)\n\nTogether, capacitors and inductors create filters, oscillators, and tuned circuits.", 1),
+        (ac_id, "AC Circuit Analysis",
+         "**Alternating Current (AC)** changes direction periodically.\n- v(t) = V_peak × sin(2πft + φ)\n- Frequency f in Hz, period T = 1/f\n- RMS voltage: V_rms = V_peak / √2 ≈ 0.707 × V_peak\n\n**Impedance** (Z) generalizes resistance for AC:\n- Resistor: Z_R = R\n- Capacitor: Z_C = 1/(jωC)\n- Inductor: Z_L = jωL\n\n**Resonance** occurs when Z_L = Z_C:\n- f_resonant = 1/(2π√(LC))\n- At resonance, impedance is purely resistive\n\n**Power in AC circuits:**\n- Real power P = V_rms × I_rms × cos(φ) [watts]\n- Reactive power Q = V_rms × I_rms × sin(φ) [VAR]\n- Power factor = cos(φ), ideally = 1", 1),
+        (logic_id, "Digital Logic Gates",
+         "Digital circuits operate on binary: 0 (LOW) and 1 (HIGH).\n\n**Basic gates:**\n- AND: output 1 only if ALL inputs are 1\n- OR: output 1 if ANY input is 1\n- NOT: inverts the input (0→1, 1→0)\n\n**Derived gates:**\n- NAND = NOT(AND) — universal gate\n- NOR = NOT(OR) — universal gate\n- XOR: output 1 if inputs DIFFER\n- XNOR: output 1 if inputs are SAME\n\n**Key concepts:**\n- Any logic function can be built from just NAND (or just NOR) gates\n- Boolean algebra simplifies circuits: De Morgan's laws, distributive law\n- Truth tables enumerate all input/output combinations\n- Karnaugh maps minimize Boolean expressions visually", 1),
+        (semi_id, "Semiconductor Basics",
+         "**Semiconductors** (silicon, germanium) have conductivity between metals and insulators.\n\n**Doping:**\n- N-type: add phosphorus → extra electrons (negative carriers)\n- P-type: add boron → extra holes (positive carriers)\n\n**PN Junction (Diode):**\n- Forward bias: current flows (voltage > ~0.7V for silicon)\n- Reverse bias: no current (depletion zone widens)\n- Applications: rectifiers, LEDs, solar cells\n\n**Transistor (BJT):**\n- Three terminals: Base, Collector, Emitter\n- Small base current controls large collector current\n- Acts as amplifier or switch\n- hFE (beta) = I_C / I_B (current gain, typically 50-300)\n\n**MOSFET:**\n- Voltage-controlled (gate voltage controls drain current)\n- Very high input impedance\n- Foundation of modern digital circuits (CMOS)", 1),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (circuit_id, "Voltage", "Voltage (V) is the electrical potential difference — the 'push' that drives current through a circuit.", Some("Like water pressure in a pipe: higher pressure pushes more water."), Some("What happens to current in a circuit if you double the voltage?")),
+        (circuit_id, "Current", "Current (I) is the flow rate of electric charge, measured in amperes. 1 amp = 1 coulomb/second.", Some("Like the flow rate of water: gallons per minute."), Some("If 3 coulombs pass a point in 2 seconds, what is the current?")),
+        (ohm_id, "Resistance", "Resistance (R) opposes current flow. Measured in ohms (Ω). R = V/I.", Some("Like a narrow section of pipe that restricts water flow."), Some("A 12V battery drives 2A through a resistor. What is the resistance?")),
+        (cap_id, "Time Constant", "The RC time constant τ = R × C determines how fast a capacitor charges/discharges. After 5τ, it's ~99% complete.", Some("Like filling a bathtub: a bigger tub (C) or smaller faucet (R) takes longer."), Some("A 1kΩ resistor and 10μF capacitor — what is the time constant?")),
+        (logic_id, "Boolean Algebra", "Boolean algebra uses AND (·), OR (+), and NOT (') to manipulate logic expressions. De Morgan's: (A·B)' = A'+B'.", Some("Like grammar rules for a language that only uses TRUE and FALSE."), Some("Simplify: A·B + A·B' using Boolean algebra.")),
+        (semi_id, "PN Junction", "When P-type and N-type semiconductors meet, a depletion region forms. Forward bias shrinks it (current flows); reverse bias widens it (no current).", Some("Like a one-way valve: water flows one direction easily but is blocked the other way."), Some("Why does an LED need a current-limiting resistor?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // Quiz questions
+    let circuit_qs: &[QuizRowNoTopic] = &[
+        ("In a series circuit, what is the same through every component?", "multiple_choice", "Current",
+         Some("Voltage"), Some("Current"), Some("Resistance"), Some("Power"),
+         "Think about what must be conserved in a single path", "In series, there's only one path for current, so the same current flows through every component."),
+        ("In a parallel circuit, what is the same across every branch?", "multiple_choice", "Voltage",
+         Some("Current"), Some("Voltage"), Some("Resistance"), Some("Impedance"),
+         "Each branch connects to the same two nodes", "Parallel branches share the same two nodes, so they all have the same voltage across them."),
+        ("True or false: An open circuit has zero current.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "Can current flow through a gap?", "An open circuit is a broken loop — no current can flow because the path is incomplete."),
+        ("The unit of electrical resistance is the ___.", "fill_in_blank", "ohm", None, None, None, None,
+         "Named after Georg Simon ___", "Resistance is measured in ohms (Ω), named after Georg Simon Ohm."),
+        ("What device stores energy in an electric field?", "multiple_choice", "Capacitor",
+         Some("Resistor"), Some("Inductor"), Some("Capacitor"), Some("Transformer"),
+         "Two plates separated by a dielectric", "Capacitors store energy in the electric field between their plates."),
+    ];
+
+    let ohm_qs: &[QuizRowNoTopic] = &[
+        ("If V = 12V and R = 4Ω, what is I?", "multiple_choice", "3A",
+         Some("2A"), Some("3A"), Some("48A"), Some("0.33A"),
+         "V = I × R, solve for I", "I = V/R = 12/4 = 3A. Ohm's Law in action."),
+        ("Kirchhoff's Current Law is based on conservation of ___.", "fill_in_blank", "charge", None, None, None, None,
+         "What can't be created or destroyed at a circuit node?", "KCL follows from conservation of charge: all current entering a node must leave it."),
+        ("The sum of voltages around a closed loop equals ___.", "fill_in_blank", "zero", None, None, None, None,
+         "Energy conservation around a loop", "KVL: ΣV = 0 around any closed loop, based on conservation of energy."),
+        ("Two 10Ω resistors in parallel have a combined resistance of ___.", "fill_in_blank", "5", None, None, None, None,
+         "1/R_total = 1/R1 + 1/R2", "1/R = 1/10 + 1/10 = 2/10, so R = 5Ω. Parallel resistance is always less than the smallest branch."),
+        ("Three resistors of 2Ω, 3Ω, 5Ω in series total ___ ohms.", "fill_in_blank", "10", None, None, None, None,
+         "Series resistances add directly", "R_total = 2 + 3 + 5 = 10Ω. In series, resistances simply add up."),
+    ];
+
+    let logic_qs: &[QuizRowNoTopic] = &[
+        ("An AND gate outputs 1 only when ___.", "fill_in_blank", "all inputs are 1", None, None, None, None,
+         "Every input matters", "AND requires ALL inputs to be 1. If any input is 0, the output is 0."),
+        ("Which gate is universal (can implement any logic function)?", "multiple_choice", "NAND",
+         Some("AND"), Some("OR"), Some("NAND"), Some("XOR"),
+         "It's the negation of the most basic gate", "NAND (and NOR) are universal gates — any Boolean function can be built from them alone."),
+        ("XOR outputs 1 when the inputs are ___.", "fill_in_blank", "different", None, None, None, None,
+         "Exclusive — one or the other but not both", "XOR = exclusive OR. Output is 1 when inputs differ (01 or 10), 0 when they match."),
+        ("De Morgan's theorem: (A AND B)' equals ___.", "multiple_choice", "A' OR B'",
+         Some("A' AND B'"), Some("A' OR B'"), Some("A OR B"), Some("(A OR B)'"),
+         "Break the bar, change the sign", "De Morgan's: (A·B)' = A'+B'. The complement of AND is OR of complements."),
+        ("True or false: A NOT gate has exactly one input.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "It just inverts", "A NOT gate (inverter) takes a single input and outputs its complement."),
+    ];
+
+    let semi_qs: &[QuizRowNoTopic] = &[
+        ("A silicon diode has a forward voltage drop of approximately ___ volts.", "fill_in_blank", "0.7", None, None, None, None,
+         "The most common number in electronics", "Silicon PN junctions have ~0.7V forward drop. Germanium is ~0.3V."),
+        ("In a BJT, the current gain (beta) equals ___.", "multiple_choice", "I_C / I_B",
+         Some("I_B / I_C"), Some("I_C / I_B"), Some("I_E / I_C"), Some("I_C / I_E"),
+         "Collector current divided by the controlling current", "β = I_C / I_B. A small base current controls a much larger collector current."),
+        ("N-type silicon is doped with atoms that have ___ valence electrons.", "multiple_choice", "5",
+         Some("3"), Some("4"), Some("5"), Some("6"),
+         "Group V elements like phosphorus", "N-type uses pentavalent dopants (5 valence electrons) like phosphorus — the extra electron is the carrier."),
+        ("True or false: A MOSFET is voltage-controlled.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "Gate voltage, not gate current, controls the channel", "MOSFETs are voltage-controlled devices with very high input impedance — gate current is negligible."),
+        ("What does LED stand for?", "fill_in_blank", "light emitting diode", None, None, None, None,
+         "It's a diode that ___", "LED = Light Emitting Diode. It emits photons when forward-biased as electrons recombine with holes."),
+    ];
+
+    let cap_qs: &[QuizRowNoTopic] = &[
+        ("The energy stored in a capacitor is E = ___.", "multiple_choice", "½CV²",
+         Some("CV"), Some("½CV²"), Some("CV²"), Some("C²V"),
+         "Half of something squared", "E = ½CV². Energy scales with the square of voltage — doubling V quadruples the energy."),
+        ("An inductor opposes changes in ___.", "fill_in_blank", "current", None, None, None, None,
+         "V = L × d___/dt", "Inductors oppose changes in current via Lenz's law: V = L × dI/dt."),
+        ("The impedance of a capacitor ___ as frequency increases.", "multiple_choice", "decreases",
+         Some("increases"), Some("decreases"), Some("stays the same"), Some("becomes infinite"),
+         "Z_C = 1/(jωC)", "Z_C = 1/(ωC). Higher frequency → higher ω → lower impedance. Capacitors pass high frequencies easily."),
+        ("The time constant of an RC circuit is τ = ___.", "fill_in_blank", "RC", None, None, None, None,
+         "Resistance times capacitance", "τ = R × C. After one time constant, a charging capacitor reaches ~63% of final voltage."),
+        ("True or false: At resonance, a series LC circuit has minimum impedance.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "The reactive components cancel", "At resonance, X_L = X_C and they cancel, leaving only resistance — minimum impedance."),
+    ];
+
+    let ac_qs: &[QuizRowNoTopic] = &[
+        ("RMS voltage is V_peak divided by ___.", "multiple_choice", "√2",
+         Some("2"), Some("√2"), Some("π"), Some("√3"),
+         "Root mean square of a sine wave", "V_rms = V_peak / √2 ≈ 0.707 × V_peak. RMS gives the equivalent DC heating value."),
+        ("The power factor equals cos(φ), where φ is the ___.", "fill_in_blank", "phase angle", None, None, None, None,
+         "The angle between voltage and current phasors", "Power factor = cos(φ). φ is the phase angle between voltage and current. PF=1 means purely resistive."),
+        ("What is the resonant frequency of an LC circuit with L=1mH and C=1μF?", "multiple_choice", "~5033 Hz",
+         Some("~1000 Hz"), Some("~5033 Hz"), Some("~15900 Hz"), Some("~159 Hz"),
+         "f = 1/(2π√(LC))", "f = 1/(2π√(0.001 × 0.000001)) = 1/(2π × 0.001) ≈ 5033 Hz."),
+        ("True or false: In a purely capacitive AC circuit, current leads voltage by 90°.", "true_false", "true", Some("True"), Some("False"), None, None,
+         "ICE — current leads in capacitive circuits", "Yes! Remember ICE: In a Capacitor, current (I) leads voltage (E) by 90°."),
+        ("Real power is measured in ___.", "fill_in_blank", "watts", None, None, None, None,
+         "The unit of actual useful power", "Real power P (watts) does actual work. Reactive power Q (VAR) just oscillates back and forth."),
+    ];
+
+    for (q, qt, ans, a, b, c, d, hint, expl) in circuit_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![circuit_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+    for (q, qt, ans, a, b, c, d, hint, expl) in ohm_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![ohm_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+    for (q, qt, ans, a, b, c, d, hint, expl) in cap_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![cap_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+    for (q, qt, ans, a, b, c, d, hint, expl) in ac_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![ac_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+    for (q, qt, ans, a, b, c, d, hint, expl) in logic_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![logic_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+    for (q, qt, ans, a, b, c, d, hint, expl) in semi_qs {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![semi_id, q, qt, ans, a, b, c, d, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_steps: &[(i64, &str)] = &[
+        (circuit_id, "Start with circuit fundamentals — voltage, current, and basic topologies"),
+        (ohm_id, "Master Ohm's Law and Kirchhoff's Laws — the foundation of circuit analysis"),
+        (cap_id, "Learn about energy storage elements — capacitors and inductors"),
+        (ac_id, "Analyze AC circuits — impedance, resonance, and power"),
+        (logic_id, "Enter the digital world — Boolean algebra and logic gates"),
+        (semi_id, "Understand semiconductors — diodes, transistors, and modern electronics"),
+    ];
+    for (i, (tid, desc)) in path_steps.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Electrical Engineering Foundations', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
         )?;
     }
