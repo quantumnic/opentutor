@@ -156,6 +156,14 @@ enum Commands {
         /// Term to search (lists all if omitted)
         term: Option<String>,
     },
+    /// Show a study activity heatmap (like GitHub contributions)
+    Heatmap {
+        /// Number of weeks to display
+        #[arg(short, long, default_value = "12")]
+        weeks: usize,
+    },
+    /// Show your best study hours based on performance data
+    BestHours,
 }
 
 fn main() {
@@ -200,6 +208,8 @@ fn main() {
         Commands::Velocity => commands::velocity::run(&conn),
         Commands::Focus => commands::focus::run(&conn),
         Commands::Glossary { term } => commands::glossary::run(&conn, &term),
+        Commands::Heatmap { weeks } => commands::heatmap::run(&conn, weeks),
+        Commands::BestHours => commands::best_hours::run(&conn),
     };
 
     if let Err(e) = result {

@@ -1,4 +1,5 @@
 pub mod achievements;
+pub mod best_hours;
 pub mod bookmark;
 pub mod challenge;
 pub mod compare;
@@ -10,6 +11,7 @@ pub mod focus;
 pub mod flashcard;
 pub mod glossary;
 pub mod forecast;
+pub mod heatmap;
 pub mod history;
 pub mod learn;
 pub mod leech;

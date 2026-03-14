@@ -93,6 +93,14 @@ pub fn create_tables(conn: &Connection) -> Result<(), rusqlite::Error> {
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
         );
+
+        CREATE TABLE IF NOT EXISTS time_of_day_stats (
+            hour_bucket INTEGER NOT NULL,
+            total_reviews INTEGER NOT NULL DEFAULT 0,
+            correct_reviews INTEGER NOT NULL DEFAULT 0,
+            avg_quality REAL NOT NULL DEFAULT 0.0,
+            PRIMARY KEY (hour_bucket)
+        );
         ",
     )?;
     Ok(())

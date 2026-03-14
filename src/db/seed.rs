@@ -50,6 +50,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_geography_expanded(conn)?;
     seed_psychology_expanded(conn)?;
     seed_game_theory(conn)?;
+    seed_architecture(conn)?;
+    seed_extra_quizzes_round2(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -731,7 +733,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 35); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages
+        assert_eq!(count, 36); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages
     }
 
     #[test]
@@ -741,7 +743,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 35);
+        assert_eq!(count, 36);
     }
 
     #[test]
@@ -4343,6 +4345,220 @@ fn seed_game_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Game Theory Foundations', ?1, ?2, ?3)",
             rusqlite::params![order, tid, desc],
         )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_architecture(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Subject: Architecture & Design (id assigned dynamically)
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES (?1, ?2)",
+        ["Architecture & Design", "The art and science of designing buildings and spaces — from ancient temples to modern skyscrapers."],
+    )?;
+    let subject_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Architecture & Design'", [], |r| r.get(0),
+    )?;
+
+    // Topics
+    let topics = [
+        ("Architectural Styles", "beginner", 1),
+        ("Structural Engineering Basics", "intermediate", 2),
+        ("Sustainable Design", "intermediate", 3),
+        ("Interior Design Principles", "beginner", 4),
+        ("Urban Planning", "advanced", 5),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subject_id, name, diff, order],
+        )?;
+    }
+
+    let tid_styles: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Architectural Styles'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let tid_structural: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Structural Engineering Basics'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let tid_sustainable: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Sustainable Design'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let tid_interior: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Interior Design Principles'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let tid_urban: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Urban Planning'",
+        [subject_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (tid_styles, "Classical Architecture", "Classical architecture originated in ancient Greece and Rome.\n\nKey features:\n- Columns: Doric (simple), Ionic (scrolls), Corinthian (ornate leaves)\n- Symmetry and proportion based on mathematical ratios\n- Pediments (triangular gables) above entrances\n- Use of marble and stone\n\nFamous examples: The Parthenon (Athens), The Pantheon (Rome), The US Capitol Building.\n\nThe classical orders (Doric, Ionic, Corinthian) define column proportions and decorative styles that influenced architecture for over 2,000 years.", 1),
+        (tid_styles, "Gothic Architecture", "Gothic architecture dominated Europe from the 12th to 16th centuries.\n\nKey innovations:\n- Pointed arches (distribute weight more efficiently than round arches)\n- Flying buttresses (external supports allowing thinner walls)\n- Ribbed vaults (intersecting arches creating a skeletal framework)\n- Large stained glass windows (enabled by thinner walls)\n- Vertical emphasis — buildings reach toward the heavens\n\nFamous examples: Notre-Dame de Paris, Cologne Cathedral, Westminster Abbey.\n\nThe term 'Gothic' was originally pejorative — Renaissance critics thought these buildings were barbaric compared to classical forms.", 2),
+        (tid_styles, "Modern & Contemporary Architecture", "Modern architecture (1920s–1970s) rejected ornament in favor of function.\n\nKey principles:\n- 'Form follows function' (Louis Sullivan)\n- Open floor plans\n- Use of steel, glass, and reinforced concrete\n- Flat roofs and clean lines\n- 'Less is more' (Mies van der Rohe)\n\nKey movements:\n- Bauhaus: merged art and industry (Walter Gropius)\n- International Style: glass curtain walls, steel frames\n- Brutalism: raw concrete, bold geometric forms\n\nContemporary architecture (1970s–present) embraces diversity:\n- Deconstructivism (Frank Gehry, Zaha Hadid)\n- Parametricism (computer-generated organic forms)\n- Green architecture (sustainability-focused design)", 3),
+        (tid_structural, "Forces and Loads", "Every building must withstand multiple forces:\n\n1. Dead loads: the building's own weight (walls, floors, roof)\n2. Live loads: occupants, furniture, equipment\n3. Wind loads: lateral forces from wind pressure\n4. Seismic loads: forces from earthquakes\n5. Snow loads: weight of accumulated snow\n\nStructural members:\n- Beams: horizontal, resist bending\n- Columns: vertical, resist compression\n- Trusses: triangulated frameworks (very efficient)\n- Arches: curved, convert loads to compression\n\nThe triangle is the strongest geometric shape — it cannot be deformed without changing the length of its sides.", 1),
+        (tid_structural, "Materials in Construction", "Common structural materials and their properties:\n\nSteel:\n- High tensile strength (resists pulling apart)\n- Ductile (bends before breaking)\n- Vulnerable to fire and corrosion\n\nConcrete:\n- Excellent in compression (pushing together)\n- Weak in tension → reinforced with steel rebar\n- Fire-resistant and durable\n\nWood:\n- Renewable, lightweight, good insulator\n- Vulnerable to fire, rot, and insects\n- Excellent strength-to-weight ratio\n\nMasonry (brick/stone):\n- Very durable in compression\n- Heavy and labor-intensive\n- Weak in tension (needs mortar and reinforcement)", 2),
+        (tid_sustainable, "Green Building Principles", "Sustainable design minimizes environmental impact:\n\n1. Energy efficiency: insulation, LED lighting, efficient HVAC\n2. Water conservation: rainwater harvesting, low-flow fixtures\n3. Material selection: recycled, local, renewable materials\n4. Site planning: orientation for solar gain, natural ventilation\n5. Indoor air quality: non-toxic materials, ventilation\n\nCertification systems:\n- LEED (Leadership in Energy and Environmental Design)\n- BREEAM (UK-based)\n- Passive House (extreme energy efficiency)\n\nA Passive House uses up to 90% less heating energy than a conventional building by using super-insulation, airtight construction, and heat recovery ventilation.", 1),
+        (tid_sustainable, "Renewable Energy in Buildings", "Buildings can generate their own energy:\n\nSolar:\n- Photovoltaic panels convert sunlight to electricity\n- Solar thermal heats water\n- Building-integrated PV (BIPV) replaces traditional materials\n\nWind:\n- Small turbines for individual buildings\n- More effective in rural/exposed locations\n\nGeothermal:\n- Ground-source heat pumps use stable earth temperature\n- Very efficient for heating and cooling\n- High upfront cost, low operating cost\n\nNet-zero buildings produce as much energy as they consume annually.", 2),
+        (tid_interior, "Color and Space", "Color profoundly affects how we experience spaces:\n\nWarm colors (red, orange, yellow):\n- Make spaces feel smaller and cozier\n- Stimulate appetite (used in restaurants)\n- Increase energy and excitement\n\nCool colors (blue, green, purple):\n- Make spaces feel larger and calmer\n- Promote concentration (used in offices)\n- Can feel cold if overused\n\nNeutrals (white, gray, beige):\n- Versatile backgrounds\n- White reflects light, making spaces feel larger\n- Too much white can feel sterile\n\nThe 60-30-10 rule: 60% dominant color, 30% secondary, 10% accent.", 1),
+        (tid_interior, "Lighting Design", "Lighting transforms spaces. Three types:\n\n1. Ambient lighting: general illumination (ceiling lights)\n2. Task lighting: focused for specific activities (desk lamp)\n3. Accent lighting: highlights features (spotlights on art)\n\nColor temperature:\n- Warm (2700K): cozy, residential feel\n- Neutral (3500K): balanced, retail/office\n- Cool (5000K+): energizing, clinical\n\nNatural light is ideal — reduces energy use and improves mood.\nStrategies: large windows, skylights, light shelves, clerestory windows.\n\nCircadian lighting adjusts color temperature throughout the day to support natural sleep-wake cycles.", 2),
+        (tid_urban, "City Planning Fundamentals", "Urban planning shapes how cities function:\n\nZoning: separating land uses (residential, commercial, industrial)\n- Euclidean zoning: strict separation\n- Mixed-use zoning: combining uses (live/work/shop)\n\nTransportation:\n- Transit-oriented development (TOD): dense housing near transit\n- Complete streets: designed for all users (cars, bikes, pedestrians)\n- The 15-minute city: everything within a 15-min walk/bike\n\nPublic spaces:\n- Parks, plazas, and waterfronts\n- Jane Jacobs: 'eyes on the street' — mixed use creates safety\n- Good public spaces have seating, shade, and reasons to linger\n\nDensity is not the enemy — well-planned density creates vibrant, efficient cities.", 1),
+        (tid_urban, "Sustainable Urban Design", "Creating cities that work for people and the planet:\n\nGreen infrastructure:\n- Urban forests reduce heat island effect (cities can be 5-10°C hotter)\n- Bioswales and rain gardens manage stormwater\n- Green roofs insulate buildings and absorb rainfall\n\nWalkability factors (Walk Score):\n- Short blocks with frequent intersections\n- Mixed-use neighborhoods\n- Street trees and protected sidewalks\n- Ground-floor retail with active frontages\n\nResilience:\n- Flood-resistant design in coastal areas\n- Heat mitigation: reflective surfaces, shade, water features\n- Redundant infrastructure systems\n\nThe best cities balance density, nature, mobility, and equity.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<ExplanationRow<'_>> = vec![
+        (tid_styles, "Flying Buttress", "An external arch that transfers the weight of a wall outward and downward to a pier. This innovation allowed Gothic cathedrals to have thinner walls and larger windows.", Some("Think of it like a friend leaning against you to keep you from falling over — the buttress leans against the wall to support it."), Some("Why would thinner walls be desirable in a cathedral?")),
+        (tid_styles, "The Golden Ratio", "The ratio approximately 1:1.618, found throughout classical architecture. The Parthenon's facade fits within a golden rectangle. Many architects use this ratio for aesthetically pleasing proportions.", Some("Like a recipe that just tastes right — certain proportions naturally look harmonious to the human eye."), Some("Can you find the golden ratio in any building near you?")),
+        (tid_structural, "Compression vs Tension", "Compression pushes material together (a column bearing weight). Tension pulls material apart (a cable in a suspension bridge). Most structures experience both forces simultaneously.", Some("Squeeze a sponge — that is compression. Pull a rubber band — that is tension."), Some("Why is concrete strong in compression but weak in tension?")),
+        (tid_sustainable, "Thermal Mass", "Dense materials (concrete, brick, stone) absorb heat slowly and release it slowly. In hot climates, thick walls absorb daytime heat and release it at night. This passive strategy reduces energy use.", Some("Like a water bottle that stays cool — dense materials act as a thermal battery."), Some("How could you use thermal mass in a cold climate?")),
+        (tid_interior, "The 60-30-10 Rule", "A color distribution guideline: 60% dominant color (walls/floors), 30% secondary (furniture/textiles), 10% accent (accessories/art). Creates visual balance and prevents monotony.", Some("Like a well-composed outfit — mostly one color, with complementary pieces and a pop of contrast."), Some("What happens if you use 50-50 instead of 60-30-10?")),
+        (tid_urban, "Jane Jacobs' Four Conditions", "Jane Jacobs identified four conditions for vibrant city neighborhoods: 1) Mixed primary uses, 2) Short blocks, 3) Buildings of varying age, 4) Sufficient density. Her book 'The Death and Life of Great American Cities' (1961) revolutionized urban planning.", Some("Like a healthy ecosystem — diversity creates resilience and vitality."), Some("Which of Jacobs' four conditions is most lacking in modern suburbs?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let quizzes: Vec<QuizRowHint<'_>> = vec![
+        (tid_styles, "Which column order features ornate acanthus leaf capitals?", "multiple_choice", "Corinthian", Some("Doric"), Some("Ionic"), Some("Corinthian"), Some("Tuscan"), "The Corinthian order has elaborate capitals decorated with acanthus leaves and scrolls.", "medium"),
+        (tid_styles, "Flying buttresses are a key feature of which architectural style?", "multiple_choice", "Gothic", Some("Classical"), Some("Gothic"), Some("Art Deco"), Some("Brutalist"), "Flying buttresses were developed in Gothic architecture to support thinner walls and larger windows.", "easy"),
+        (tid_styles, "The phrase 'Less is more' is associated with which architect?", "multiple_choice", "Mies van der Rohe", Some("Frank Lloyd Wright"), Some("Le Corbusier"), Some("Mies van der Rohe"), Some("Frank Gehry"), "Ludwig Mies van der Rohe championed minimalism in the International Style.", "medium"),
+        (tid_styles, "'Form follows function' was coined by which architect?", "fill_in_blank", "Louis Sullivan", None, None, None, None, "Louis Sullivan, the 'father of skyscrapers', coined this phrase that became a modernist mantra.", "medium"),
+        (tid_styles, "The Bauhaus school was founded by Walter Gropius.", "true_false", "true", Some("True"), Some("False"), None, None, "Walter Gropius founded the Bauhaus in Weimar, Germany in 1919.", "easy"),
+        (tid_styles, "Put these architectural periods in chronological order: Brutalism, Gothic, Classical, Art Nouveau", "ordering", "Classical,Gothic,Art Nouveau,Brutalism", Some("Classical"), Some("Gothic"), Some("Art Nouveau"), Some("Brutalism"), "Classical (antiquity) → Gothic (12th-16th c.) → Art Nouveau (1890-1910) → Brutalism (1950s-70s).", "hard"),
+        (tid_structural, "Which geometric shape is considered the strongest for structural purposes?", "multiple_choice", "Triangle", Some("Square"), Some("Triangle"), Some("Circle"), Some("Hexagon"), "The triangle cannot be deformed without changing the length of its sides, making it inherently rigid.", "easy"),
+        (tid_structural, "Concrete is strong in compression but weak in ___.", "fill_in_blank", "tension", None, None, None, None, "Concrete resists compressive forces well but cracks easily under tensile (pulling) forces, which is why it is reinforced with steel.", "medium"),
+        (tid_structural, "Which structural member primarily resists bending forces?", "multiple_choice", "Beam", Some("Column"), Some("Beam"), Some("Foundation"), Some("Truss"), "Beams are horizontal members designed to resist bending from loads applied perpendicular to their length.", "easy"),
+        (tid_structural, "Steel is vulnerable to fire.", "true_false", "true", Some("True"), Some("False"), None, None, "Steel loses strength rapidly at high temperatures — at 600°C it retains only about 40% of its room-temperature strength.", "medium"),
+        (tid_sustainable, "What does LEED stand for?", "fill_in_blank", "Leadership in Energy and Environmental Design", None, None, None, None, "LEED is the most widely used green building certification system in the world.", "hard"),
+        (tid_sustainable, "A Passive House can reduce heating energy by up to what percentage?", "multiple_choice", "90%", Some("50%"), Some("70%"), Some("90%"), Some("100%"), "Passive House buildings use up to 90% less heating energy through super-insulation, airtight construction, and heat recovery.", "medium"),
+        (tid_sustainable, "Which renewable energy system uses stable underground temperatures?", "multiple_choice", "Geothermal", Some("Solar PV"), Some("Wind"), Some("Geothermal"), Some("Tidal"), "Ground-source heat pumps exploit the stable temperature of the earth (around 10-15°C) for efficient heating and cooling.", "easy"),
+        (tid_sustainable, "Net-zero buildings produce as much energy as they consume.", "true_false", "true", Some("True"), Some("False"), None, None, "Net-zero energy buildings generate enough renewable energy to offset their annual consumption.", "easy"),
+        (tid_interior, "According to the 60-30-10 rule, what percentage should be the accent color?", "multiple_choice", "10%", Some("10%"), Some("20%"), Some("30%"), Some("5%"), "The 60-30-10 rule allocates 10% to accent colors — small pops that add interest.", "easy"),
+        (tid_interior, "A color temperature of 2700K would feel ___.", "fill_in_blank", "warm", None, None, None, None, "Lower color temperatures (2700K) produce a warm, yellowish light similar to incandescent bulbs.", "medium"),
+        (tid_interior, "Which type of lighting is best for reading at a desk?", "multiple_choice", "Task lighting", Some("Ambient lighting"), Some("Task lighting"), Some("Accent lighting"), Some("Decorative lighting"), "Task lighting provides focused illumination for specific activities like reading or cooking.", "easy"),
+        (tid_interior, "Warm colors make a room feel larger.", "true_false", "false", Some("True"), Some("False"), None, None, "Warm colors make spaces feel smaller and cozier. Cool colors create the illusion of more space.", "medium"),
+        (tid_urban, "The '15-minute city' concept means everything is within a 15-minute ___.", "fill_in_blank", "walk", None, None, None, None, "The 15-minute city aims to have all daily needs accessible within a 15-minute walk or bike ride.", "easy"),
+        (tid_urban, "Who wrote 'The Death and Life of Great American Cities'?", "multiple_choice", "Jane Jacobs", Some("Robert Moses"), Some("Jane Jacobs"), Some("Le Corbusier"), Some("Frank Lloyd Wright"), "Jane Jacobs published this influential critique of modernist urban planning in 1961.", "medium"),
+        (tid_urban, "Urban heat island effect can make cities how much hotter than surrounding areas?", "multiple_choice", "5-10°C", Some("1-2°C"), Some("3-4°C"), Some("5-10°C"), Some("15-20°C"), "Dense urban areas with dark surfaces and waste heat can be 5-10°C warmer than surrounding rural areas.", "medium"),
+        (tid_urban, "Transit-oriented development places dense housing near public transit.", "true_false", "true", Some("True"), Some("False"), None, None, "TOD concentrates housing, jobs, and services around transit stations to reduce car dependency.", "easy"),
+    ];
+    for (tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10)",
+            rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty],
+        )?;
+    }
+
+    // Learning path
+    let path_steps: Vec<(i64, &str)> = vec![
+        (tid_styles, "Learn the major architectural styles from classical to contemporary"),
+        (tid_interior, "Understand how color, light, and space create interior environments"),
+        (tid_structural, "Learn the engineering principles that make buildings stand up"),
+        (tid_sustainable, "Explore green building and renewable energy in architecture"),
+        (tid_urban, "Understand how cities are planned and designed for people"),
+    ];
+    for (i, (tid, desc)) in path_steps.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params!["Architecture & Design Fundamentals", i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Additional quiz questions for subjects that have fewer quizzes.
+pub fn seed_extra_quizzes_round2(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Extra quizzes for Music (Musical Notes & Scales)
+    let tid_music: Result<i64, _> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Musical Notes & Scales'", [], |r| r.get(0),
+    );
+    if let Ok(tid) = tid_music {
+        let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
+            ("How many notes are in a chromatic scale?", "multiple_choice", "12", Some("7"), Some("8"), Some("12"), Some("14"), "A chromatic scale includes all 12 semitones within an octave.", "medium"),
+            ("The distance between two adjacent keys on a piano is called a ___.", "fill_in_blank", "semitone", None, None, None, None, "A semitone (or half step) is the smallest interval in Western music.", "easy"),
+            ("A major scale has 7 notes.", "true_false", "true", Some("True"), Some("False"), None, None, "Major scales consist of 7 unique notes plus the octave.", "easy"),
+            ("Which note is the fifth degree of a C major scale?", "multiple_choice", "G", Some("D"), Some("E"), Some("G"), Some("A"), "C-D-E-F-G: G is the fifth note (dominant) of C major.", "medium"),
+        ];
+        for (question, qtype, correct, oa, ob, oc, od, explanation, difficulty) in &quizzes {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10)",
+                rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty],
+            )?;
+        }
+    }
+
+    // Extra quizzes for Art (Color Theory)
+    let tid_art: Result<i64, _> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Color Theory'", [], |r| r.get(0),
+    );
+    if let Ok(tid) = tid_art {
+        let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
+            ("Which color model is used for printing?", "multiple_choice", "CMYK", Some("RGB"), Some("CMYK"), Some("HSL"), Some("RYB"), "CMYK (Cyan, Magenta, Yellow, Key/Black) is the subtractive color model used in printing.", "medium"),
+            ("Complementary colors are opposite each other on the color wheel.", "true_false", "true", Some("True"), Some("False"), None, None, "Complementary colors (e.g., red-green, blue-orange) create maximum contrast.", "easy"),
+            ("What is the complementary color of blue?", "multiple_choice", "Orange", Some("Red"), Some("Green"), Some("Orange"), Some("Yellow"), "On the RYB color wheel, blue and orange are complementary colors.", "easy"),
+            ("Adding white to a color creates a ___.", "fill_in_blank", "tint", None, None, None, None, "A tint is a color mixed with white, making it lighter. A shade is mixed with black.", "medium"),
+        ];
+        for (question, qtype, correct, oa, ob, oc, od, explanation, difficulty) in &quizzes {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10)",
+                rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty],
+            )?;
+        }
+    }
+
+    // Extra quizzes for Environmental Science
+    let tid_eco: Result<i64, _> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Ecosystems & Biomes'", [], |r| r.get(0),
+    );
+    if let Ok(tid) = tid_eco {
+        let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
+            ("Which biome has the highest biodiversity?", "multiple_choice", "Tropical rainforest", Some("Desert"), Some("Tundra"), Some("Tropical rainforest"), Some("Taiga"), "Tropical rainforests contain more than half of the world's species despite covering only ~6% of land.", "easy"),
+            ("The tundra biome is characterized by permafrost.", "true_false", "true", Some("True"), Some("False"), None, None, "Tundra has permanently frozen subsoil (permafrost) and very short growing seasons.", "easy"),
+            ("What is the largest biome on Earth by area?", "multiple_choice", "Taiga", Some("Desert"), Some("Taiga"), Some("Grassland"), Some("Tropical rainforest"), "The taiga (boreal forest) stretches across Russia, Canada, and Scandinavia — the largest terrestrial biome.", "hard"),
+            ("An organism that breaks down dead matter is called a ___.", "fill_in_blank", "decomposer", None, None, None, None, "Decomposers (fungi, bacteria) break down dead organisms, recycling nutrients back into the ecosystem.", "easy"),
+        ];
+        for (question, qtype, correct, oa, ob, oc, od, explanation, difficulty) in &quizzes {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10)",
+                rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty],
+            )?;
+        }
+    }
+
+    // Extra quizzes for Economics (Supply & Demand)
+    let tid_econ: Result<i64, _> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Supply & Demand'", [], |r| r.get(0),
+    );
+    if let Ok(tid) = tid_econ {
+        let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
+            ("When demand increases and supply stays the same, price tends to ___.", "fill_in_blank", "increase", None, None, None, None, "Higher demand with fixed supply creates scarcity, pushing prices up.", "easy"),
+            ("A price ceiling set below equilibrium causes a ___.", "fill_in_blank", "shortage", None, None, None, None, "Price ceilings below equilibrium make the good cheaper, increasing demand while reducing supply.", "medium"),
+            ("The law of demand states that as price increases, quantity demanded ___.", "fill_in_blank", "decreases", None, None, None, None, "The law of demand: price and quantity demanded move in opposite directions (ceteris paribus).", "easy"),
+            ("Which type of good sees demand increase when income rises?", "multiple_choice", "Normal good", Some("Inferior good"), Some("Normal good"), Some("Giffen good"), Some("Veblen good"), "Normal goods have a positive income elasticity — demand rises with income.", "medium"),
+        ];
+        for (question, qtype, correct, oa, ob, oc, od, explanation, difficulty) in &quizzes {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, NULL, ?9, ?10)",
+                rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty],
+            )?;
+        }
     }
 
     Ok(())

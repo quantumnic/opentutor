@@ -267,6 +267,13 @@ pub fn update_spaced_repetition(
            leech_count = ?5",
         rusqlite::params![topic_id, new_ease, final_interval, new_consecutive_fails, new_leech_count],
     )?;
+
+    // Record time-of-day performance for future scheduling insights
+    let current_hour: u32 = conn
+        .query_row("SELECT CAST(strftime('%H', 'now', 'localtime') AS INTEGER)", [], |r| r.get::<_, i64>(0))
+        .unwrap_or(12) as u32;
+    let _ = record_time_of_day_performance(conn, current_hour, quality);
+
     Ok(())
 }
 
@@ -1512,6 +1519,84 @@ pub fn interleaved_review_batch(conn: &Connection) -> Result<Vec<(i64, String, S
     Ok(result)
 }
 
+// ── Time-of-Day Performance Tracking ─────────────────────────────────────
+
+/// Record the user's quiz/review quality at a given hour of day (0-23).
+/// This builds a profile of when the user performs best, which can be
+/// used to give slight quality bonuses during peak hours.
+pub fn record_time_of_day_performance(
+    conn: &Connection,
+    hour: u32,
+    quality: u8,
+) -> Result<(), rusqlite::Error> {
+    let bucket = (hour % 24) as i64;
+    let q = quality as f64;
+
+    // Upsert: increment counters and update running average
+    conn.execute(
+        "INSERT INTO time_of_day_stats (hour_bucket, total_reviews, correct_reviews, avg_quality)
+         VALUES (?1, 1, ?2, ?3)
+         ON CONFLICT(hour_bucket) DO UPDATE SET
+           total_reviews = total_reviews + 1,
+           correct_reviews = correct_reviews + ?2,
+           avg_quality = (avg_quality * total_reviews + ?3) / (total_reviews + 1)",
+        rusqlite::params![bucket, if quality >= 3 { 1 } else { 0 }, q],
+    )?;
+    Ok(())
+}
+
+/// Find the hour bucket where the user has the highest average quality.
+/// Returns None if no data exists.
+pub fn best_study_hour(conn: &Connection) -> Option<u32> {
+    conn.query_row(
+        "SELECT hour_bucket FROM time_of_day_stats
+         WHERE total_reviews >= 3
+         ORDER BY avg_quality DESC, total_reviews DESC
+         LIMIT 1",
+        [],
+        |r| r.get::<_, i64>(0),
+    )
+    .ok()
+    .map(|h| h as u32)
+}
+
+/// Calculate a quality multiplier based on the current hour vs historical performance.
+#[allow(dead_code)]
+/// Returns 1.0 if no data, up to 1.1 during the user's best hours,
+/// and down to 0.95 during their weakest hours.
+pub fn time_of_day_quality_bonus(conn: &Connection, current_hour: u32) -> f64 {
+    let stats: Result<(i64, f64), _> = conn.query_row(
+        "SELECT total_reviews, avg_quality FROM time_of_day_stats WHERE hour_bucket = ?1",
+        [current_hour as i64],
+        |r| Ok((r.get(0)?, r.get(1)?)),
+    );
+
+    let (reviews, avg_q) = match stats {
+        Ok(s) if s.0 >= 3 => s,
+        _ => return 1.0,
+    };
+
+    // Get the overall average quality
+    let overall_avg: f64 = conn
+        .query_row(
+            "SELECT COALESCE(SUM(avg_quality * total_reviews) / NULLIF(SUM(total_reviews), 0), 3.0)
+             FROM time_of_day_stats WHERE total_reviews >= 3",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(3.0);
+
+    if overall_avg <= 0.0 {
+        return 1.0;
+    }
+
+    // Scale: if this hour is better than average, bonus up to 1.1
+    // If worse, penalty down to 0.95
+    let ratio = avg_q / overall_avg;
+    let _ = reviews; // used for the minimum threshold above
+    ratio.clamp(0.95, 1.1)
+}
+
 #[cfg(test)]
 mod mastery_tests {
     use super::*;
@@ -1703,6 +1788,36 @@ mod mastery_tests {
         let (_, _, _, days_until, retention) = &forecast[0];
         assert!(*retention > 0.9, "Just-reviewed should have high retention, got {}", retention);
         assert!(*days_until > 0.0, "Should have positive days until critical, got {}", days_until);
+    }
+
+    #[test]
+    fn test_tod_record_and_best_hour() {
+        let conn = db::init_memory_db().unwrap();
+        // No data yet
+        assert_eq!(best_study_hour(&conn), None);
+        // Record some performance (need >= 3 reviews per bucket for best_study_hour)
+        record_time_of_day_performance(&conn, 9, 4).unwrap();
+        record_time_of_day_performance(&conn, 9, 5).unwrap();
+        record_time_of_day_performance(&conn, 9, 5).unwrap();
+        record_time_of_day_performance(&conn, 21, 2).unwrap();
+        record_time_of_day_performance(&conn, 21, 1).unwrap();
+        record_time_of_day_performance(&conn, 21, 2).unwrap();
+        let best = best_study_hour(&conn);
+        assert_eq!(best, Some(9));
+    }
+
+    #[test]
+    fn test_tod_quality_bonus() {
+        let conn = db::init_memory_db().unwrap();
+        // Without data, no bonus
+        assert!((time_of_day_quality_bonus(&conn, 10) - 1.0).abs() < f64::EPSILON);
+        // With data showing hour 10 is best
+        for _ in 0..5 {
+            record_time_of_day_performance(&conn, 10, 5).unwrap();
+        }
+        record_time_of_day_performance(&conn, 22, 2).unwrap();
+        let bonus = time_of_day_quality_bonus(&conn, 10);
+        assert!(bonus >= 1.0, "Best hour should have bonus >= 1.0, got {}", bonus);
     }
 
     #[test]
