@@ -701,6 +701,129 @@ pub fn remaining_reviews_today(conn: &Connection) -> usize {
     cap.saturating_sub(done)
 }
 
+/// Average minutes per review, estimated from session logs.
+/// Defaults to 2.0 minutes if no data available.
+#[allow(dead_code)]
+const DEFAULT_MINUTES_PER_REVIEW: f64 = 2.0;
+
+/// Estimate how many minutes the user should study today based on due reviews
+/// and their historical review pace.
+/// Returns (estimated_minutes, due_count, avg_minutes_per_review).
+#[allow(dead_code)]
+pub fn estimate_study_time(conn: &Connection) -> (f64, i64, f64) {
+    let due = count_due_topics(conn).unwrap_or(0);
+    let remaining = remaining_reviews_today(conn) as i64;
+    let reviewable = due.min(remaining);
+
+    // Estimate pace from recent session data: avg time between consecutive reviews
+    let avg_pace = average_review_pace(conn).unwrap_or(DEFAULT_MINUTES_PER_REVIEW);
+    let estimated = reviewable as f64 * avg_pace;
+
+    (estimated, due, avg_pace)
+}
+
+/// Calculate the average minutes between consecutive reviews from session logs.
+/// Uses the last 50 review entries to estimate pace.
+#[allow(dead_code)]
+fn average_review_pace(conn: &Connection) -> Option<f64> {
+    let mut stmt = conn.prepare(
+        "SELECT timestamp FROM session_log
+         WHERE activity_type = 'review'
+         ORDER BY timestamp DESC LIMIT 50",
+    ).ok()?;
+    let timestamps: Vec<String> = stmt
+        .query_map([], |r| r.get(0))
+        .ok()?
+        .filter_map(|r| r.ok())
+        .collect();
+
+    if timestamps.len() < 2 {
+        return None;
+    }
+
+    // Parse timestamps and compute average gap
+    let mut total_gap_minutes = 0.0;
+    let mut gaps = 0;
+
+    for pair in timestamps.windows(2) {
+        let t1 = chrono::NaiveDateTime::parse_from_str(&pair[0], "%Y-%m-%d %H:%M:%S").ok();
+        let t2 = chrono::NaiveDateTime::parse_from_str(&pair[1], "%Y-%m-%d %H:%M:%S").ok();
+        if let (Some(newer), Some(older)) = (t1, t2) {
+            let gap = (newer - older).num_seconds() as f64 / 60.0;
+            // Only count gaps under 30 minutes (ignore session breaks)
+            if gap > 0.0 && gap < 30.0 {
+                total_gap_minutes += gap;
+                gaps += 1;
+            }
+        }
+    }
+
+    if gaps > 0 {
+        let avg = total_gap_minutes / gaps as f64;
+        Some(avg.clamp(0.5, 15.0)) // Sanity bounds
+    } else {
+        None
+    }
+}
+
+/// A memory forecast entry: (topic_id, name, subject, days_until_critical, current_retention).
+#[allow(dead_code)]
+pub type ForecastEntry = (i64, String, String, f64, f64);
+
+/// Forecast memory state: for each studied topic, predict when retention will
+/// drop below the desired threshold. Returns a list sorted by urgency (soonest critical first).
+#[allow(dead_code)]
+pub fn memory_forecast(conn: &Connection) -> Result<Vec<ForecastEntry>, rusqlite::Error> {
+    let desired_retention = crate::commands::config::get_desired_retention(conn);
+
+    let mut stmt = conn.prepare(
+        "SELECT p.topic_id, t.name, s.name, p.ease_factor, p.interval_days, p.last_reviewed
+         FROM user_progress p
+         JOIN topics t ON t.id = p.topic_id
+         JOIN subjects s ON s.id = t.subject_id
+         WHERE p.last_reviewed IS NOT NULL",
+    )?;
+
+    let mut forecasts: Vec<(i64, String, String, f64, f64)> = stmt
+        .query_map([], |r| {
+            let topic_id: i64 = r.get(0)?;
+            let name: String = r.get(1)?;
+            let subject: String = r.get(2)?;
+            let ease: f64 = r.get(3)?;
+            let interval: i64 = r.get(4)?;
+            let last_reviewed: String = r.get(5)?;
+            Ok((topic_id, name, subject, ease, interval, last_reviewed))
+        })?
+        .filter_map(|r| r.ok())
+        .map(|(topic_id, name, subject, ease, interval, last_reviewed)| {
+            let stability = (interval as f64 * ease / 2.5).max(1.0);
+            let elapsed = chrono::NaiveDateTime::parse_from_str(&last_reviewed, "%Y-%m-%d %H:%M:%S")
+                .or_else(|_| chrono::NaiveDate::parse_from_str(&last_reviewed, "%Y-%m-%d")
+                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap()))
+                .map(|dt| {
+                    let now = chrono::Local::now().naive_local();
+                    (now - dt).num_seconds() as f64 / 86400.0
+                })
+                .unwrap_or(0.0)
+                .max(0.0);
+
+            // Current retention
+            let current_r = (1.0 + FSRS_FACTOR * elapsed / stability).powf(-1.0 / FSRS_DECAY);
+
+            // Days until retention drops to desired_retention
+            // R(t) = (1 + FSRS_FACTOR * t/S)^(-1/FSRS_DECAY) = desired_retention
+            // t = S / FSRS_FACTOR * (desired_retention^(-FSRS_DECAY) - 1)
+            let critical_t = stability / FSRS_FACTOR * (desired_retention.powf(-FSRS_DECAY) - 1.0);
+            let days_until = (critical_t - elapsed).max(0.0);
+
+            (topic_id, name, subject, days_until, current_r.clamp(0.0, 1.0))
+        })
+        .collect();
+
+    forecasts.sort_by(|a, b| a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal));
+    Ok(forecasts)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1537,5 +1660,67 @@ mod mastery_tests {
         // Full penalty of 0.15 should be applied
         let penalty = ease_before - ease_after;
         assert!(penalty >= 0.14, "Established card should get full penalty, got {}", penalty);
+    }
+
+    #[test]
+    fn test_estimate_study_time_no_due() {
+        let conn = db::init_memory_db().unwrap();
+        let (minutes, due, pace) = estimate_study_time(&conn);
+        assert_eq!(due, 0);
+        assert_eq!(minutes, 0.0);
+        assert!((pace - DEFAULT_MINUTES_PER_REVIEW).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_estimate_study_time_with_due() {
+        let conn = db::init_memory_db().unwrap();
+        // Create a due topic
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, next_review)
+             VALUES (1, 80.0, 3, 2, 2.5, 1, datetime('now', '-1 day'))", []
+        ).unwrap();
+        let (minutes, due, _pace) = estimate_study_time(&conn);
+        assert_eq!(due, 1);
+        assert!(minutes > 0.0, "Should estimate positive study time, got {}", minutes);
+    }
+
+    #[test]
+    fn test_memory_forecast_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let forecast = memory_forecast(&conn).unwrap();
+        assert!(forecast.is_empty());
+    }
+
+    #[test]
+    fn test_memory_forecast_with_data() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 100.0, 5, 5, 2.5, 10, datetime('now'))", []
+        ).unwrap();
+        let forecast = memory_forecast(&conn).unwrap();
+        assert_eq!(forecast.len(), 1);
+        let (_, _, _, days_until, retention) = &forecast[0];
+        assert!(*retention > 0.9, "Just-reviewed should have high retention, got {}", retention);
+        assert!(*days_until > 0.0, "Should have positive days until critical, got {}", days_until);
+    }
+
+    #[test]
+    fn test_memory_forecast_ordering() {
+        let conn = db::init_memory_db().unwrap();
+        // Topic 1: reviewed recently
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 100.0, 5, 5, 2.5, 10, datetime('now'))", []
+        ).unwrap();
+        // Topic 2: reviewed a while ago
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (2, 80.0, 3, 2, 2.0, 5, datetime('now', '-8 days'))", []
+        ).unwrap();
+        let forecast = memory_forecast(&conn).unwrap();
+        assert_eq!(forecast.len(), 2);
+        // Topic 2 should be more urgent (fewer days until critical)
+        assert!(forecast[0].3 <= forecast[1].3, "Forecast should be sorted by urgency");
     }
 }

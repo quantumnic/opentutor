@@ -216,12 +216,49 @@ fn fuzzy_match(answer: &str, correct: &str) -> bool {
     if answer == correct {
         return true;
     }
+    // Try numeric normalization first (e.g., "3.0" == "3", "1/2" == "0.5")
+    if numeric_match(answer, correct) {
+        return true;
+    }
     let max_len = answer.len().max(correct.len());
     if max_len <= 4 {
         return false; // Short answers must be exact
     }
     let allowed = (max_len / 5).clamp(1, 2);
     levenshtein(answer, correct) <= allowed
+}
+
+/// Attempt to parse a string as a numeric value, handling fractions like "1/2".
+fn parse_numeric(s: &str) -> Option<f64> {
+    let s = s.trim();
+    // Try direct float parse
+    if let Ok(v) = s.parse::<f64>() {
+        return Some(v);
+    }
+    // Try fraction format "a/b"
+    if let Some((num, den)) = s.split_once('/') {
+        if let (Ok(n), Ok(d)) = (num.trim().parse::<f64>(), den.trim().parse::<f64>()) {
+            if d != 0.0 {
+                return Some(n / d);
+            }
+        }
+    }
+    // Try percentage "50%" → 0.5
+    if let Some(pct) = s.strip_suffix('%') {
+        if let Ok(v) = pct.trim().parse::<f64>() {
+            return Some(v / 100.0);
+        }
+    }
+    None
+}
+
+/// Check if two strings represent the same numeric value.
+/// Handles integers, floats, fractions, and percentages.
+fn numeric_match(answer: &str, correct: &str) -> bool {
+    match (parse_numeric(answer), parse_numeric(correct)) {
+        (Some(a), Some(b)) => (a - b).abs() < 1e-9,
+        _ => false,
+    }
 }
 
 #[allow(dead_code)]
@@ -561,5 +598,121 @@ mod tests {
         assert!(check_answer(&q, "odysseus")); // case insensitive
         assert!(check_answer(&q, "Odyseus")); // 1 typo accepted
         assert!(!check_answer(&q, "Zeus")); // totally wrong
+    }
+
+    #[test]
+    fn test_parse_numeric_integer() {
+        assert_eq!(parse_numeric("42"), Some(42.0));
+        assert_eq!(parse_numeric("  7 "), Some(7.0));
+    }
+
+    #[test]
+    fn test_parse_numeric_float() {
+        assert_eq!(parse_numeric("3.14"), Some(3.14));
+        assert_eq!(parse_numeric("0.5"), Some(0.5));
+    }
+
+    #[test]
+    fn test_parse_numeric_fraction() {
+        assert!((parse_numeric("1/2").unwrap() - 0.5).abs() < 1e-9);
+        assert!((parse_numeric("3/4").unwrap() - 0.75).abs() < 1e-9);
+        assert!(parse_numeric("1/0").is_none()); // division by zero
+    }
+
+    #[test]
+    fn test_parse_numeric_percentage() {
+        assert!((parse_numeric("50%").unwrap() - 0.5).abs() < 1e-9);
+        assert!((parse_numeric("100%").unwrap() - 1.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn test_parse_numeric_non_numeric() {
+        assert!(parse_numeric("hello").is_none());
+        assert!(parse_numeric("").is_none());
+    }
+
+    #[test]
+    fn test_numeric_match_equivalent_forms() {
+        assert!(numeric_match("3.0", "3"));
+        assert!(numeric_match("1/2", "0.5"));
+        assert!(numeric_match("0.25", "1/4"));
+        assert!(numeric_match("100", "100.0"));
+    }
+
+    #[test]
+    fn test_numeric_match_different_values() {
+        assert!(!numeric_match("3", "4"));
+        assert!(!numeric_match("1/2", "1/3"));
+    }
+
+    #[test]
+    fn test_fill_in_blank_numeric_normalization() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "What is 1/2 as a decimal?".into(),
+            question_type: "fill_in_blank".into(),
+            difficulty: "easy".into(),
+            correct_answer: "0.5".into(),
+            options: vec![],
+            hint: None,
+            explanation: "1 divided by 2 = 0.5".into(),
+        };
+        assert!(check_answer(&q, "0.5"));
+        assert!(check_answer(&q, "1/2"));
+        assert!(check_answer(&q, ".5"));
+        assert!(check_answer(&q, "50%"));
+        assert!(!check_answer(&q, "0.6"));
+    }
+
+    #[test]
+    fn test_fill_in_blank_integer_normalization() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "What is 2+1?".into(),
+            question_type: "fill_in_blank".into(),
+            difficulty: "easy".into(),
+            correct_answer: "3".into(),
+            options: vec![],
+            hint: None,
+            explanation: "Basic addition.".into(),
+        };
+        assert!(check_answer(&q, "3"));
+        assert!(check_answer(&q, "3.0"));
+        assert!(!check_answer(&q, "4"));
+    }
+
+    #[test]
+    fn test_game_theory_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        // Find the Nash Equilibrium topic
+        let nash_id: Option<i64> = conn.query_row(
+            "SELECT id FROM topics WHERE name = 'Nash Equilibrium'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(nash_id.is_some(), "Nash Equilibrium topic should exist");
+        let qs = get_questions(&conn, nash_id.unwrap(), 5).unwrap();
+        assert!(!qs.is_empty(), "Should have quiz questions for Nash Equilibrium");
+    }
+
+    #[test]
+    fn test_game_theory_all_topics_have_quizzes() {
+        let conn = db::init_memory_db().unwrap();
+        let gt_id: i64 = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Game Theory'",
+            [], |r| r.get(0),
+        ).unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([gt_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert!(topics.len() >= 6, "Game Theory should have at least 6 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
     }
 }

@@ -49,6 +49,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_world_languages(conn)?;
     seed_geography_expanded(conn)?;
     seed_psychology_expanded(conn)?;
+    seed_game_theory(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -730,7 +731,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 34); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages
+        assert_eq!(count, 35); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages
     }
 
     #[test]
@@ -740,7 +741,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 34);
+        assert_eq!(count, 35);
     }
 
     #[test]
@@ -4122,6 +4123,225 @@ pub fn seed_psychology_expanded(conn: &Connection) -> Result<(), rusqlite::Error
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'medium')",
             rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, hint, explanation],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_game_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // --- Subject ---
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
+        ["Game Theory", "Strategic decision-making — analyzing how rational agents interact, compete, and cooperate in games of strategy."],
+    )?;
+    let subject_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Game Theory'", [], |r| r.get(0),
+    )?;
+
+    // --- Topics ---
+    let topics = [
+        ("Nash Equilibrium", "intermediate", 1),
+        ("Prisoner's Dilemma", "beginner", 2),
+        ("Dominant Strategies", "beginner", 3),
+        ("Zero-Sum Games", "intermediate", 4),
+        ("Evolutionary Game Theory", "advanced", 5),
+        ("Mechanism Design", "advanced", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subject_id, name, diff, order],
+        )?;
+    }
+
+    let nash_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Nash Equilibrium'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let prisoner_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Prisoner''s Dilemma'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let dominant_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Dominant Strategies'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let zerosum_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Zero-Sum Games'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let evo_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Evolutionary Game Theory'",
+        [subject_id], |r| r.get(0),
+    )?;
+    let mech_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mechanism Design'",
+        [subject_id], |r| r.get(0),
+    )?;
+
+    // --- Lessons ---
+    let lessons: Vec<LessonRow> = vec![
+        (nash_id, "What is a Nash Equilibrium?",
+         "A Nash Equilibrium is a situation where no player can benefit by changing their strategy while the other players keep theirs unchanged. Named after mathematician John Nash (1950), it represents a stable state of a game.\n\nKey insight: at a Nash Equilibrium, every player is doing the best they can *given* what everyone else is doing. It doesn't mean the outcome is optimal for everyone — just that nobody has an incentive to unilaterally deviate.\n\nExample: In a two-player game where both can choose Left or Right, if both choosing Left gives each player 3 points and any deviation gives the deviator only 1 point, then (Left, Left) is a Nash Equilibrium.", 1),
+        (nash_id, "Finding Nash Equilibria",
+         "To find Nash Equilibria in a normal-form game:\n\n1. For each player, find their best response to each possible strategy of the other players.\n2. A strategy profile where every player is playing a best response is a Nash Equilibrium.\n\nMethod: Underline best responses in the payoff matrix. Cells where ALL payoffs are underlined are Nash Equilibria.\n\nSome games have multiple Nash Equilibria (coordination games), some have exactly one (like Prisoner's Dilemma), and some have none in pure strategies but always have one in mixed strategies (Nash's theorem).", 2),
+        (prisoner_id, "The Classic Prisoner's Dilemma",
+         "Two suspects are arrested and separated. Each can either Cooperate (stay silent) or Defect (betray the other).\n\nPayoffs:\n- Both cooperate: 1 year each\n- Both defect: 3 years each\n- One defects, one cooperates: defector goes free, cooperator gets 5 years\n\nThe dilemma: rational self-interest leads both to defect, even though mutual cooperation would be better for both. This illustrates why individually rational decisions can lead to collectively irrational outcomes.\n\nReal-world examples: arms races, climate agreements, price wars between companies.", 1),
+        (prisoner_id, "Iterated Prisoner's Dilemma",
+         "When the Prisoner's Dilemma is played repeatedly, cooperation can emerge through strategies like Tit-for-Tat:\n\n1. Cooperate on the first move\n2. Then copy whatever the opponent did last round\n\nRobert Axelrod's tournaments (1980s) showed that Tit-for-Tat performed remarkably well — it's simple, nice (never defects first), retaliatory (punishes defection), and forgiving (returns to cooperation).\n\nThe 'shadow of the future': when players expect to interact again, the threat of future punishment makes cooperation sustainable.", 2),
+        (dominant_id, "What is a Dominant Strategy?",
+         "A dominant strategy is one that gives a player a better (or equal) payoff than any other strategy, regardless of what the opponents do.\n\n- Strictly dominant: always gives a strictly better payoff\n- Weakly dominant: always gives at least as good a payoff, and strictly better in at least one case\n\nIterative elimination of dominated strategies (IEDS): remove strategies that are never best responses, then repeat. If this process leads to a single outcome, the game is dominance-solvable.\n\nNot all games have dominant strategies — when they don't, we need Nash Equilibrium analysis.", 1),
+        (zerosum_id, "Zero-Sum and Constant-Sum Games",
+         "In a zero-sum game, one player's gain is exactly the other's loss. The payoffs always sum to zero (or a constant).\n\nExamples: chess, poker (ignoring the house), penalty kicks in soccer.\n\nVon Neumann's Minimax Theorem (1928): In every finite two-player zero-sum game, there exists an optimal mixed strategy for each player. The value of the game is uniquely determined.\n\nMinimax strategy: maximize your minimum payoff (equivalently, minimize the opponent's maximum payoff). This leads to the game's 'value' — the expected payoff under optimal play.", 1),
+        (evo_id, "Evolution and Strategy",
+         "Evolutionary Game Theory applies game-theoretic concepts to biological evolution. Instead of rational players choosing strategies, natural selection favors strategies that produce more offspring.\n\nKey concept: Evolutionarily Stable Strategy (ESS) — a strategy that, if adopted by a population, cannot be invaded by any alternative strategy. Introduced by John Maynard Smith and George Price (1973).\n\nClassic example: Hawk-Dove game — competing for resources with aggressive (Hawk) or peaceful (Dove) strategies. Pure populations of either type are unstable; evolution produces a mix.", 1),
+        (mech_id, "Designing the Rules of the Game",
+         "Mechanism design is 'reverse game theory' — instead of analyzing a given game, you design the rules to achieve a desired outcome.\n\nApplications:\n- Auction design (how to sell goods efficiently)\n- Voting systems (how to aggregate preferences fairly)\n- Market design (matching students to schools, organ donors to recipients)\n\nKey concepts:\n- Incentive compatibility: players reveal true preferences\n- Individual rationality: players voluntarily participate\n- The Revelation Principle: any mechanism can be replicated by a direct mechanism where truth-telling is optimal\n\nNobel Prize 2007: Hurwicz, Maskin, Myerson for mechanism design theory.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // --- Explanations ---
+    let explanations: Vec<ExplanationRow> = vec![
+        (nash_id, "Nash Equilibrium",
+         "A Nash Equilibrium is like a group of friends choosing restaurants — once everyone has settled on a place they're happy with *given* where everyone else is going, nobody wants to switch alone. It's not necessarily the best outcome for the group, just one where no individual wants to change.",
+         Some("Think of cars at an intersection with no traffic light — eventually drivers settle into a pattern where nobody gains by changing their behavior."),
+         Some("Can a game have more than one Nash Equilibrium?")),
+        (prisoner_id, "Prisoner's Dilemma",
+         "The Prisoner's Dilemma shows why cooperation is hard even when it benefits everyone. Each player thinking 'I'm better off defecting no matter what the other does' leads to a worse outcome for both.",
+         Some("It's like two roommates who'd both prefer a clean apartment but each hopes the other will clean — so neither does."),
+         Some("How does repeating the game change the outcome?")),
+        (dominant_id, "Dominant Strategy",
+         "A dominant strategy is your 'no-brainer' choice — it's best regardless of what others do. Like bringing an umbrella when there's a 90% chance of rain: whether it rains or not, you won't regret it.",
+         Some("Imagine a test where one answer is always correct regardless of the question — that's a dominant strategy."),
+         Some("What happens when no player has a dominant strategy?")),
+        (zerosum_id, "Zero-Sum Game",
+         "In a zero-sum game, the pie is fixed — you can only gain by taking from someone else. Your gain of $10 means someone else loses $10.",
+         Some("Think of siblings splitting a pizza — every extra slice for one means fewer for the other."),
+         Some("Are most real-world interactions zero-sum?")),
+        (evo_id, "Evolutionarily Stable Strategy",
+         "An ESS is a strategy so successful that a whole population using it can't be overtaken by mutants using a different strategy. It's nature's version of a Nash Equilibrium, enforced by survival rather than rationality.",
+         Some("Like a language everyone speaks — a few people switching to a new language won't succeed because nobody understands them."),
+         Some("Can cooperation evolve through natural selection?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // --- Quiz Questions ---
+    let quizzes: Vec<QuizRowHint> = vec![
+        (nash_id, "In a Nash Equilibrium, what is true about each player's strategy?", "multiple_choice",
+         "No player can improve their payoff by unilaterally changing strategy",
+         Some("All players maximize total payoff"),
+         Some("No player can improve their payoff by unilaterally changing strategy"),
+         Some("Players always cooperate"),
+         Some("The game must be zero-sum"),
+         "Think about what 'equilibrium' means — stability",
+         "At a Nash Equilibrium, each player's strategy is a best response to the others. No one can do better by changing their own strategy alone."),
+        (nash_id, "Who proved that every finite game has at least one Nash Equilibrium (in mixed strategies)?", "fill_in_blank",
+         "John Nash",
+         None, None, None, None,
+         "Nobel Prize in Economics, 1994",
+         "John Nash proved this in 1950 in his PhD dissertation, using Kakutani's fixed-point theorem."),
+        (nash_id, "True or False: A Nash Equilibrium always produces the best outcome for all players.", "true_false",
+         "False",
+         None, None, None, None,
+         "Think about the Prisoner's Dilemma",
+         "The Prisoner's Dilemma is a famous counter-example: the Nash Equilibrium (both defect) is worse for both players than mutual cooperation."),
+        (prisoner_id, "In the classic Prisoner's Dilemma, what is the Nash Equilibrium?", "multiple_choice",
+         "Both defect",
+         Some("Both cooperate"),
+         Some("Both defect"),
+         Some("One cooperates, one defects"),
+         Some("There is no equilibrium"),
+         "What does each player prefer regardless of the other's choice?",
+         "Defecting is a dominant strategy for both players, so the unique Nash Equilibrium is mutual defection — even though mutual cooperation would be better."),
+        (prisoner_id, "Which strategy won Robert Axelrod's iterated Prisoner's Dilemma tournament?", "fill_in_blank",
+         "Tit-for-Tat",
+         None, None, None, None,
+         "It starts by cooperating, then copies the opponent's last move",
+         "Tit-for-Tat, submitted by Anatol Rapoport, won both of Axelrod's tournaments. It's simple, retaliatory, forgiving, and clear."),
+        (dominant_id, "A strategy that always gives a better payoff than alternatives regardless of opponents' choices is called:", "fill_in_blank",
+         "dominant strategy",
+         None, None, None, None,
+         "It 'dominates' all other options",
+         "A strictly dominant strategy yields a strictly higher payoff than any other strategy for every possible combination of opponents' strategies."),
+        (dominant_id, "What is IEDS in game theory?", "multiple_choice",
+         "Iterative Elimination of Dominated Strategies",
+         Some("Iterative Elimination of Dominated Strategies"),
+         Some("Iterative Evaluation of Decision Systems"),
+         Some("Internal Equilibrium Detection System"),
+         Some("Integrated Economic Decision Solver"),
+         "It's a method for simplifying games step by step",
+         "IEDS works by repeatedly removing strategies that are never best responses, progressively simplifying the game until (ideally) a single solution remains."),
+        (zerosum_id, "In a zero-sum game, the sum of all players' payoffs is always:", "fill_in_blank",
+         "zero",
+         None, None, None, None,
+         "The name gives it away!",
+         "In a zero-sum game, one player's gain is another's loss, so the total payoff across all players is always zero (or a constant)."),
+        (zerosum_id, "The Minimax Theorem was proved by:", "multiple_choice",
+         "John von Neumann",
+         Some("John Nash"),
+         Some("John von Neumann"),
+         Some("Adam Smith"),
+         Some("Robert Axelrod"),
+         "He's also known as the father of computer science",
+         "John von Neumann proved the Minimax Theorem in 1928, establishing that every finite two-player zero-sum game has an optimal solution."),
+        (evo_id, "What does ESS stand for in evolutionary game theory?", "fill_in_blank",
+         "Evolutionarily Stable Strategy",
+         None, None, None, None,
+         "It's a strategy that can't be invaded by mutants",
+         "An ESS is a strategy that, if adopted by a population, cannot be invaded by any rare alternative strategy through natural selection."),
+        (evo_id, "Who introduced the concept of Evolutionarily Stable Strategies?", "multiple_choice",
+         "John Maynard Smith and George Price",
+         Some("Charles Darwin"),
+         Some("John Maynard Smith and George Price"),
+         Some("John Nash"),
+         Some("Richard Dawkins"),
+         "Published in 1973",
+         "John Maynard Smith and George Price introduced the ESS concept in their 1973 paper 'The Logic of Animal Conflict'."),
+        (mech_id, "Mechanism design is sometimes called:", "multiple_choice",
+         "Reverse game theory",
+         Some("Forward game theory"),
+         Some("Reverse game theory"),
+         Some("Applied statistics"),
+         Some("Decision theory"),
+         "Instead of analyzing a game, you design one",
+         "Mechanism design works backwards from desired outcomes to design the rules of a game that will produce those outcomes when players act rationally."),
+        (mech_id, "The Revelation Principle states that any mechanism can be replaced by one where players:", "fill_in_blank",
+         "tell the truth",
+         None, None, None, None,
+         "It's about honesty being optimal",
+         "The Revelation Principle says any equilibrium of any mechanism can be replicated by a direct mechanism in which truth-telling is an equilibrium strategy."),
+    ];
+    for (tid, question, qtype, correct, oa, ob, oc, od, hint, explanation) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, 'medium')",
+            rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, hint, explanation],
+        )?;
+    }
+
+    // --- Learning Path ---
+    let path_steps = [
+        (1, prisoner_id, "Start with the Prisoner's Dilemma — the most intuitive game theory scenario"),
+        (2, dominant_id, "Learn about dominant strategies — the simplest solution concept"),
+        (3, nash_id, "Master Nash Equilibrium — the central concept of game theory"),
+        (4, zerosum_id, "Study zero-sum games and minimax strategies"),
+        (5, evo_id, "Explore how game theory applies to evolution"),
+        (6, mech_id, "Advanced: learn to design games with mechanism design"),
+    ];
+    for (order, tid, desc) in &path_steps {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Game Theory Foundations', ?1, ?2, ?3)",
+            rusqlite::params![order, tid, desc],
         )?;
     }
 
