@@ -164,6 +164,12 @@ enum Commands {
     },
     /// Show your best study hours based on performance data
     BestHours,
+    /// Show performance trends over recent days
+    Trend {
+        /// Number of days to show
+        #[arg(short, long, default_value = "14")]
+        days: usize,
+    },
 }
 
 fn main() {
@@ -210,6 +216,7 @@ fn main() {
         Commands::Glossary { term } => commands::glossary::run(&conn, &term),
         Commands::Heatmap { weeks } => commands::heatmap::run(&conn, weeks),
         Commands::BestHours => commands::best_hours::run(&conn),
+        Commands::Trend { days } => commands::trend::run(&conn, days),
     };
 
     if let Err(e) = result {

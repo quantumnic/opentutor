@@ -52,6 +52,7 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_game_theory(conn)?;
     seed_architecture(conn)?;
     seed_extra_quizzes_round2(conn)?;
+    seed_cybersecurity(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -733,7 +734,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 36); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages
+        assert_eq!(count, 37); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity
     }
 
     #[test]
@@ -743,7 +744,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 36);
+        assert_eq!(count, 37);
     }
 
     #[test]
@@ -1371,14 +1372,15 @@ pub fn seed_sociology(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 fn seed_linguistics(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Linguistics'",
+    // Check for topics, not subject — subject may already exist from seed_subjects
+    let has_topics: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Linguistics'",
         [], |r| r.get(0),
     ).unwrap_or(false);
-    if exists { return Ok(()); }
+    if has_topics { return Ok(()); }
 
     conn.execute(
-        "INSERT INTO subjects (name, description) VALUES ('Linguistics', 'The scientific study of language — its structure, meaning, sounds, and evolution across cultures.')",
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Linguistics', 'The scientific study of language — its structure, meaning, sounds, and evolution across cultures.')",
         [],
     )?;
     let ling_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Linguistics'", [], |r| r.get(0))?;
@@ -4559,6 +4561,134 @@ pub fn seed_extra_quizzes_round2(conn: &Connection) -> Result<(), rusqlite::Erro
                 rusqlite::params![tid, question, qtype, correct, oa, ob, oc, od, explanation, difficulty],
             )?;
         }
+    }
+
+    Ok(())
+}
+
+pub fn seed_cybersecurity(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let has_topics: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Cybersecurity'",
+        [], |r| r.get(0),
+    ).unwrap_or(false);
+    if has_topics { return Ok(()); }
+
+    conn.execute(
+        "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Cybersecurity', 'Protecting systems, networks, and data from digital attacks — understanding threats, defenses, and security principles.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Cybersecurity'", [], |r| r.get(0))?;
+
+    let topics = [
+        (subj_id, "Network Security Fundamentals", "beginner", 1),
+        (subj_id, "Cryptography Basics", "intermediate", 2),
+        (subj_id, "Common Attack Vectors", "intermediate", 3),
+        (subj_id, "Authentication & Access Control", "beginner", 4),
+        (subj_id, "Security Best Practices", "beginner", 5),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let net_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Network Security Fundamentals'", [subj_id], |r| r.get(0))?;
+    let crypto_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cryptography Basics'", [subj_id], |r| r.get(0))?;
+    let attack_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Common Attack Vectors'", [subj_id], |r| r.get(0))?;
+    let auth_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Authentication & Access Control'", [subj_id], |r| r.get(0))?;
+    let best_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Security Best Practices'", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: &[LessonRow] = &[
+        (net_id, "Network Security Basics", "Network security protects data as it travels between computers.\n\nKey concepts:\n- Firewall: filters incoming and outgoing network traffic based on rules.\n  - Packet filtering: inspects individual packets (source/dest IP, port).\n  - Stateful inspection: tracks active connections for context.\n  - Application-layer: understands protocols like HTTP.\n\n- Ports & Protocols:\n  - Port 80: HTTP (unencrypted web).\n  - Port 443: HTTPS (encrypted web).\n  - Port 22: SSH (secure remote access).\n  - Port 25: SMTP (email sending).\n\n- Defense in depth: multiple layers of security.\n  - Perimeter (firewall) → Network (IDS/IPS) → Host (antivirus) → Application → Data (encryption).\n\n- VPN (Virtual Private Network): creates an encrypted tunnel for data.\n- IDS/IPS: Intrusion Detection/Prevention Systems monitor for suspicious activity.\n\n- The CIA triad:\n  - Confidentiality: only authorized access.\n  - Integrity: data is accurate and unaltered.\n  - Availability: systems are accessible when needed.", 1),
+        (net_id, "DNS, TLS, and Secure Communication", "DNS (Domain Name System) translates domain names to IP addresses.\n\nDNS attacks:\n- DNS spoofing/cache poisoning: attacker injects false DNS entries.\n- DNS tunneling: hides malicious data inside DNS queries.\n- DNSSEC: cryptographic signatures to verify DNS responses.\n\nTLS (Transport Layer Security):\n- Successor to SSL; encrypts data in transit.\n- TLS handshake: client hello → server hello + certificate → key exchange → encrypted session.\n- Certificate authorities (CAs) verify server identity.\n- HTTPS = HTTP + TLS.\n\nCommon issues:\n- Mixed content: loading HTTP resources on an HTTPS page.\n- Certificate pinning: app only trusts specific certificates.\n- Perfect forward secrecy (PFS): compromising one key doesn't expose past sessions.\n\nZero trust architecture: 'never trust, always verify' — every request is authenticated regardless of network location.", 2),
+        (crypto_id, "Symmetric & Asymmetric Encryption", "Cryptography transforms readable data (plaintext) into unreadable form (ciphertext).\n\nSymmetric encryption: same key for encryption and decryption.\n- AES (Advanced Encryption Standard): most widely used. 128, 192, or 256-bit keys.\n- Fast, efficient for bulk data.\n- Problem: how do you safely share the key?\n\nAsymmetric encryption: two keys — public (encrypt) and private (decrypt).\n- RSA: based on difficulty of factoring large primes.\n- ECC (Elliptic Curve Cryptography): smaller keys, same security level.\n- Slower than symmetric, used for key exchange and digital signatures.\n\nHybrid approach (used in TLS):\n1. Asymmetric encryption to exchange a symmetric key.\n2. Symmetric encryption for the actual data transfer.\n\nHashing: one-way function producing a fixed-size digest.\n- SHA-256: produces a 256-bit hash. Used in Bitcoin, certificates.\n- Hashing is NOT encryption — you can't reverse it.\n- Salting: adding random data before hashing to prevent rainbow table attacks.\n- bcrypt/scrypt/Argon2: password hashing functions designed to be slow.", 1),
+        (crypto_id, "Digital Signatures & PKI", "Digital signatures prove authenticity and integrity.\n\nHow they work:\n1. Sender hashes the message.\n2. Sender encrypts the hash with their private key = signature.\n3. Receiver decrypts the signature with the sender's public key.\n4. Receiver hashes the message independently and compares.\n\nPKI (Public Key Infrastructure):\n- Certificate Authority (CA): trusted entity that issues digital certificates.\n- Certificate: binds a public key to an identity.\n- Chain of trust: Root CA → Intermediate CA → End-entity certificate.\n- Certificate revocation: CRL (Certificate Revocation List) or OCSP.\n\nCommon uses:\n- HTTPS certificates (Let's Encrypt, DigiCert).\n- Code signing (proving software hasn't been tampered with).\n- Email signing (S/MIME, PGP).\n\nKey management challenges:\n- Key rotation: regularly changing keys.\n- Key escrow: storing backup keys securely.\n- Perfect forward secrecy: unique session keys so past sessions remain safe even if long-term key is compromised.", 2),
+        (attack_id, "Social Engineering & Phishing", "Social engineering exploits human psychology rather than technical vulnerabilities.\n\nPhishing: fraudulent emails/messages designed to steal credentials or install malware.\n- Spear phishing: targeted at a specific person or organization.\n- Whaling: targets executives or high-value individuals.\n- Vishing: voice phishing (phone calls).\n- Smishing: SMS phishing.\n\nOther social engineering attacks:\n- Pretexting: creating a fabricated scenario to gain trust.\n- Baiting: offering something enticing (free USB drive with malware).\n- Tailgating/piggybacking: following someone through a secure door.\n- Quid pro quo: offering a service in exchange for information.\n\nDefenses:\n- Security awareness training.\n- Email filtering and DMARC/SPF/DKIM authentication.\n- Multi-factor authentication (even if password is stolen).\n- Verify requests through a separate channel.\n- Look for red flags: urgency, unusual sender, mismatched URLs.", 1),
+        (attack_id, "Technical Attacks", "Common technical attack vectors:\n\nSQL Injection: inserting malicious SQL into input fields.\n- Example: username = ' OR 1=1 -- bypasses authentication.\n- Defense: parameterized queries, input validation, ORMs.\n\nCross-Site Scripting (XSS): injecting scripts into web pages.\n- Stored XSS: malicious script saved in database, served to all users.\n- Reflected XSS: script in URL parameters, reflected back.\n- Defense: output encoding, Content Security Policy (CSP).\n\nCross-Site Request Forgery (CSRF): tricking a user into making unintended requests.\n- Defense: CSRF tokens, SameSite cookies.\n\nDenial of Service (DoS/DDoS): overwhelming a system with traffic.\n- Volumetric: flood bandwidth.\n- Protocol: exploit protocol weaknesses (SYN flood).\n- Application: target specific application features.\n\nMan-in-the-Middle (MitM): intercepting communication between two parties.\n- Defense: TLS, certificate pinning, HSTS.\n\nZero-day: exploiting unknown vulnerabilities before patches exist.", 2),
+        (auth_id, "Authentication Methods", "Authentication verifies identity ('you are who you claim to be').\n\nFactors of authentication:\n- Something you know: password, PIN, security question.\n- Something you have: phone, security key, smart card.\n- Something you are: fingerprint, face, iris (biometrics).\n\nMulti-Factor Authentication (MFA): combining 2+ factors.\n- 2FA examples: password + SMS code, password + authenticator app.\n- TOTP (Time-based One-Time Password): generates codes that change every 30 seconds.\n- FIDO2/WebAuthn: hardware security keys (YubiKey, passkeys).\n\nPassword security:\n- Length > complexity (a long passphrase beats P@$$w0rd).\n- Password managers: generate and store unique passwords.\n- Never reuse passwords across sites.\n- Check haveibeenpwned.com for breached credentials.\n\nSSO (Single Sign-On): one login for multiple services.\n- OAuth 2.0: authorization framework (lets apps access data without passwords).\n- OpenID Connect: identity layer on top of OAuth 2.0.\n- SAML: XML-based SSO standard (common in enterprises).", 1),
+        (auth_id, "Access Control Models", "Authorization determines what an authenticated user can do.\n\nAccess control models:\n- DAC (Discretionary): resource owner decides who has access (Unix file permissions).\n- MAC (Mandatory): system-enforced labels (military classifications: Top Secret, Secret, etc.).\n- RBAC (Role-Based): permissions assigned to roles, users assigned to roles.\n  - Example: 'Editor' role can create/edit posts but not delete users.\n- ABAC (Attribute-Based): policies based on attributes (time of day, location, department).\n\nPrinciple of Least Privilege: users get minimum access needed for their job.\n\nSeparation of Duties: critical tasks require multiple people.\n- Example: one person approves expenses, another processes payment.\n\nPrivilege escalation:\n- Vertical: gaining higher privileges (user → admin).\n- Horizontal: accessing another user's resources at the same level.\n- Defense: regular privilege audits, just-in-time access.", 2),
+        (best_id, "Security Hygiene", "Everyday security practices that prevent most attacks:\n\nSoftware updates: patch vulnerabilities promptly.\n- Most breaches exploit known, already-patched vulnerabilities.\n- Enable automatic updates where possible.\n\nBackup strategy (3-2-1 rule):\n- 3 copies of data.\n- 2 different storage media.\n- 1 offsite (cloud or physical).\n- Test restores regularly!\n\nEncryption at rest: encrypt stored data.\n- Full disk encryption: BitLocker (Windows), FileVault (macOS), LUKS (Linux).\n- Database encryption: transparent data encryption (TDE).\n\nSecure configuration:\n- Change default passwords and settings.\n- Disable unnecessary services and ports.\n- Use SSH keys instead of passwords.\n\nIncident response plan:\n1. Preparation: have a plan before incidents occur.\n2. Identification: detect and confirm the incident.\n3. Containment: limit the damage.\n4. Eradication: remove the threat.\n5. Recovery: restore systems.\n6. Lessons learned: improve defenses.", 1),
+        (best_id, "Secure Development & DevSecOps", "Building security into software from the start.\n\nSecure coding principles:\n- Input validation: never trust user input.\n- Output encoding: prevent injection attacks.\n- Parameterized queries: prevent SQL injection.\n- Principle of least privilege in code: request minimum permissions.\n\nOWASP Top 10: most critical web application security risks.\n1. Broken access control.\n2. Cryptographic failures.\n3. Injection.\n4. Insecure design.\n5. Security misconfiguration.\n6. Vulnerable components.\n7. Authentication failures.\n8. Data integrity failures.\n9. Logging failures.\n10. Server-side request forgery (SSRF).\n\nDevSecOps: integrating security into the development pipeline.\n- SAST (Static Analysis): scan code for vulnerabilities.\n- DAST (Dynamic Analysis): test running applications.\n- SCA (Software Composition Analysis): check dependencies for known vulnerabilities.\n- Container scanning: check Docker images for vulnerabilities.\n\nSupply chain security: verify dependencies, use lock files, audit third-party code.", 2),
+    ];
+    for (tid, title, content, order) in lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: &[ExplanationRow] = &[
+        (net_id, "firewall", "A firewall is a network security device that monitors and filters incoming and outgoing traffic based on predefined rules.", Some("A firewall is like a bouncer at a club. The bouncer has a list of rules — dress code, guest list, age requirement. They check everyone at the door and only let in people who meet the criteria. Traffic that doesn't match the rules gets turned away."), Some("Why might a company need both a network firewall and a host-based firewall?")),
+        (crypto_id, "symmetric encryption", "Symmetric encryption uses the same key for both encrypting and decrypting data — like a physical lock where the same key locks and unlocks.", Some("Imagine you and a friend share a diary that locks with a key. You both have a copy of the same key. The diary is secure as long as nobody else gets a copy of your key. That's the strength AND weakness of symmetric encryption — fast and simple, but key distribution is the challenge."), Some("If symmetric encryption is faster, why do we also need asymmetric encryption?")),
+        (attack_id, "SQL injection", "SQL injection is an attack where malicious SQL code is inserted into input fields to manipulate a database — like slipping extra instructions into a bank withdrawal slip.", Some("Imagine a librarian who takes book requests by reading slips of paper aloud. If you write 'Give me Hamlet; also give me every book in the vault', a naive librarian just reads and executes everything. SQL injection works the same way — the database 'reads' malicious input as commands because it wasn't taught to distinguish data from instructions."), Some("What's the difference between parameterized queries and input sanitization?")),
+        (auth_id, "multi-factor authentication", "MFA requires two or more verification factors — something you know, have, or are — making it dramatically harder for attackers.", Some("MFA is like a bank vault that needs both a combination AND a physical key. Even if a thief learns the combination (steals your password), they still can't open the vault without the physical key (your phone or security token). Each factor they need to steal independently multiplies the difficulty."), Some("Why are SMS codes considered weaker than authenticator apps for 2FA?")),
+        (best_id, "defense in depth", "Defense in depth is a security strategy that uses multiple layers of protection, so if one layer fails, others still protect the system.", Some("Think of a medieval castle: moat, outer wall, inner wall, keep, armored guards. An attacker who crosses the moat still faces the wall. Breaching the wall still leaves the inner defenses. No single layer is perfect, but together they're formidable. Modern security works the same way — firewalls, encryption, access controls, monitoring, all layered together."), Some("Can you identify three different security layers in a typical web application?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let questions: &[QuizRow] = &[
+        // Network Security
+        (net_id, "What does the 'C' in the CIA triad stand for?", "multiple_choice", "Confidentiality", Some("Compliance"), Some("Confidentiality"), Some("Continuity"), Some("Certification"), Some("Who should have access?"), "The CIA triad: Confidentiality (authorized access only), Integrity (accurate data), Availability (accessible when needed)."),
+        (net_id, "Which port is used by HTTPS?", "multiple_choice", "443", Some("80"), Some("443"), Some("22"), Some("25"), Some("Secure web traffic"), "Port 443 is the standard port for HTTPS (HTTP over TLS)."),
+        (net_id, "True or false: A VPN encrypts all traffic between your device and the VPN server.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Virtual Private Network"), "True. A VPN creates an encrypted tunnel for all traffic between the client and VPN server."),
+        (net_id, "The security approach 'never trust, always verify' is called ___.", "fill_in_blank", "zero trust", None, None, None, None, Some("No implicit trust based on network location"), "Zero trust architecture assumes no implicit trust — every request must be authenticated and authorized regardless of where it originates."),
+        // Cryptography
+        (crypto_id, "Which encryption type uses different keys for encryption and decryption?", "multiple_choice", "Asymmetric", Some("Symmetric"), Some("Asymmetric"), Some("Hashing"), Some("Encoding"), Some("Public and private keys"), "Asymmetric encryption uses a public key (encrypt) and private key (decrypt), unlike symmetric which uses the same key for both."),
+        (crypto_id, "True or false: Hashing is reversible — you can recover the original data from a hash.", "true_false", "false", Some("true"), Some("false"), None, None, Some("One-way function"), "False. Hashing is a one-way function — you cannot recover the original input from the hash output."),
+        (crypto_id, "Adding random data before hashing a password is called ___.", "fill_in_blank", "salting", None, None, None, None, Some("Prevents rainbow table attacks"), "Salting adds random data to each password before hashing, making precomputed attack tables (rainbow tables) useless."),
+        (crypto_id, "What ensures past encrypted sessions remain safe even if a long-term key is compromised?", "multiple_choice", "Perfect forward secrecy", Some("Key escrow"), Some("Certificate pinning"), Some("Perfect forward secrecy"), Some("Key rotation"), Some("Unique session keys"), "Perfect forward secrecy (PFS) uses unique session keys so compromising the long-term key doesn't expose past sessions."),
+        // Attack Vectors
+        (attack_id, "What type of phishing specifically targets executives?", "multiple_choice", "Whaling", Some("Spear phishing"), Some("Whaling"), Some("Vishing"), Some("Smishing"), Some("Big fish"), "Whaling is phishing that specifically targets high-value individuals like C-level executives."),
+        (attack_id, "True or false: SQL injection can be prevented by using parameterized queries.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Separate data from commands"), "True. Parameterized queries ensure user input is treated as data, not executable SQL commands."),
+        (attack_id, "An attack that injects malicious scripts into web pages viewed by other users is called ___.", "fill_in_blank", "cross-site scripting", None, None, None, None, Some("XSS"), "Cross-Site Scripting (XSS) injects malicious scripts into web pages, which then execute in other users' browsers."),
+        (attack_id, "Which attack overwhelms a system with more traffic than it can handle?", "multiple_choice", "DDoS", Some("SQL injection"), Some("Man-in-the-middle"), Some("DDoS"), Some("Phishing"), Some("Flood of requests"), "Distributed Denial of Service (DDoS) attacks overwhelm a target with traffic from many sources, making it unavailable."),
+        // Authentication
+        (auth_id, "Which is NOT a factor of authentication?", "multiple_choice", "Something you want", Some("Something you know"), Some("Something you have"), Some("Something you are"), Some("Something you want"), Some("Three recognized factors"), "The three authentication factors are: something you know (password), something you have (token), something you are (biometric). 'Something you want' is not a recognized factor."),
+        (auth_id, "True or false: A long passphrase is generally more secure than a short complex password.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Length vs complexity"), "True. Length provides more entropy than complexity. 'correct horse battery staple' is stronger than 'P@s$1' and easier to remember."),
+        (auth_id, "TOTP codes change every ___ seconds.", "fill_in_blank", "30", None, None, None, None, Some("Time-based One-Time Password"), "TOTP (Time-based One-Time Password) generates codes that change every 30 seconds, synchronized between the server and authenticator app."),
+        (auth_id, "Which access control model assigns permissions based on user roles?", "multiple_choice", "RBAC", Some("DAC"), Some("MAC"), Some("RBAC"), Some("ABAC"), Some("Role-Based..."), "RBAC (Role-Based Access Control) assigns permissions to roles (e.g., 'editor', 'admin'), and users are assigned to roles."),
+        // Best Practices
+        (best_id, "What is the 3-2-1 backup rule?", "multiple_choice", "3 copies, 2 media types, 1 offsite", Some("3 backups daily, 2 weekly, 1 monthly"), Some("3 copies, 2 media types, 1 offsite"), Some("3 servers, 2 clouds, 1 local"), Some("3 passwords, 2 factors, 1 key"), Some("Redundancy strategy"), "The 3-2-1 rule: keep 3 copies of data on 2 different media types with 1 copy stored offsite."),
+        (best_id, "True or false: Most breaches exploit unknown zero-day vulnerabilities.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Patch management matters"), "False. Most breaches exploit known, already-patched vulnerabilities. Keeping software updated prevents the majority of attacks."),
+        (best_id, "The first item in the OWASP Top 10 (2021) is ___.", "fill_in_blank", "broken access control", None, None, None, None, Some("Number one web security risk"), "Broken Access Control moved to #1 in the OWASP Top 10 (2021), reflecting how common it is for applications to fail at enforcing proper authorization."),
+        (best_id, "Which testing method analyzes source code for vulnerabilities without running the program?", "multiple_choice", "SAST", Some("DAST"), Some("SAST"), Some("SCA"), Some("Penetration testing"), Some("Static vs dynamic"), "SAST (Static Application Security Testing) analyzes source code or binaries without executing the program, finding vulnerabilities early in development."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Ordering question
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+         VALUES (?1, 'Order the incident response steps:', 'ordering', 'Preparation,Identification,Containment,Eradication,Recovery,Lessons Learned', 'Containment', 'Recovery', 'Preparation', 'Identification', 'Plan first, then detect, then respond', 'Incident response follows: Preparation → Identification → Containment → Eradication → Recovery → Lessons Learned.')",
+        [best_id],
+    )?;
+
+    // Learning paths
+    let paths = [
+        ("cybersecurity fundamentals", 1, net_id, "Network security — firewalls, protocols, and the CIA triad"),
+        ("cybersecurity fundamentals", 2, auth_id, "Authentication & access control — proving identity and managing permissions"),
+        ("cybersecurity fundamentals", 3, crypto_id, "Cryptography — encryption, hashing, and digital signatures"),
+        ("cybersecurity fundamentals", 4, attack_id, "Attack vectors — understanding how systems are compromised"),
+        ("cybersecurity fundamentals", 5, best_id, "Security best practices — defense in depth and secure development"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
     }
 
     Ok(())

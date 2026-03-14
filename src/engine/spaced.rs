@@ -1839,3 +1839,92 @@ mod mastery_tests {
         assert!(forecast[0].3 <= forecast[1].3, "Forecast should be sorted by urgency");
     }
 }
+
+/// Calculate learning momentum for a topic — how quickly ease factor is improving.
+/// Returns a value where positive = improving, negative = declining, 0 = stable/no data.
+/// Looks at the last N reviews and fits a simple linear slope on quality ratings.
+pub fn learning_momentum(conn: &Connection, topic_id: i64) -> f64 {
+    let scores: Vec<f64> = conn
+        .prepare(
+            "SELECT COALESCE(score, 0) FROM session_log
+             WHERE topic_id = ?1 AND activity_type IN ('quiz', 'review')
+             ORDER BY id DESC LIMIT 10",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map([topic_id], |r| r.get(0))
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        })
+        .unwrap_or_default();
+
+    if scores.len() < 3 {
+        return 0.0;
+    }
+
+    // Reverse so oldest is first
+    let scores: Vec<f64> = scores.into_iter().rev().collect();
+    let n = scores.len() as f64;
+
+    // Simple linear regression: slope of scores over time
+    let x_mean = (n - 1.0) / 2.0;
+    let y_mean: f64 = scores.iter().sum::<f64>() / n;
+
+    let mut numerator = 0.0;
+    let mut denominator = 0.0;
+
+    for (i, score) in scores.iter().enumerate() {
+        let x = i as f64;
+        numerator += (x - x_mean) * (score - y_mean);
+        denominator += (x - x_mean) * (x - x_mean);
+    }
+
+    if denominator.abs() < f64::EPSILON {
+        return 0.0;
+    }
+
+    numerator / denominator
+}
+
+#[cfg(test)]
+mod momentum_tests {
+    use super::*;
+    use crate::db;
+    use crate::engine::adaptive;
+
+    #[test]
+    fn test_momentum_no_data() {
+        let conn = db::init_memory_db().unwrap();
+        assert!((learning_momentum(&conn, 1) - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_momentum_improving() {
+        let conn = db::init_memory_db().unwrap();
+        // Simulate improving scores
+        for score in &[40.0, 50.0, 60.0, 70.0, 80.0] {
+            adaptive::log_activity(&conn, 1, "quiz", Some(*score)).unwrap();
+        }
+        let m = learning_momentum(&conn, 1);
+        assert!(m > 0.0, "Improving scores should have positive momentum, got {}", m);
+    }
+
+    #[test]
+    fn test_momentum_declining() {
+        let conn = db::init_memory_db().unwrap();
+        // Simulate declining scores
+        for score in &[90.0, 80.0, 70.0, 60.0, 50.0] {
+            adaptive::log_activity(&conn, 1, "quiz", Some(*score)).unwrap();
+        }
+        let m = learning_momentum(&conn, 1);
+        assert!(m < 0.0, "Declining scores should have negative momentum, got {}", m);
+    }
+
+    #[test]
+    fn test_momentum_stable() {
+        let conn = db::init_memory_db().unwrap();
+        for _ in 0..5 {
+            adaptive::log_activity(&conn, 1, "quiz", Some(75.0)).unwrap();
+        }
+        let m = learning_momentum(&conn, 1);
+        assert!((m).abs() < 1.0, "Stable scores should have near-zero momentum, got {}", m);
+    }
+}

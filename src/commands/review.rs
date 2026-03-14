@@ -116,7 +116,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         let retention = spaced::estimate_retention(conn, *topic_id);
         let ret_pct = (retention * 100.0) as u32;
         let ret_color = if ret_pct >= 80 { "🟢" } else if ret_pct >= 50 { "🟡" } else { "🔴" };
-        let _ret_live = ret; // retrievability from FSRS curve
+        let _ = ret; // retrievability from FSRS curve
         println!(
             "    Ease: {:.1} | Interval: {} days | Retention: {} {}% | Half-life: {:.0} days\n",
             ease,

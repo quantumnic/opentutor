@@ -28,5 +28,6 @@ pub mod stats;
 pub mod streak;
 pub mod subjects;
 pub mod summary;
+pub mod trend;
 pub mod velocity;
 pub mod weak;
