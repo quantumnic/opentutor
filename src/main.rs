@@ -96,6 +96,8 @@ enum Commands {
     Recommend,
     /// Show leech cards (topics you're repeatedly struggling with)
     Leech,
+    /// View your mastery levels across all subjects
+    Mastery,
     /// Quick one-screen summary of your learning state
     Summary,
     /// Interleaved practice — mix questions from different subjects for deeper learning
@@ -217,6 +219,7 @@ fn main() {
         Commands::Forecast => commands::forecast::run(&conn),
         Commands::Recommend => commands::recommend::run(&conn),
         Commands::Leech => commands::leech::run(&conn),
+        Commands::Mastery => commands::mastery::run(&conn),
         Commands::Summary => commands::summary::run(&conn),
         Commands::Interleave { count } => commands::interleave::run(&conn, count),
         Commands::History { limit } => commands::history::run(&conn, limit),

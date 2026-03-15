@@ -1202,4 +1202,48 @@ mod tests {
             assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
         }
     }
+
+    #[test]
+    fn test_organic_chemistry_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let oc_id: i64 = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Organic Chemistry'",
+            [], |r| r.get(0),
+        ).unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([oc_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 6, "Organic Chemistry should have 6 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_graph_theory_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let gt_id: i64 = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Graph Theory'",
+            [], |r| r.get(0),
+        ).unwrap();
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([gt_id], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 6, "Graph Theory should have 6 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
 }

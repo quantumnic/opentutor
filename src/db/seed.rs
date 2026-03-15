@@ -60,6 +60,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_number_theory(conn)?;
     seed_formal_languages(conn)?;
     seed_philosophy_of_mind(conn)?;
+    seed_organic_chemistry(conn)?;
+    seed_graph_theory(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -741,7 +743,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 44); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra + Electrical Engineering
+        assert_eq!(count, 46); // 44 previous + Organic Chemistry + Graph Theory
     }
 
     #[test]
@@ -751,7 +753,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 44);
+        assert_eq!(count, 46);
     }
 
     #[test]
@@ -5781,6 +5783,238 @@ pub fn seed_philosophy_of_mind(conn: &Connection) -> Result<(), rusqlite::Error>
         ("philosophy of mind", 2, con_id, "Consciousness and the hard problem"),
         ("philosophy of mind", 3, ai_id, "Can machines think? Turing Test and Chinese Room"),
         ("philosophy of mind", 4, fw_id, "Free will, determinism, and compatibilism"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+// ── Organic Chemistry & Graph Theory subjects ──────────────────────────
+
+pub fn seed_organic_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Organic Chemistry'", [], |r| r.get(0),
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Organic Chemistry', 'The chemistry of carbon compounds — functional groups, reactions, and the molecules of life.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Organic Chemistry'", [], |r| r.get(0))?;
+
+    let topics = [
+        ("Hydrocarbons", "beginner", 1),
+        ("Functional Groups", "beginner", 2),
+        ("Isomerism", "intermediate", 3),
+        ("Reaction Mechanisms", "intermediate", 4),
+        ("Stereochemistry", "advanced", 5),
+        ("Polymers", "intermediate", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let hc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Hydrocarbons'", [subj_id], |r| r.get(0))?;
+    let fg_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Functional Groups'", [subj_id], |r| r.get(0))?;
+    let iso_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Isomerism'", [subj_id], |r| r.get(0))?;
+    let rm_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Reaction Mechanisms'", [subj_id], |r| r.get(0))?;
+    let sc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Stereochemistry'", [subj_id], |r| r.get(0))?;
+    let poly_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Polymers'", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (hc_id, "Alkanes, Alkenes, and Alkynes", "Hydrocarbons are molecules made of only carbon and hydrogen. Alkanes have single bonds (saturated), alkenes have at least one double bond, and alkynes have at least one triple bond. The general formulas are CnH2n+2, CnH2n, and CnH2n−2 respectively.", 1),
+        (hc_id, "Naming Hydrocarbons", "IUPAC nomenclature uses prefixes (meth-, eth-, prop-, but-) for the carbon chain length and suffixes (-ane, -ene, -yne) for bond type. Branch chains are named as substituents with position numbers.", 2),
+        (fg_id, "Common Functional Groups", "Functional groups determine chemical reactivity. Key groups: -OH (hydroxyl/alcohol), -COOH (carboxyl/acid), -NH2 (amine), C=O (carbonyl), -CHO (aldehyde). Each gives the molecule distinct properties.", 1),
+        (fg_id, "Alcohols, Aldehydes, and Ketones", "Alcohols contain -OH bonded to a carbon. Aldehydes have C=O at the end of a chain (R-CHO). Ketones have C=O between two carbons (R-CO-R'). Oxidation converts alcohols → aldehydes → carboxylic acids.", 2),
+        (iso_id, "Structural and Geometric Isomers", "Structural isomers have the same molecular formula but different connectivity. Geometric (cis/trans) isomers differ in spatial arrangement around a double bond. Cis = same side, trans = opposite side.", 1),
+        (rm_id, "SN1 and SN2 Reactions", "In SN2 reactions, the nucleophile attacks simultaneously as the leaving group departs (one step, inversion). In SN1 reactions, the leaving group departs first forming a carbocation, then the nucleophile attacks (two steps, racemization).", 1),
+        (rm_id, "Electrophilic Addition", "Alkenes undergo electrophilic addition: an electrophile attacks the electron-rich double bond. In HBr addition, the H+ adds first (Markovnikov's rule: H goes to the carbon with more H's), then Br− attacks.", 2),
+        (sc_id, "Chirality and Enantiomers", "A chiral carbon has four different substituents. Enantiomers are non-superimposable mirror images. They have identical physical properties except they rotate plane-polarized light in opposite directions (R vs S configuration).", 1),
+        (poly_id, "Addition and Condensation Polymers", "Addition polymers form when monomers with double bonds join (e.g., polyethylene from ethylene). Condensation polymers form when monomers link by losing a small molecule like water (e.g., nylon, polyester).", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<ExplanationRow> = vec![
+        (hc_id, "Saturation", "A saturated hydrocarbon has only single bonds (all carbon-hydrogen bonding slots are 'full'). Unsaturated hydrocarbons have double or triple bonds.", Some("Think of a sponge: saturated = soaked full, unsaturated = can absorb more."), Some("Why are alkenes more reactive than alkanes?")),
+        (fg_id, "Functional Group", "A specific atom or group of atoms within a molecule that determines its chemical behavior. Same functional group = similar reactions regardless of the rest of the molecule.", Some("Like a power tool attachment — the drill body stays the same, but the bit determines what it can do."), Some("What functional group makes vinegar sour?")),
+        (iso_id, "Isomerism", "Molecules with the same molecular formula but different structural arrangements. Like anagrams — same letters, different words, different meanings.", Some("'Listen' and 'silent' use the same letters but mean different things — isomers use the same atoms but connect differently."), Some("Can you draw two structural isomers of C4H10?")),
+        (rm_id, "Nucleophile vs Electrophile", "A nucleophile is electron-rich and seeks positive centers. An electrophile is electron-poor and seeks negative centers. Reactions happen when they meet.", Some("Nucleophile = the generous friend who always shares. Electrophile = the friend who always borrows."), None),
+        (sc_id, "Chirality", "A molecule is chiral if it cannot be superimposed on its mirror image, like left and right hands. This arises from a carbon with four different groups attached.", Some("Your hands are mirror images but you can't stack them perfectly — that's chirality."), Some("Why does chirality matter in pharmaceuticals?")),
+        (poly_id, "Polymerization", "The process of linking many small monomer molecules into a long chain polymer. Addition polymerization opens double bonds; condensation polymerization releases water.", Some("Like snapping LEGO bricks together — each brick is a monomer, the finished structure is a polymer."), None),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let quizzes: &[QuizRowHint] = &[
+        (hc_id, "What is the general formula for alkanes?", "multiple_choice", "CnH2n+2", Some("CnH2n"), Some("CnH2n+2"), Some("CnH2n−2"), Some("CnHn"), "Saturated hydrocarbons", "Alkanes are saturated — all single bonds — so each carbon bonds to the maximum number of hydrogens: CnH2n+2."),
+        (hc_id, "True or false: Alkenes contain at least one triple bond.", "true_false", "false", None, None, None, None, "Think about bond types", "Alkenes contain double bonds. Alkynes contain triple bonds."),
+        (hc_id, "What is the IUPAC name for CH3-CH2-CH3?", "fill_in_blank", "propane", None, None, None, None, "Three carbons, all single bonds", "Three carbon alkane: prop- (3 carbons) + -ane (single bonds) = propane."),
+        (hc_id, "Which hydrocarbon is most reactive?", "multiple_choice", "Ethyne", Some("Ethane"), Some("Ethene"), Some("Ethyne"), Some("Methane"), "More bonds = more reactive", "Alkynes (triple bonds) are most reactive due to the high electron density in the triple bond."),
+        (fg_id, "Which functional group makes a molecule an alcohol?", "multiple_choice", "-OH", Some("-OH"), Some("-COOH"), Some("-NH2"), Some("-CHO"), "Think about ethanol", "The hydroxyl group (-OH) defines alcohols. Ethanol is CH3CH2OH."),
+        (fg_id, "What functional group is present in acetic acid (vinegar)?", "fill_in_blank", "carboxyl", None, None, None, None, "Acid group", "Acetic acid (CH3COOH) contains the carboxyl group (-COOH), which makes it acidic."),
+        (fg_id, "True or false: Aldehydes and ketones both contain a carbonyl group.", "true_false", "true", None, None, None, None, "C=O is the key", "Both have C=O. Aldehydes have it at the end of the chain, ketones in the middle."),
+        (fg_id, "Which type of organic compound contains nitrogen?", "multiple_choice", "Amine", Some("Alcohol"), Some("Ether"), Some("Amine"), Some("Ester"), "Think NH2", "Amines contain the -NH2 group. They're derived from ammonia (NH3) with one H replaced."),
+        (iso_id, "Structural isomers of C4H10 include butane and ___.", "fill_in_blank", "isobutane", None, None, None, None, "Branched version", "Isobutane (2-methylpropane) is the branched isomer of butane."),
+        (iso_id, "In cis-2-butene, the methyl groups are on which side of the double bond?", "multiple_choice", "Same side", Some("Same side"), Some("Opposite sides"), Some("Alternating"), Some("Random"), "Cis means 'on this side'", "Cis = same side. Trans = opposite sides. Cis-2-butene has both CH3 groups on the same side."),
+        (rm_id, "In an SN2 reaction, how many steps are there?", "fill_in_blank", "1", None, None, None, None, "Simultaneous attack and departure", "SN2 is a concerted (one-step) mechanism — the nucleophile attacks as the leaving group departs."),
+        (rm_id, "Markovnikov's rule states that H adds to the carbon with ___.", "fill_in_blank", "more hydrogens", None, None, None, None, "The rich get richer", "Markovnikov: in HX addition to an alkene, H goes to the carbon already bearing more H atoms."),
+        (rm_id, "Which reaction type involves a carbocation intermediate?", "multiple_choice", "SN1", Some("SN2"), Some("SN1"), Some("E2"), Some("Addition"), "Two-step mechanism", "SN1 proceeds via a carbocation intermediate — the leaving group departs first, then the nucleophile attacks."),
+        (sc_id, "How many different groups must be attached to a carbon for it to be chiral?", "fill_in_blank", "4", None, None, None, None, "All different", "A chiral center (stereocenter) has four different substituents attached to one carbon."),
+        (sc_id, "Enantiomers rotate plane-polarized light in ___ directions.", "multiple_choice", "Opposite", Some("Same"), Some("Opposite"), Some("No"), Some("Random"), "Mirror image = opposite", "Enantiomers are mirror images and rotate light equally but in opposite directions (+/−)."),
+        (poly_id, "Polyethylene is an example of what type of polymer?", "multiple_choice", "Addition", Some("Addition"), Some("Condensation"), Some("Copolymer"), Some("Natural"), "Double bonds open up", "Polyethylene forms by addition polymerization — ethylene monomers link when their C=C double bonds open."),
+        (poly_id, "True or false: Condensation polymerization releases a small molecule like water.", "true_false", "true", None, None, None, None, "Condensation = losing something", "Condensation polymers form when monomers join by eliminating a small molecule (often H2O)."),
+        (poly_id, "Name one natural polymer found in living organisms.", "fill_in_blank", "protein", None, None, None, None, "Made of amino acids", "Proteins are natural condensation polymers — amino acids link via peptide bonds, releasing water."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    let paths = [
+        ("organic chemistry", 1, hc_id, "Start with hydrocarbons — the carbon backbone"),
+        ("organic chemistry", 2, fg_id, "Learn functional groups that determine reactivity"),
+        ("organic chemistry", 3, iso_id, "Understand isomerism — same formula, different structures"),
+        ("organic chemistry", 4, rm_id, "Master reaction mechanisms — how reactions actually happen"),
+        ("organic chemistry", 5, sc_id, "Explore stereochemistry — 3D molecular arrangement"),
+        ("organic chemistry", 6, poly_id, "Apply knowledge to polymers — giant molecules"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Graph Theory'", [], |r| r.get(0),
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Graph Theory', 'The mathematics of networks — vertices, edges, paths, and the structures that connect everything.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Graph Theory'", [], |r| r.get(0))?;
+
+    let topics = [
+        ("Vertices and Edges", "beginner", 1),
+        ("Paths and Cycles", "beginner", 2),
+        ("Trees", "intermediate", 3),
+        ("Graph Coloring", "intermediate", 4),
+        ("Eulerian and Hamiltonian Graphs", "advanced", 5),
+        ("Planar Graphs", "advanced", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let ve_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Vertices and Edges'", [subj_id], |r| r.get(0))?;
+    let pc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Paths and Cycles'", [subj_id], |r| r.get(0))?;
+    let tree_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Trees'", [subj_id], |r| r.get(0))?;
+    let gc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Graph Coloring'", [subj_id], |r| r.get(0))?;
+    let eh_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Eulerian and Hamiltonian Graphs'", [subj_id], |r| r.get(0))?;
+    let pg_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Planar Graphs'", [subj_id], |r| r.get(0))?;
+
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (ve_id, "What is a Graph?", "A graph G = (V, E) consists of a set of vertices (nodes) V and a set of edges E connecting pairs of vertices. Graphs model relationships: social networks, road maps, molecular structures. The degree of a vertex is the number of edges connected to it.", 1),
+        (ve_id, "Directed vs Undirected Graphs", "In an undirected graph, edges have no direction (friendship is mutual). In a directed graph (digraph), edges have direction (following someone on Twitter isn't mutual). The Handshaking Lemma states that the sum of all vertex degrees equals twice the number of edges.", 2),
+        (pc_id, "Paths, Walks, and Cycles", "A walk is any sequence of adjacent vertices. A path is a walk with no repeated vertices. A cycle is a path that starts and ends at the same vertex. The shortest path between two vertices is called the distance.", 1),
+        (pc_id, "Connected Graphs", "A graph is connected if there's a path between every pair of vertices. A connected component is a maximal connected subgraph. Disconnected graphs have multiple components.", 2),
+        (tree_id, "Trees and Forests", "A tree is a connected graph with no cycles. A forest is a graph with no cycles (a collection of trees). A tree with n vertices has exactly n−1 edges. Every tree has at least one leaf (vertex of degree 1).", 1),
+        (tree_id, "Spanning Trees", "A spanning tree of a connected graph is a subgraph that is a tree and includes all vertices. Kruskal's and Prim's algorithms find minimum spanning trees — spanning trees with minimum total edge weight.", 2),
+        (gc_id, "Graph Coloring Basics", "A proper coloring assigns colors to vertices so that no two adjacent vertices share a color. The chromatic number χ(G) is the minimum number of colors needed. A bipartite graph has χ(G) = 2.", 1),
+        (gc_id, "The Four Color Theorem", "Every planar graph can be properly colored with at most 4 colors. This was the first major theorem proved with computer assistance (1976, Appel & Haken). It means any map can be colored with 4 colors so no adjacent regions share a color.", 2),
+        (eh_id, "Euler Paths and Circuits", "An Euler path visits every edge exactly once. An Euler circuit is an Euler path that starts and ends at the same vertex. A connected graph has an Euler circuit iff every vertex has even degree (Euler's theorem, 1736 — the Königsberg bridge problem).", 1),
+        (eh_id, "Hamiltonian Paths and Cycles", "A Hamiltonian path visits every vertex exactly once. A Hamiltonian cycle is a Hamiltonian path that returns to the starting vertex. Unlike Euler paths, there's no simple necessary and sufficient condition — the Hamiltonian problem is NP-complete.", 2),
+        (pg_id, "Planar Graphs and Euler's Formula", "A planar graph can be drawn in the plane without edge crossings. Euler's formula for connected planar graphs: V − E + F = 2, where V = vertices, E = edges, F = faces (including the outer face). This limits edges: E ≤ 3V − 6.", 1),
+        (pg_id, "Kuratowski's Theorem", "A graph is planar if and only if it contains no subdivision of K5 (complete graph on 5 vertices) or K3,3 (complete bipartite graph). These are the two fundamental non-planar graphs.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (ve_id, "Graph", "A mathematical structure of nodes (vertices) connected by links (edges). Abstractly captures any relationship between pairs of things.", Some("Think of a social network: people are vertices, friendships are edges."), Some("What's the degree of a vertex with 5 friends?")),
+        (pc_id, "Cycle", "A path that starts and ends at the same vertex without repeating any vertex in between.", Some("Like walking around a city block and ending up where you started."), Some("What's the shortest possible cycle?")),
+        (tree_id, "Tree", "A connected graph with no cycles. The simplest way to connect all vertices with the fewest edges.", Some("Like a family tree or organizational chart — there's exactly one path between any two nodes."), Some("How many edges does a tree with 10 vertices have?")),
+        (gc_id, "Chromatic Number", "The minimum number of colors needed to properly color a graph (no adjacent vertices share a color).", Some("Like scheduling exams so no student has two exams at the same time — each time slot is a 'color'."), Some("What's the chromatic number of a cycle with 5 vertices?")),
+        (eh_id, "Euler Circuit", "A route that traverses every edge exactly once and returns to the start. Only possible when all vertices have even degree.", Some("Imagine a postal worker who must walk every street exactly once and return home."), None),
+        (pg_id, "Planar Graph", "A graph that can be drawn flat without any edges crossing.", Some("Like drawing a circuit diagram where no wires cross — some circuits need multiple layers (non-planar)."), Some("Is the complete graph K4 planar?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: &[QuizRowHint] = &[
+        (ve_id, "In a graph G = (V, E), what does V represent?", "multiple_choice", "Vertices", Some("Vertices"), Some("Values"), Some("Vectors"), Some("Variables"), "Nodes in the graph", "V is the set of vertices (nodes) — the objects being connected."),
+        (ve_id, "The Handshaking Lemma states that the sum of all vertex degrees equals ___.", "fill_in_blank", "2E", None, None, None, None, "Each edge contributes to two vertices", "Every edge connects two vertices, so it adds 1 to the degree of each endpoint: sum of degrees = 2|E|."),
+        (ve_id, "True or false: In a directed graph, edges have no direction.", "true_false", "false", None, None, None, None, "Directed = has direction", "Directed graphs (digraphs) have edges with direction — from one vertex to another."),
+        (pc_id, "A path that starts and ends at the same vertex is called a ___.", "fill_in_blank", "cycle", None, None, None, None, "Round trip", "A cycle is a closed path — it returns to its starting vertex without repeating any other vertex."),
+        (pc_id, "What is the minimum number of vertices in a cycle?", "fill_in_blank", "3", None, None, None, None, "Smallest loop", "The smallest cycle is a triangle — 3 vertices connected in a loop (C3)."),
+        (pc_id, "A graph is connected if there is a path between every pair of ___.", "fill_in_blank", "vertices", None, None, None, None, "All nodes reachable", "Connected means you can get from any vertex to any other vertex by following edges."),
+        (tree_id, "How many edges does a tree with n vertices have?", "fill_in_blank", "n-1", None, None, None, None, "Minimal connectivity", "A tree is minimally connected: removing any edge disconnects it. It always has exactly n−1 edges."),
+        (tree_id, "True or false: A tree can contain a cycle.", "true_false", "false", None, None, None, None, "Definition of a tree", "A tree is defined as a connected acyclic graph — no cycles allowed."),
+        (tree_id, "Which algorithm finds a minimum spanning tree using edge sorting?", "multiple_choice", "Kruskal's", Some("Dijkstra's"), Some("Kruskal's"), Some("Bellman-Ford"), Some("Floyd-Warshall"), "Sort edges by weight", "Kruskal's algorithm sorts all edges by weight and greedily adds the smallest edge that doesn't create a cycle."),
+        (gc_id, "What is the chromatic number of a bipartite graph?", "fill_in_blank", "2", None, None, None, None, "Two groups, no conflicts", "Bipartite graphs can be 2-colored: one color per partition. Vertices within a partition are never adjacent."),
+        (gc_id, "The Four Color Theorem applies to which type of graphs?", "multiple_choice", "Planar graphs", Some("Complete graphs"), Some("Planar graphs"), Some("Bipartite graphs"), Some("Trees"), "Flat drawings", "The Four Color Theorem: every planar graph (drawable without crossings) can be 4-colored."),
+        (gc_id, "True or false: A graph with chromatic number 1 has no edges.", "true_false", "true", None, None, None, None, "If only one color suffices...", "If all vertices can be the same color, no two adjacent vertices exist — meaning no edges."),
+        (eh_id, "A connected graph has an Euler circuit if and only if every vertex has ___ degree.", "fill_in_blank", "even", None, None, None, None, "Euler's theorem", "For an Euler circuit (visiting every edge once, returning to start), every vertex must have even degree."),
+        (eh_id, "The Hamiltonian path problem is in which complexity class?", "multiple_choice", "NP-complete", Some("P"), Some("NP-complete"), Some("PSPACE"), Some("Undecidable"), "Very hard problem", "Determining whether a Hamiltonian path exists is NP-complete — no known polynomial-time algorithm."),
+        (eh_id, "What famous problem did Euler solve in 1736?", "multiple_choice", "Königsberg bridge problem", Some("Traveling salesman"), Some("Königsberg bridge problem"), Some("Four color problem"), Some("Shortest path"), "Seven bridges", "Euler proved it was impossible to cross all 7 bridges of Königsberg exactly once — founding graph theory."),
+        (pg_id, "Euler's formula for connected planar graphs is V − E + F = ___.", "fill_in_blank", "2", None, None, None, None, "Euler's polyhedral formula", "V − E + F = 2 for any connected planar graph, where F includes the unbounded outer face."),
+        (pg_id, "Which graph is NOT planar?", "multiple_choice", "K5", Some("K4"), Some("K3"), Some("K5"), Some("A tree"), "Five vertices, all connected", "K5 (complete graph on 5 vertices) is non-planar. K4 is planar. Trees are always planar."),
+        (pg_id, "True or false: Every tree is a planar graph.", "true_false", "true", None, None, None, None, "No cycles = easy to draw flat", "Trees have no cycles and can always be drawn without edge crossings — they're planar."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    let paths = [
+        ("graph theory", 1, ve_id, "Foundations: vertices, edges, and graph types"),
+        ("graph theory", 2, pc_id, "Paths, cycles, and connectivity"),
+        ("graph theory", 3, tree_id, "Trees — the simplest connected graphs"),
+        ("graph theory", 4, gc_id, "Graph coloring and the chromatic number"),
+        ("graph theory", 5, eh_id, "Euler and Hamiltonian paths — traversal problems"),
+        ("graph theory", 6, pg_id, "Planar graphs, Euler's formula, and Kuratowski"),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(

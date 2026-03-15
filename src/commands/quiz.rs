@@ -250,4 +250,34 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         run(&conn, "Consciousness", 3, None, false).unwrap();
     }
+
+    #[test]
+    fn test_quiz_organic_chemistry_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Hydrocarbons", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_organic_chemistry_functional_groups() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Functional Groups", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_graph_theory_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Vertices and Edges", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_graph_theory_trees() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Trees", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_graph_theory_planar() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Planar Graphs", 3, None, false).unwrap();
+    }
 }

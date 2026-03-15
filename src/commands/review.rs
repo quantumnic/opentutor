@@ -209,16 +209,50 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     }
 
     // Summary
-    display::print_header("Review Summary");
+    display::print_header("Review Session Summary");
     display::print_progress_bar(
         "Total",
         total_correct as f64,
         total_questions as f64,
     );
     println!(
-        "\n  Topics reviewed: {}",
-        due_topics.len().to_string().bold()
+        "\n  Topics reviewed: {}  |  Questions: {}",
+        due_topics.len().to_string().bold(),
+        total_questions.to_string().bold(),
     );
+
+    // Subject breakdown
+    let mut subject_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for (_, _, subj, _, _, _) in &due_topics {
+        *subject_counts.entry(subj.clone()).or_insert(0) += 1;
+    }
+    if subject_counts.len() > 1 {
+        println!("\n  {} {}", "📊".bold(), "Subject breakdown:".bold());
+        let mut sorted: Vec<_> = subject_counts.into_iter().collect();
+        sorted.sort_by(|a, b| b.1.cmp(&a.1));
+        for (subj, count) in &sorted {
+            println!("     • {} ({})", subj, count);
+        }
+        let bonus = spaced::interleaving_bonus(conn);
+        if bonus > 1.0 {
+            println!("\n  {} Interleaving bonus active: {:.0}% retention boost from mixing subjects!",
+                "🔀".bold(), (bonus - 1.0) * 100.0);
+        }
+    }
+
+    // Average retention after review
+    let avg_ret = spaced::average_retention(conn);
+    if avg_ret > 0.0 {
+        println!("\n  {} Overall retention: {:.0}%", "🧠".bold(), avg_ret * 100.0);
+    }
+
+    // Remaining due count
+    let still_due = spaced::count_due_topics(conn).unwrap_or(0);
+    if still_due > 0 {
+        println!("  {} {} more topics still due for review", "📋".bold(), still_due.to_string().bright_yellow());
+    }
+
+    println!();
     display::print_success("Review schedule updated! See you next time. 📅");
 
     // Check achievements
