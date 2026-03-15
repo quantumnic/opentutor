@@ -195,6 +195,12 @@ enum Commands {
         #[arg(short, long, default_value = "15")]
         limit: usize,
     },
+    /// Diagnose knowledge gaps — find weak areas and get targeted recommendations
+    Diagnose {
+        /// Maximum number of gaps to show
+        #[arg(short, long, default_value = "10")]
+        limit: usize,
+    },
     /// Recap recent learning — what you studied, highlights, and areas to revisit
     Recap {
         /// Number of days to look back
@@ -259,6 +265,7 @@ fn main() {
         Commands::Retention => commands::retention::run(&conn),
         Commands::Cram { count } => commands::cram::run(&conn, count),
         Commands::Priorities { limit } => commands::priorities::run(&conn, limit),
+        Commands::Diagnose { limit } => commands::diagnose::run(&conn, limit),
         Commands::Recap { days } => commands::recap::run(&conn, days),
         Commands::StudyPlan { days } => commands::study_plan::run(&conn, days),
     };

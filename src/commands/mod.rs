@@ -6,6 +6,7 @@ pub mod compare;
 pub mod config;
 pub mod cram;
 pub mod daily;
+pub mod diagnose;
 pub mod explain;
 pub mod export;
 pub mod focus;

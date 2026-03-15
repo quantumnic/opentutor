@@ -2295,6 +2295,43 @@ mod mastery_tests {
     }
 }
 
+/// Composite retrieval strength metric combining stability, retrievability,
+/// momentum, and accuracy into a single 0-100 score. Higher = stronger memory.
+/// This gives a more holistic view than any single metric alone:
+/// - Retrievability: current memory state (FSRS power-law)
+/// - Ease/Stability: long-term durability signal
+/// - Momentum: recent performance trajectory
+/// - Accuracy: historical success rate
+#[allow(dead_code)]
+pub fn retrieval_strength(conn: &Connection, topic_id: i64) -> f64 {
+    let data: Option<(f64, i64, i64, i64)> = conn
+        .query_row(
+            "SELECT ease_factor, interval_days, attempts,
+                    CASE WHEN attempts > 0 THEN correct ELSE 0 END
+             FROM user_progress WHERE topic_id = ?1",
+            [topic_id],
+            |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)),
+        )
+        .ok();
+
+    let (ease, _interval, attempts, correct) = match data {
+        Some(d) => d,
+        None => return 0.0,
+    };
+
+    let ret = retrievability(conn, topic_id); // 0.0-1.0
+    let momentum = learning_momentum(conn, topic_id); // roughly -20 to +20
+    let accuracy = if attempts > 0 { correct as f64 / attempts as f64 } else { 0.0 }; // 0.0-1.0
+
+    // Weight each component
+    let retention_score = ret * 40.0;  // 0-40 points
+    let ease_score = ((ease - MIN_EASE) / (3.0 - MIN_EASE)).clamp(0.0, 1.0) * 20.0;  // 0-20 points
+    let momentum_score = ((momentum + 10.0) / 20.0).clamp(0.0, 1.0) * 20.0;  // 0-20 points
+    let accuracy_score = accuracy * 20.0;  // 0-20 points
+
+    (retention_score + ease_score + momentum_score + accuracy_score).clamp(0.0, 100.0)
+}
+
 /// Auto-promote a topic's difficulty when the user demonstrates mastery.
 /// Criteria: ease_factor >= 2.3, interval >= 14 days, accuracy >= 80%, attempts >= 5.
 /// Returns Some(new_difficulty) if promoted, None otherwise.
@@ -2427,6 +2464,34 @@ mod momentum_tests {
     use super::*;
     use crate::db;
     use crate::engine::adaptive;
+
+    #[test]
+    fn test_retrieval_strength_no_progress() {
+        let conn = db::init_memory_db().unwrap();
+        assert!((retrieval_strength(&conn, 9999) - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_retrieval_strength_healthy_topic() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 90.0, 10, 9, 2.5, 30, datetime('now'))", []
+        ).unwrap();
+        let strength = retrieval_strength(&conn, 1);
+        assert!(strength > 50.0, "Healthy topic should have strength > 50, got {}", strength);
+    }
+
+    #[test]
+    fn test_retrieval_strength_weak_topic() {
+        let conn = db::init_memory_db().unwrap();
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 20.0, 10, 2, 1.4, 1, datetime('now', '-10 days'))", []
+        ).unwrap();
+        let strength = retrieval_strength(&conn, 1);
+        assert!(strength < 50.0, "Weak topic should have strength < 50, got {}", strength);
+    }
 
     #[test]
     fn test_auto_promote_no_progress() {

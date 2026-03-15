@@ -72,6 +72,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_analogy_questions(conn)?;
     seed_paleontology(conn)?;
     seed_marine_biology(conn)?;
+    seed_astrophysics(conn)?;
+    seed_neuroscience(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -753,7 +755,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 54); // 52 previous + Paleontology + Marine Biology
+        assert_eq!(count, 56); // 54 previous + Astrophysics + Neuroscience
     }
 
     #[test]
@@ -763,7 +765,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 54);
+        assert_eq!(count, 56);
     }
 
     #[test]
@@ -1103,7 +1105,7 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
     )?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (atoms_id, "The Building Blocks of Matter", "Everything around you is made of atoms — the smallest unit of an element that retains its chemical identity.\n\nAtomic structure:\n- Protons: positive charge, in the nucleus. Define the element (atomic number).\n- Neutrons: neutral, in the nucleus. Add mass; different counts create isotopes.\n- Electrons: negative charge, orbit the nucleus in shells/energy levels.\n\nThe Periodic Table organizes all 118 known elements by atomic number.\n- Rows (periods): number of electron shells.\n- Columns (groups): similar chemical properties.\n- Metals (left), nonmetals (right), metalloids (staircase line).\n\nKey elements:\n- Hydrogen (H, 1): simplest atom, most abundant in universe.\n- Carbon (C, 6): basis of organic chemistry and all life.\n- Oxygen (O, 8): essential for respiration and combustion.\n- Iron (Fe, 26): core of Earth, essential in blood (hemoglobin).", 1),
         (atoms_id, "Electron Configuration & the Periodic Table", "Electrons fill shells from lowest energy to highest:\n- 1st shell: max 2 electrons\n- 2nd shell: max 8 electrons\n- 3rd shell: max 18 electrons (but fills 8 first)\n\nValence electrons: electrons in the outermost shell.\n- Determine how an atom bonds with others.\n- Group 1 (alkali metals): 1 valence electron → very reactive.\n- Group 17 (halogens): 7 valence electrons → very reactive.\n- Group 18 (noble gases): 8 valence electrons (full shell) → stable, unreactive.\n\nOctet Rule: atoms tend to gain, lose, or share electrons to have 8 in their outer shell.\n\nTrends across the periodic table:\n- Atomic radius: decreases left→right, increases top→bottom.\n- Electronegativity: increases left→right (fluorine is highest).\n- Ionization energy: increases left→right.", 2),
         (bonds_id, "How Atoms Connect", "Chemical bonds form when atoms share or transfer electrons to become more stable.\n\nIonic bonds:\n- One atom gives electrons, another takes them.\n- Creates charged ions: cation (+) and anion (-).\n- Opposite charges attract → ionic compound.\n- Example: NaCl (table salt). Na gives 1e⁻ to Cl.\n- Properties: crystalline, high melting point, conduct electricity when dissolved.\n\nCovalent bonds:\n- Atoms share electrons.\n- Single bond: 1 shared pair. Double: 2 pairs. Triple: 3 pairs.\n- Example: H₂O — oxygen shares electrons with two hydrogens.\n- Properties: lower melting points, poor conductors.\n\nMetallic bonds:\n- Metal atoms share a 'sea' of delocalized electrons.\n- Explains conductivity, malleability, and luster.", 1),
@@ -2050,7 +2052,7 @@ pub fn seed_political_science(conn: &Connection) -> Result<(), rusqlite::Error> 
     )?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (gov_sys, "Types of Government", "Government systems organize political power.\n\nDemocracy: citizens vote to elect leaders or decide policy directly.\n  - Direct democracy: citizens vote on laws themselves (e.g., Swiss cantons).\n  - Representative democracy: citizens elect representatives (e.g., USA, Germany).\n  - Parliamentary: legislature picks the head of government (e.g., UK, Canada).\n  - Presidential: separate executive elected by the people (e.g., USA, Brazil).\n\nMonarchy: power held by a king or queen.\n  - Absolute: monarch rules with total authority (historical France, Saudi Arabia).\n  - Constitutional: monarch is head of state but power rests with parliament (UK, Japan).\n\nAuthoritarian: power concentrated in a small group; limited political freedom.\n  Examples: military juntas, single-party states.\n\nTheocracy: religious leaders govern; laws based on religious doctrine.\n  Examples: Vatican City, historical Tibet.\n\nFederalism: power shared between central and regional governments.\n  Examples: USA, Switzerland, Germany.\n\nKey insight: most modern states blend elements of multiple systems.", 1),
         (gov_sys, "Separation of Powers", "Most democracies divide government into three branches:\n\n1. Legislative: makes laws (parliament, congress).\n2. Executive: enforces laws (president, prime minister, cabinet).\n3. Judicial: interprets laws (courts, supreme court).\n\nChecks and balances prevent any branch from becoming too powerful.\n  - The legislature can impeach the executive.\n  - The judiciary can strike down unconstitutional laws.\n  - The executive can veto legislation.\n\nMontesquieu (1748) first articulated this idea in 'The Spirit of the Laws.'\n\nNot all democracies separate powers equally:\n  - USA: strong separation between branches.\n  - UK: parliament is supreme; PM comes from the legislature.\n  - Switzerland: collective executive (Federal Council) elected by parliament.", 2),
         (intl_rel, "International Organizations", "Major international organizations:\n\nUnited Nations (UN): founded 1945; 193 member states.\n  - General Assembly: all members, one vote each.\n  - Security Council: 5 permanent members with veto power (USA, UK, France, Russia, China).\n  - Agencies: WHO, UNESCO, UNICEF, UNHCR.\n\nEuropean Union (EU): 27 member states; common market, shared currency (euro).\n  - Parliament, Commission, Council.\n  - Free movement of people, goods, services, capital.\n\nNATO: military alliance (1949); collective defense — attack on one is attack on all.\n\nWorld Trade Organization (WTO): regulates international trade; resolves disputes.\n\nInternational Criminal Court (ICC): prosecutes genocide, war crimes, crimes against humanity.\n\nKey tension: national sovereignty vs. international cooperation.", 1),
@@ -2511,7 +2513,7 @@ pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
     let ling_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Linguistic Anthropology'", [subj_id], |r| r.get(0))?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (cult_id, "What Is Culture?", "Culture is the learned set of beliefs, values, norms, and practices shared by a group of people. It includes language, art, religion, food, music, and social habits. Culture is not genetic — it is transmitted through socialization. Anthropologists study culture to understand human diversity and the many ways societies organize life.", 1),
         (cult_id, "Kinship and Social Organization", "Kinship systems define how people relate to one another through blood, marriage, and adoption. Different societies have matrilineal (traced through the mother) or patrilineal (traced through the father) descent systems. Understanding kinship helps explain inheritance, authority, and social obligations across cultures.", 2),
         (cult_id, "Rituals and Rites of Passage", "Rituals are symbolic actions performed in a prescribed order, often marking transitions in life: birth, adulthood, marriage, death. Arnold van Gennep identified three phases of rites of passage: separation, liminality (the in-between), and incorporation. These rituals reinforce social bonds and cultural identity.", 3),
@@ -2615,7 +2617,7 @@ pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> 
     let diet_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Dietary Patterns & Health'", [subj_id], |r| r.get(0))?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (macro_id, "Carbohydrates", "Carbohydrates are the body's primary energy source. They break down into glucose, which fuels cells. Simple carbs (sugars) provide quick energy, while complex carbs (starches, fiber) provide sustained energy. Fiber, found in whole grains, fruits, and vegetables, aids digestion and feeds beneficial gut bacteria. Recommended intake: 45–65% of total calories.", 1),
         (macro_id, "Proteins", "Proteins are chains of amino acids essential for building and repairing tissues, making enzymes and hormones, and supporting immune function. There are 20 amino acids; 9 are 'essential' (must come from food). Complete proteins (meat, eggs, soy) contain all essential amino acids; incomplete proteins (beans, grains) should be combined. Recommended intake: 10–35% of total calories.", 2),
         (macro_id, "Fats", "Dietary fats are essential for absorbing fat-soluble vitamins (A, D, E, K), insulating organs, and producing hormones. Unsaturated fats (olive oil, nuts, fish) promote heart health. Saturated fats (butter, red meat) should be limited. Trans fats (partially hydrogenated oils) are harmful and should be avoided. Recommended intake: 20–35% of total calories.", 3),
@@ -2715,7 +2717,7 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
     let essay_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Essay Writing'", [lang_id], |r| r.get(0))?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (vocab_id, "Context Clues", "Context clues are hints within a sentence that help you figure out the meaning of an unfamiliar word. Types include: definition clues (the word is directly defined), synonym clues (a similar word is nearby), antonym clues (an opposite word is nearby), and example clues (examples illustrate the meaning). Strong readers use context clues automatically.", 1),
         (vocab_id, "Root Words, Prefixes, and Suffixes", "Many English words are built from Greek and Latin roots. Knowing common roots unlocks thousands of words. For example: 'bio' (life), 'graph' (write), 'tele' (far), 'port' (carry). Prefixes change meaning: 'un-' (not), 'pre-' (before), 're-' (again). Suffixes change word type: '-tion' (noun), '-able' (adjective), '-ly' (adverb).", 2),
         (essay_id, "Essay Structure", "A well-structured essay has three main parts: introduction (hook + thesis statement), body paragraphs (each with a topic sentence, evidence, and analysis), and conclusion (restate thesis + broader significance). The thesis statement is the essay's central argument — every paragraph should support it.", 1),
@@ -4418,7 +4420,7 @@ pub fn seed_architecture(conn: &Connection) -> Result<(), rusqlite::Error> {
     )?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (tid_styles, "Classical Architecture", "Classical architecture originated in ancient Greece and Rome.\n\nKey features:\n- Columns: Doric (simple), Ionic (scrolls), Corinthian (ornate leaves)\n- Symmetry and proportion based on mathematical ratios\n- Pediments (triangular gables) above entrances\n- Use of marble and stone\n\nFamous examples: The Parthenon (Athens), The Pantheon (Rome), The US Capitol Building.\n\nThe classical orders (Doric, Ionic, Corinthian) define column proportions and decorative styles that influenced architecture for over 2,000 years.", 1),
         (tid_styles, "Gothic Architecture", "Gothic architecture dominated Europe from the 12th to 16th centuries.\n\nKey innovations:\n- Pointed arches (distribute weight more efficiently than round arches)\n- Flying buttresses (external supports allowing thinner walls)\n- Ribbed vaults (intersecting arches creating a skeletal framework)\n- Large stained glass windows (enabled by thinner walls)\n- Vertical emphasis — buildings reach toward the heavens\n\nFamous examples: Notre-Dame de Paris, Cologne Cathedral, Westminster Abbey.\n\nThe term 'Gothic' was originally pejorative — Renaissance critics thought these buildings were barbaric compared to classical forms.", 2),
         (tid_styles, "Modern & Contemporary Architecture", "Modern architecture (1920s–1970s) rejected ornament in favor of function.\n\nKey principles:\n- 'Form follows function' (Louis Sullivan)\n- Open floor plans\n- Use of steel, glass, and reinforced concrete\n- Flat roofs and clean lines\n- 'Less is more' (Mies van der Rohe)\n\nKey movements:\n- Bauhaus: merged art and industry (Walter Gropius)\n- International Style: glass curtain walls, steel frames\n- Brutalism: raw concrete, bold geometric forms\n\nContemporary architecture (1970s–present) embraces diversity:\n- Deconstructivism (Frank Gehry, Zaha Hadid)\n- Parametricism (computer-generated organic forms)\n- Green architecture (sustainability-focused design)", 3),
@@ -5841,7 +5843,7 @@ pub fn seed_organic_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> 
     let poly_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Polymers'", [subj_id], |r| r.get(0))?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (hc_id, "Alkanes, Alkenes, and Alkynes", "Hydrocarbons are molecules made of only carbon and hydrogen. Alkanes have single bonds (saturated), alkenes have at least one double bond, and alkynes have at least one triple bond. The general formulas are CnH2n+2, CnH2n, and CnH2n−2 respectively.", 1),
         (hc_id, "Naming Hydrocarbons", "IUPAC nomenclature uses prefixes (meth-, eth-, prop-, but-) for the carbon chain length and suffixes (-ane, -ene, -yne) for bond type. Branch chains are named as substituents with position numbers.", 2),
         (fg_id, "Common Functional Groups", "Functional groups determine chemical reactivity. Key groups: -OH (hydroxyl/alcohol), -COOH (carboxyl/acid), -NH2 (amine), C=O (carbonyl), -CHO (aldehyde). Each gives the molecule distinct properties.", 1),
@@ -5955,7 +5957,7 @@ pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     let eh_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Eulerian and Hamiltonian Graphs'", [subj_id], |r| r.get(0))?;
     let pg_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Planar Graphs'", [subj_id], |r| r.get(0))?;
 
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (ve_id, "What is a Graph?", "A graph G = (V, E) consists of a set of vertices (nodes) V and a set of edges E connecting pairs of vertices. Graphs model relationships: social networks, road maps, molecular structures. The degree of a vertex is the number of edges connected to it.", 1),
         (ve_id, "Directed vs Undirected Graphs", "In an undirected graph, edges have no direction (friendship is mutual). In a directed graph (digraph), edges have direction (following someone on Twitter isn't mutual). The Handshaking Lemma states that the sum of all vertex degrees equals twice the number of edges.", 2),
         (pc_id, "Paths, Walks, and Cycles", "A walk is any sequence of adjacent vertices. A path is a walk with no repeated vertices. A cycle is a path that starts and ends at the same vertex. The shortest path between two vertices is called the distance.", 1),
@@ -6557,7 +6559,7 @@ fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     let epigenetics_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Epigenetics' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (dna_id, "The Double Helix", "DNA is a double-stranded helix made of nucleotides. Each nucleotide has a sugar (deoxyribose), phosphate group, and nitrogenous base (A, T, G, C). Adenine pairs with thymine (2 hydrogen bonds), guanine pairs with cytosine (3 hydrogen bonds). The strands run antiparallel (5'→3' and 3'→5'). Replication is semiconservative — each new double helix has one old strand and one new strand.", 1),
         (transcription_id, "From DNA to mRNA", "Transcription copies a gene's DNA sequence into messenger RNA. RNA polymerase binds to the promoter, unwinds DNA, and synthesizes mRNA in the 5'→3' direction using the template strand. In eukaryotes, the pre-mRNA is processed: a 5' cap and 3' poly-A tail are added, and introns are spliced out by spliceosomes, leaving only exons.", 1),
         (translation_id, "Ribosomes & the Genetic Code", "Translation converts mRNA into protein at ribosomes. Transfer RNAs (tRNAs) carry amino acids and match codons via anticodons. The ribosome has A (aminoacyl), P (peptidyl), and E (exit) sites. Translation starts at AUG (methionine) and ends at a stop codon (UAA, UAG, UGA). The genetic code is degenerate — multiple codons can code for the same amino acid.", 1),
@@ -6570,7 +6572,7 @@ fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     // Explanations
-    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let explanations: Vec<ExplanationRow> = vec![
         (dna_id, "Base Pairing", "A always pairs with T (2 H-bonds), G always pairs with C (3 H-bonds). This complementarity enables accurate replication.", Some("Like a zipper where each tooth only fits one specific partner"), Some("Why does G-C pairing make DNA more thermally stable?")),
         (transcription_id, "mRNA Processing", "Eukaryotic pre-mRNA undergoes capping, polyadenylation, and splicing before export from the nucleus.", Some("Like editing a rough draft: add a cover (cap), a signature (poly-A), and cut out the irrelevant paragraphs (introns)"), Some("What is alternative splicing and why does it matter?")),
         (translation_id, "The Genetic Code", "64 codons map to 20 amino acids plus stop signals. The code is universal (shared across almost all life) and degenerate (multiple codons per amino acid).", Some("A dictionary where several different words can mean the same thing"), Some("Why is the genetic code called 'degenerate' rather than 'redundant'?")),
@@ -6652,7 +6654,7 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     let axiom_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Axiom of Choice & Zorn''s Lemma' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
 
     // Lessons
-    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+    let lessons: Vec<LessonRow> = vec![
         (notation_id, "What Is a Set?", "A set is a well-defined collection of distinct objects called elements or members. We write a ∈ A to mean 'a is an element of A'. Sets can be described by listing elements {1, 2, 3} or by set-builder notation {x | x > 0}. The empty set ∅ contains no elements. Two sets are equal if and only if they have exactly the same elements (Axiom of Extensionality).", 1),
         (operations_id, "Combining Sets", "Union (A ∪ B): all elements in A or B or both. Intersection (A ∩ B): elements in both A and B. Difference (A \\ B): elements in A but not B. Complement (Aᶜ): elements not in A (relative to a universal set U). Symmetric difference (A △ B): elements in exactly one of A or B. De Morgan's laws: (A ∪ B)ᶜ = Aᶜ ∩ Bᶜ and (A ∩ B)ᶜ = Aᶜ ∪ Bᶜ.", 1),
         (relations_id, "Relations and Functions", "A relation R from A to B is a subset of A × B (the Cartesian product). A function f: A → B is a relation where each element of A maps to exactly one element of B. Injective (one-to-one): different inputs give different outputs. Surjective (onto): every element of B is mapped to. Bijective: both injective and surjective — establishes a one-to-one correspondence.", 1),
@@ -6664,7 +6666,7 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     // Explanations
-    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+    let explanations: Vec<ExplanationRow> = vec![
         (notation_id, "Set-Builder Notation", "Set-builder notation defines a set by a property: {x ∈ S | P(x)} reads 'the set of all x in S such that P(x) is true'.", Some("Like a filter: take all items from a collection and keep only those matching your criteria"), Some("Why can't we define the 'set of all sets'?")),
         (operations_id, "De Morgan's Laws", "The complement of a union is the intersection of complements: (A ∪ B)ᶜ = Aᶜ ∩ Bᶜ. The complement of an intersection is the union of complements: (A ∩ B)ᶜ = Aᶜ ∪ Bᶜ.", Some("If you're NOT (tall OR strong), you must be (NOT tall AND NOT strong)"), Some("How do De Morgan's laws extend to arbitrary unions and intersections?")),
         (cardinality_id, "Cantor's Diagonal Argument", "Proves ℝ is uncountable. Assume you could list all real numbers in [0,1]. Construct a new number by changing the nth digit of the nth number. This new number differs from every listed number, contradicting the assumption.", Some("Like trying to make a guest list for a party where the guests keep creating new identities"), Some("Can you apply the diagonal argument to prove the power set of ℕ is uncountable?")),
@@ -6963,6 +6965,279 @@ fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('ocean explorer', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Astrophysics'", [], |r| r.get(0)
+    )?;
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Astrophysics', 'The physics of stars, galaxies, black holes, and the universe — from stellar nucleosynthesis to cosmic expansion.')",
+        [],
+    )?;
+    let sub_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Astrophysics'", [], |r| r.get(0))?;
+
+    let topics = [
+        (1, "Stellar Evolution", "beginner"),
+        (2, "Black Holes", "intermediate"),
+        (3, "Cosmology & Big Bang", "intermediate"),
+        (4, "Neutron Stars & Pulsars", "advanced"),
+        (5, "Dark Matter & Dark Energy", "advanced"),
+        (6, "Exoplanets & Habitability", "beginner"),
+    ];
+    for (sort, name, diff) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sub_id, name, diff, sort],
+        )?;
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (1, "Life Cycle of a Star", "Stars form from collapsing gas clouds (nebulae). Gravity pulls hydrogen together until nuclear fusion ignites in the core. A star spends most of its life on the main sequence, fusing hydrogen into helium. When hydrogen runs out, the star expands into a red giant. Massive stars end in supernovae; smaller ones shed their outer layers as planetary nebulae, leaving white dwarfs behind.", 1),
+        (1, "The Hertzsprung-Russell Diagram", "The H-R diagram plots stars by luminosity (brightness) vs temperature (color). Main sequence stars form a diagonal band. Red giants sit upper-right (cool but bright), white dwarfs lower-left (hot but dim). A star's position reveals its mass, age, and evolutionary stage.", 2),
+        (2, "What Is a Black Hole?", "A black hole forms when a massive star collapses so completely that nothing — not even light — can escape its gravitational pull. The boundary beyond which escape is impossible is called the event horizon. The singularity at the center is where density becomes theoretically infinite.", 1),
+        (2, "Types of Black Holes", "Stellar black holes (5-100 solar masses) form from supernovae. Supermassive black holes (millions to billions of solar masses) sit at galaxy centers — Sagittarius A* in our Milky Way is ~4 million solar masses. Intermediate-mass black holes are rarer and still being studied.", 2),
+        (3, "The Big Bang Theory", "The universe began ~13.8 billion years ago from an extremely hot, dense state. Evidence: cosmic microwave background radiation (CMB), Hubble's observation of galaxy redshift (expansion), and the abundance of light elements (hydrogen, helium) matching nucleosynthesis predictions.", 1),
+        (3, "Expansion of the Universe", "Edwin Hubble discovered that galaxies are moving away from us, and farther galaxies recede faster (Hubble's Law: v = H₀d). This means the universe is expanding. In 1998, observations of Type Ia supernovae showed the expansion is accelerating, driven by dark energy.", 2),
+        (4, "Neutron Star Basics", "When a star 8-25× the Sun's mass explodes as a supernova, the core collapses into a neutron star — an incredibly dense remnant just 20 km across but with 1.4-2 solar masses. A teaspoon of neutron star material weighs ~6 billion tonnes.", 1),
+        (4, "Pulsars and Magnetars", "Pulsars are rapidly spinning neutron stars that emit beams of radiation from their magnetic poles. As they rotate, the beams sweep past Earth like a lighthouse. Magnetars are neutron stars with extreme magnetic fields (10¹⁵ gauss) — a trillion times stronger than Earth's.", 2),
+        (5, "The Dark Matter Mystery", "Galaxies rotate too fast for the visible matter they contain — something unseen provides extra gravity. This 'dark matter' makes up ~27% of the universe's mass-energy. It doesn't emit, absorb, or reflect light. Leading candidates: WIMPs (weakly interacting massive particles) and axions.", 1),
+        (5, "Dark Energy and Cosmic Acceleration", "Dark energy comprises ~68% of the universe and drives its accelerating expansion. Its nature is unknown. The cosmological constant (Λ) treats it as a property of space itself. Alternatively, quintessence models propose a dynamic energy field.", 2),
+        (6, "Detecting Exoplanets", "Exoplanets are found using the transit method (dimming as a planet crosses its star), radial velocity (star wobble from gravitational tug), and direct imaging. NASA's Kepler mission discovered thousands, revealing that planets are common — most stars have at least one.", 1),
+        (6, "The Habitable Zone", "The habitable zone (or Goldilocks zone) is the orbital region where liquid water could exist on a planet's surface. Too close → water evaporates; too far → water freezes. Factors include star luminosity, planet atmosphere, and greenhouse effects.", 2),
+    ];
+    for (sort_topic, title, content, sort_order) in &lessons {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, sort_order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (1, "Nuclear Fusion", "Nuclear fusion is the process where lighter atomic nuclei combine to form heavier ones, releasing enormous energy. In stars, hydrogen fuses into helium in the core at temperatures exceeding 15 million Kelvin.", Some("Imagine pressing two magnets together — it takes enormous force, but once they snap together, energy is released."), Some("Why does fusion require such extreme temperatures?")),
+        (2, "Event Horizon", "The event horizon is the boundary around a black hole beyond which nothing can escape. It's not a physical surface — it's a mathematical boundary where escape velocity equals the speed of light.", Some("Think of it like a waterfall's point of no return — once you pass it, the current is too strong to swim back."), Some("Can information escape a black hole?")),
+        (3, "Cosmic Microwave Background", "The CMB is the afterglow of the Big Bang — radiation from when the universe cooled enough for atoms to form (~380,000 years after the Big Bang). It fills the entire sky at a temperature of 2.725 K.", Some("It's like the echo of a massive explosion still reverberating through the universe."), Some("What do temperature variations in the CMB tell us?")),
+        (5, "Dark Matter", "Dark matter is invisible matter that interacts gravitationally but not electromagnetically. Its existence is inferred from galaxy rotation curves, gravitational lensing, and cosmic structure formation.", Some("Imagine a crowded dance floor where you can see some dancers being pushed around by invisible partners."), Some("How do we know dark matter isn't just regular matter we can't see?")),
+        (6, "Habitable Zone", "The habitable zone is the region around a star where conditions might support liquid water. It depends on the star's luminosity — dimmer stars have closer habitable zones, brighter stars have farther ones.", Some("Like sitting at the right distance from a campfire — close enough to stay warm, far enough not to burn."), Some("Could a planet outside the habitable zone still support life?")),
+    ];
+    for (sort_topic, concept, explanation, analogy, follow_up) in &explanations {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions (using QuizRowHint-compatible inserts)
+    let quizzes: Vec<QuizRowHint> = vec![
+        (1, "What fuels a main-sequence star?", "multiple_choice", "Hydrogen fusion",
+         Some("Helium fusion"), Some("Hydrogen fusion"), Some("Carbon combustion"), Some("Gravitational collapse"),
+         "Think about the most abundant element in the universe.", "Stars on the main sequence primarily fuse hydrogen into helium in their cores."),
+        (1, "A star more massive than ~8 solar masses ends its life as a supernova.", "true_false", "true",
+         None, None, None, None, "Consider what happens when fusion can no longer support the core.", "Massive stars undergo core collapse when iron builds up, triggering a supernova."),
+        (2, "What is the boundary around a black hole called?", "multiple_choice", "Event horizon",
+         Some("Event horizon"), Some("Schwarzschild sphere"), Some("Singularity border"), Some("Photon ring"),
+         "It marks the point of no return.", "The event horizon is the boundary beyond which nothing can escape a black hole's gravity."),
+        (2, "The _____ at the center of a black hole is where density becomes theoretically infinite.", "fill_in_blank", "singularity",
+         None, None, None, None, "It's a point of infinite density.", "The singularity is the theoretical point at the center where gravitational forces crush matter to infinite density."),
+        (3, "The cosmic microwave background radiation is evidence of what event?", "multiple_choice", "The Big Bang",
+         Some("Star formation"), Some("Galaxy collision"), Some("The Big Bang"), Some("Supernova explosion"),
+         "This radiation fills the entire observable universe uniformly.", "The CMB is the thermal afterglow of the Big Bang, released about 380,000 years after the universe began."),
+        (3, "Hubble's Law states that farther galaxies move away faster.", "true_false", "true",
+         None, None, None, None, "Think about the expanding universe.", "Hubble discovered that galaxy recession velocity is proportional to distance (v = H₀d), proving the universe is expanding."),
+        (4, "How wide is a typical neutron star?", "multiple_choice", "About 20 km",
+         Some("About 20 km"), Some("About 200 km"), Some("About 2,000 km"), Some("About 20,000 km"),
+         "Incredibly dense but surprisingly small.", "Despite containing 1.4-2 solar masses, neutron stars are only about 20 km in diameter."),
+        (4, "Magnetars have magnetic fields about _____ times stronger than Earth's.", "fill_in_blank", "a trillion",
+         None, None, None, None, "Think of an extraordinarily large number.", "Magnetars possess magnetic fields of ~10¹⁵ gauss, roughly a trillion times Earth's magnetic field."),
+        (5, "What percentage of the universe's mass-energy is dark matter?", "multiple_choice", "About 27%",
+         Some("About 5%"), Some("About 27%"), Some("About 68%"), Some("About 50%"),
+         "Regular matter is only about 5%.", "Dark matter makes up approximately 27% of the universe, while dark energy is about 68% and ordinary matter only ~5%."),
+        (5, "Dark energy causes the universe's expansion to decelerate.", "true_false", "false",
+         None, None, None, None, "The 1998 Nobel Prize was awarded for discovering the opposite.", "Dark energy drives the accelerating expansion of the universe, discovered via Type Ia supernovae observations."),
+        (6, "Which method detects exoplanets by measuring starlight dimming?", "multiple_choice", "Transit method",
+         Some("Radial velocity"), Some("Transit method"), Some("Astrometry"), Some("Microlensing"),
+         "The planet passes in front of its star.", "The transit method detects the slight dimming when a planet crosses in front of its host star, as seen from Earth."),
+        (6, "The habitable zone depends only on the distance from the star.", "true_false", "false",
+         None, None, None, None, "Consider what else affects surface temperature.", "The habitable zone also depends on stellar luminosity, planetary atmosphere, and greenhouse effects — not just distance."),
+    ];
+    for (sort_topic, question, qtype, answer, oa, ob, oc, od, hint, explanation) in &quizzes {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![tid, question, qtype, answer, oa, ob, oc, od, hint, explanation],
+        )?;
+    }
+
+    // Learning path
+    let path_steps: Vec<(i64, &str)> = vec![
+        (1, "Learn how stars are born, live, and die"),
+        (6, "Discover exoplanets and where life might exist"),
+        (3, "Understand the Big Bang and cosmic expansion"),
+        (2, "Explore the physics of black holes"),
+        (4, "Study extreme objects: neutron stars and pulsars"),
+        (5, "Dive into dark matter and dark energy mysteries"),
+    ];
+    for (i, (sort, desc)) in path_steps.iter().enumerate() {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('astrophysics explorer', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Neuroscience'", [], |r| r.get(0)
+    )?;
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Neuroscience', 'The science of the brain and nervous system — from neurons and synapses to consciousness, memory, and behavior.')",
+        [],
+    )?;
+    let sub_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Neuroscience'", [], |r| r.get(0))?;
+
+    let topics = [
+        (1, "Neurons & Synapses", "beginner"),
+        (2, "Brain Anatomy", "beginner"),
+        (3, "Memory & Learning", "intermediate"),
+        (4, "Neuroplasticity", "intermediate"),
+        (5, "Neurotransmitters", "advanced"),
+        (6, "Consciousness & Sleep", "advanced"),
+    ];
+    for (sort, name, diff) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sub_id, name, diff, sort],
+        )?;
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (1, "The Neuron", "Neurons are specialized cells that transmit information via electrical and chemical signals. Each neuron has a cell body (soma), dendrites (receive signals), and an axon (sends signals). The human brain contains ~86 billion neurons.", 1),
+        (1, "Synaptic Transmission", "Synapses are the gaps between neurons. When an electrical signal (action potential) reaches the axon terminal, neurotransmitters are released into the synaptic cleft. These chemicals bind to receptors on the next neuron, continuing the signal.", 2),
+        (2, "Major Brain Regions", "The cerebrum (thinking, language, movement) has four lobes: frontal (planning), parietal (sensation), temporal (hearing, memory), and occipital (vision). The cerebellum coordinates movement. The brainstem controls vital functions like breathing and heart rate.", 1),
+        (2, "The Limbic System", "The limbic system handles emotions and memory. Key structures: the amygdala (fear, emotional processing), hippocampus (forming new memories), and hypothalamus (hormones, hunger, body temperature). Damage to the hippocampus can prevent forming new long-term memories.", 2),
+        (3, "How Memories Form", "Memories form through a process called encoding → storage → retrieval. Short-term (working) memory holds ~7 items for seconds. Long-term memories are consolidated during sleep through hippocampal replay — neural patterns from the day are replayed and strengthened.", 1),
+        (3, "Types of Memory", "Declarative memory includes episodic (personal events) and semantic (facts). Procedural memory covers skills (riding a bike). Declarative memories depend on the hippocampus; procedural memories rely on the basal ganglia and cerebellum.", 2),
+        (4, "The Plastic Brain", "Neuroplasticity is the brain's ability to reorganize by forming new neural connections. It enables learning, recovery from injury, and adaptation. London taxi drivers who memorize complex routes develop larger hippocampi — a famous example of experience-dependent plasticity.", 1),
+        (4, "Hebbian Learning", "Donald Hebb proposed that 'neurons that fire together wire together.' Repeated activation of connected neurons strengthens their synaptic connections (long-term potentiation, LTP). This is the cellular basis of learning and memory.", 2),
+        (5, "Key Neurotransmitters", "Dopamine: reward, motivation. Serotonin: mood, sleep. GABA: inhibition, calming. Glutamate: excitation, learning. Acetylcholine: memory, muscle control. Norepinephrine: alertness, attention. Imbalances in these systems underlie many neurological and psychiatric conditions.", 1),
+        (5, "Drugs and Neurotransmitters", "Psychoactive drugs work by altering neurotransmitter systems. SSRIs (antidepressants) block serotonin reuptake. Caffeine blocks adenosine receptors. L-DOPA treats Parkinson's by replenishing dopamine. Understanding these mechanisms is key to pharmacology.", 2),
+        (6, "What Is Consciousness?", "Consciousness remains one of neuroscience's greatest mysteries. The 'hard problem' asks why subjective experience exists at all. Leading theories: Global Workspace Theory (information broadcast to many brain areas) and Integrated Information Theory (consciousness = integrated information, Φ).", 1),
+        (6, "The Science of Sleep", "Sleep has distinct stages: NREM (N1-N3, progressively deeper) and REM (dreaming, memory consolidation). During deep sleep (N3), slow waves coordinate hippocampal-cortical memory transfer. REM sleep strengthens emotional memories and creative problem-solving.", 2),
+    ];
+    for (sort_topic, title, content, sort_order) in &lessons {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, sort_order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (1, "Action Potential", "An action potential is a rapid electrical signal that travels along a neuron's axon. It's triggered when the neuron reaches a threshold voltage, causing sodium channels to open and the cell to depolarize.", Some("Like a row of dominoes falling — once the first tips, the chain reaction propagates to the end."), Some("Why can't an action potential travel backwards?")),
+        (3, "Long-Term Potentiation", "LTP is the strengthening of synaptic connections through repeated activation. It's the primary cellular mechanism behind learning and memory — when you practice something, the synapses involved become more efficient.", Some("Like a path through a forest — the more you walk it, the clearer and easier it becomes."), Some("What conditions are needed for LTP to occur?")),
+        (4, "Neuroplasticity", "The brain's ability to physically change its structure and function in response to experience. It happens through synaptogenesis (new connections), pruning (removing unused ones), and myelination (insulating active pathways).", Some("Your brain is like clay that reshapes itself based on what you do — the more you practice, the deeper the impression."), Some("Does neuroplasticity decrease with age?")),
+        (5, "Dopamine", "Dopamine is a neurotransmitter central to reward, motivation, and learning. It signals prediction errors — when something is better or worse than expected. This drives goal-directed behavior and is crucial for habit formation.", Some("Dopamine is like your brain's gold star sticker — it marks experiences worth repeating."), Some("How does dopamine relate to addiction?")),
+        (6, "REM Sleep", "Rapid Eye Movement sleep is characterized by vivid dreaming, rapid eye movements, and temporary muscle paralysis. It plays a crucial role in emotional memory processing and creative insight.", Some("REM sleep is like your brain's nightly editing session — reviewing the day's footage and filing the important clips."), Some("Why are we paralyzed during REM sleep?")),
+    ];
+    for (sort_topic, concept, explanation, analogy, follow_up) in &explanations {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (1, "How many neurons does the human brain contain?", "multiple_choice", "About 86 billion",
+         Some("About 86 million"), Some("About 86 billion"), Some("About 860 billion"), Some("About 8.6 trillion"),
+         "It's billions, not millions or trillions.", "The human brain contains approximately 86 billion neurons."),
+        (1, "Dendrites send signals away from the cell body.", "true_false", "false",
+         None, None, None, None, "Think about the direction of information flow.", "Dendrites receive signals; axons send signals away from the cell body."),
+        (2, "Which brain lobe is primarily responsible for vision?", "multiple_choice", "Occipital lobe",
+         Some("Frontal lobe"), Some("Temporal lobe"), Some("Parietal lobe"), Some("Occipital lobe"),
+         "It's at the back of the head.", "The occipital lobe at the rear of the brain processes visual information."),
+        (2, "The _____ is the brain structure most important for forming new long-term memories.", "fill_in_blank", "hippocampus",
+         None, None, None, None, "It's named after a sea creature it resembles.", "The hippocampus is critical for converting short-term memories into long-term ones."),
+        (3, "Working memory can hold about _____ items.", "fill_in_blank", "7",
+         None, None, None, None, "Miller's magic number.", "George Miller's research showed working memory capacity is approximately 7 (±2) items."),
+        (3, "Procedural memories (like riding a bike) depend on the hippocampus.", "true_false", "false",
+         None, None, None, None, "Think about what brain area handles motor skills.", "Procedural memories rely on the basal ganglia and cerebellum, not the hippocampus."),
+        (4, "What phrase summarizes Hebbian learning?", "multiple_choice", "Neurons that fire together wire together",
+         Some("Use it or lose it"), Some("Neurons that fire together wire together"), Some("Practice makes perfect"), Some("The brain never changes"),
+         "It's about simultaneous activation.", "Hebb's rule states that when neurons repeatedly fire together, their connections strengthen."),
+        (4, "London taxi drivers develop larger hippocampi from memorizing routes.", "true_false", "true",
+         None, None, None, None, "This is a famous neuroplasticity study.", "Maguire et al. (2000) showed London taxi drivers have enlarged posterior hippocampi from spatial navigation practice."),
+        (5, "Which neurotransmitter is most associated with reward and motivation?", "multiple_choice", "Dopamine",
+         Some("Serotonin"), Some("GABA"), Some("Dopamine"), Some("Acetylcholine"),
+         "Think about what drives you to pursue goals.", "Dopamine is the primary neurotransmitter for reward signaling, motivation, and reinforcement learning."),
+        (5, "SSRIs work by blocking the reuptake of _____.", "fill_in_blank", "serotonin",
+         None, None, None, None, "The S in SSRI stands for this.", "Selective Serotonin Reuptake Inhibitors block serotonin reuptake, increasing its availability in the synaptic cleft."),
+        (6, "During which sleep stage does most memory consolidation occur?", "multiple_choice", "Deep sleep (N3) and REM",
+         Some("N1 (light sleep)"), Some("Deep sleep (N3) and REM"), Some("Only REM"), Some("Only N2"),
+         "Two stages work together.", "Deep NREM sleep transfers declarative memories to cortex; REM consolidates emotional and procedural memories."),
+        (6, "Integrated Information Theory measures consciousness using the symbol Φ (phi).", "true_false", "true",
+         None, None, None, None, "IIT uses a specific mathematical measure.", "Giulio Tononi's IIT proposes that consciousness equals integrated information, quantified as Φ."),
+    ];
+    for (sort_topic, question, qtype, answer, oa, ob, oc, od, hint, explanation) in &quizzes {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![tid, question, qtype, answer, oa, ob, oc, od, hint, explanation],
+        )?;
+    }
+
+    let path_steps: Vec<(i64, &str)> = vec![
+        (1, "Learn how neurons communicate via electrical and chemical signals"),
+        (2, "Explore the major brain regions and their functions"),
+        (5, "Understand the neurotransmitter systems that drive behavior"),
+        (3, "Discover how memories form, consolidate, and are retrieved"),
+        (4, "Learn how the brain rewires itself through experience"),
+        (6, "Explore the mysteries of consciousness and sleep"),
+    ];
+    for (i, (sort, desc)) in path_steps.iter().enumerate() {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('brain explorer', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
         )?;
     }
