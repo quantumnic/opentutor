@@ -359,6 +359,11 @@ pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResul
         return check_cloze_scored(&correct_lower, &answer_lower);
     }
 
+    // Categorize: items sorted into categories (partial credit)
+    if question.question_type == "categorize" {
+        return check_categorize_scored(&correct_lower, &answer_lower);
+    }
+
     // Fill-in-blank: near-miss detection
     if question.question_type == "fill_in_blank" {
         if fuzzy_match(&answer_lower, &correct_lower) {
@@ -503,6 +508,11 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     // correct options. The user must select all correct ones (order doesn't matter).
     if question.question_type == "select_all" {
         return check_select_all_answer(&correct, &answer);
+    }
+
+    // For categorize questions, check via scored version
+    if question.question_type == "categorize" {
+        return check_categorize_scored(&correct, &answer).correct;
     }
 
     if answer == correct {
@@ -663,6 +673,71 @@ fn check_select_all_scored(correct: &str, answer: &str) -> AnswerResult {
         AnswerResult::full()
     } else if final_score > 0.0 {
         AnswerResult::half_right(final_score * 0.75)
+    } else {
+        AnswerResult::wrong()
+    }
+}
+
+/// Check a categorize answer. Format: "Category:item1,item2;Category2:item3"
+/// Partial credit for getting some categories right.
+fn check_categorize_scored(correct: &str, answer: &str) -> AnswerResult {
+    // Parse "Category:item1,item2;Category2:item3" format
+    fn parse_categories(s: &str) -> std::collections::HashMap<String, Vec<String>> {
+        let mut map = std::collections::HashMap::new();
+        for part in s.split(';') {
+            let part = part.trim();
+            if let Some((cat, items)) = part.split_once(':') {
+                let cat = cat.trim().to_lowercase();
+                let items: Vec<String> = items
+                    .split(',')
+                    .map(|i| i.trim().to_lowercase())
+                    .filter(|i| !i.is_empty())
+                    .collect();
+                map.entry(cat).or_insert_with(Vec::new).extend(items);
+            }
+        }
+        map
+    }
+
+    let correct_map = parse_categories(correct);
+    let answer_map = parse_categories(answer);
+
+    if correct_map.is_empty() {
+        return AnswerResult::wrong();
+    }
+
+    // Build item→category lookup from correct answer
+    let mut item_to_cat: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut total_items = 0usize;
+    for (cat, items) in &correct_map {
+        for item in items {
+            item_to_cat.insert(item.clone(), cat.clone());
+            total_items += 1;
+        }
+    }
+
+    if total_items == 0 {
+        return AnswerResult::wrong();
+    }
+
+    // Count correctly categorized items
+    let mut correct_count = 0usize;
+    for (cat, items) in &answer_map {
+        for item in items {
+            if item_to_cat.get(item).map(|c| c == cat).unwrap_or(false) {
+                correct_count += 1;
+            }
+        }
+    }
+
+    let score = correct_count as f64 / total_items as f64;
+
+    if score >= 0.99 {
+        AnswerResult::full()
+    } else if score >= 0.5 {
+        AnswerResult::half_right(score * 0.75)
+    } else if score > 0.0 {
+        AnswerResult::half_right(score * 0.5)
     } else {
         AnswerResult::wrong()
     }
@@ -1380,5 +1455,52 @@ mod tests {
             [], |r| r.get(0),
         ).unwrap();
         assert!(count >= 3, "Should have at least 3 cloze questions seeded, got {}", count);
+    }
+
+    #[test]
+    fn test_categorize_full_credit() {
+        let result = check_categorize_scored(
+            "fruit:apple,banana;veggie:carrot",
+            "fruit:apple,banana;veggie:carrot",
+        );
+        assert!(result.correct);
+        assert!((result.credit - 1.0).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_categorize_partial_credit() {
+        let result = check_categorize_scored(
+            "fruit:apple,banana;veggie:carrot,pea",
+            "fruit:apple;veggie:carrot",
+        );
+        // 2 out of 4 correct = 50%
+        assert!(!result.correct);
+        assert!(result.credit > 0.0);
+    }
+
+    #[test]
+    fn test_categorize_wrong() {
+        let result = check_categorize_scored(
+            "fruit:apple;veggie:carrot",
+            "fruit:carrot;veggie:apple",
+        );
+        assert!(!result.correct);
+    }
+
+    #[test]
+    fn test_categorize_question_type() {
+        let q = QuizQuestion {
+            id: 1,
+            topic_id: 1,
+            question: "Categorize these".to_string(),
+            question_type: "categorize".to_string(),
+            difficulty: "hard".to_string(),
+            correct_answer: "A:x;B:y".to_string(),
+            options: vec![],
+            hint: None,
+            explanation: "test".to_string(),
+        };
+        assert!(check_answer(&q, "A:x;B:y"));
+        assert!(!check_answer(&q, "A:y;B:x"));
     }
 }

@@ -2,6 +2,10 @@ use rusqlite::Connection;
 
 /// SM-2 algorithm parameters with FSRS-inspired enhancements
 pub const DEFAULT_DESIRED_RETENTION: f64 = 0.85;
+/// Minimum adaptive retention target
+const MIN_ADAPTIVE_RETENTION: f64 = 0.75;
+/// Maximum adaptive retention target
+const MAX_ADAPTIVE_RETENTION: f64 = 0.95;
 const MIN_EASE: f64 = 1.3;
 /// Maximum interval in days (cap at ~6 months)
 const MAX_INTERVAL: i64 = 180;
@@ -989,6 +993,140 @@ pub fn review_load_forecast(conn: &Connection, days: usize) -> Result<Vec<(Strin
     Ok(result)
 }
 
+/// Compute an adaptive retention target for a topic based on recent performance.
+/// Topics where the user consistently scores well get a higher target (longer intervals),
+/// while struggling topics get a lower target (reviewed more often).
+pub fn adaptive_retention_target(conn: &Connection, topic_id: i64) -> f64 {
+    let base = crate::commands::config::get_desired_retention(conn);
+
+    // Get recent quiz scores for this topic (last 10 attempts)
+    let scores: Vec<f64> = conn
+        .prepare(
+            "SELECT score FROM session_log WHERE topic_id = ?1
+             AND activity_type IN ('review', 'quiz') AND score IS NOT NULL
+             ORDER BY timestamp DESC LIMIT 10",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map([topic_id], |r| r.get(0))?
+                .collect::<Result<Vec<f64>, _>>()
+        })
+        .unwrap_or_default();
+
+    if scores.len() < 3 {
+        return base; // Not enough data, use global setting
+    }
+
+    let avg = scores.iter().sum::<f64>() / scores.len() as f64;
+
+    // Trend: compare recent 3 to older scores
+    let recent_avg = scores.iter().take(3).sum::<f64>() / 3.0;
+    let trend_bonus = if recent_avg > avg { 0.02 } else if recent_avg < avg * 0.8 { -0.03 } else { 0.0 };
+
+    // Scale retention based on performance
+    let adjustment = if avg >= 90.0 {
+        0.05  // Mastering: push intervals longer
+    } else if avg >= 70.0 {
+        0.0   // On track
+    } else if avg >= 50.0 {
+        -0.03 // Struggling: review more often
+    } else {
+        -0.07 // Really struggling: much more frequent review
+    };
+
+    (base + adjustment + trend_bonus).clamp(MIN_ADAPTIVE_RETENTION, MAX_ADAPTIVE_RETENTION)
+}
+
+/// Data for the retention report command
+#[derive(Debug)]
+#[allow(dead_code)]
+pub struct RetentionReport {
+    pub topic_id: i64,
+    pub topic_name: String,
+    pub subject_name: String,
+    pub current_retention: f64,
+    pub target_retention: f64,
+    pub stability_days: f64,
+    pub days_since_review: i64,
+    pub status: RetentionStatus,
+}
+
+#[derive(Debug)]
+pub enum RetentionStatus {
+    Fresh,      // Well above target
+    Good,       // At or near target
+    Fading,     // Below target but recoverable
+    Critical,   // Far below target
+}
+
+impl std::fmt::Display for RetentionStatus {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RetentionStatus::Fresh => write!(f, "🟢 Fresh"),
+            RetentionStatus::Good => write!(f, "🟡 Good"),
+            RetentionStatus::Fading => write!(f, "🟠 Fading"),
+            RetentionStatus::Critical => write!(f, "🔴 Critical"),
+        }
+    }
+}
+
+/// Generate a retention report for all studied topics.
+pub fn retention_report(conn: &Connection) -> Result<Vec<RetentionReport>, rusqlite::Error> {
+    let mut stmt = conn.prepare(
+        "SELECT p.topic_id, t.name, s.name,
+                COALESCE(p.interval_days, 0),
+                COALESCE(p.ease_factor, 2.5),
+                CAST(julianday('now') - julianday(COALESCE(p.last_reviewed, '2000-01-01')) AS INTEGER)
+         FROM user_progress p
+         JOIN topics t ON t.id = p.topic_id
+         JOIN subjects s ON s.id = t.subject_id
+         WHERE p.attempts > 0
+         ORDER BY s.name, t.name",
+    )?;
+
+    let mut reports = Vec::new();
+    let rows = stmt.query_map([], |r| {
+        Ok((
+            r.get::<_, i64>(0)?,
+            r.get::<_, String>(1)?,
+            r.get::<_, String>(2)?,
+            r.get::<_, i64>(3)?,
+            r.get::<_, f64>(4)?,
+            r.get::<_, i64>(5)?,
+        ))
+    })?;
+
+    for row in rows {
+        let (topic_id, topic_name, subject_name, interval, ease, days_since) = row?;
+
+        let ret = retrievability(conn, topic_id);
+        let target = adaptive_retention_target(conn, topic_id);
+        let stab = stability_half_life(interval, ease);
+
+        let status = if ret >= target + 0.10 {
+            RetentionStatus::Fresh
+        } else if ret >= target - 0.05 {
+            RetentionStatus::Good
+        } else if ret >= target - 0.20 {
+            RetentionStatus::Fading
+        } else {
+            RetentionStatus::Critical
+        };
+
+        reports.push(RetentionReport {
+            topic_id,
+            topic_name,
+            subject_name,
+            current_retention: ret,
+            target_retention: target,
+            stability_days: stab,
+            days_since_review: days_since,
+            status,
+        });
+    }
+
+    Ok(reports)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1442,6 +1580,44 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let forecast = review_load_forecast(&conn, 7).unwrap();
         assert_eq!(forecast.len(), 7, "Should return 7 days of forecast");
+    }
+
+    #[test]
+    fn test_adaptive_retention_default() {
+        let conn = db::init_memory_db().unwrap();
+        // No data yet — should return default
+        let target = adaptive_retention_target(&conn, 1);
+        assert!((target - DEFAULT_DESIRED_RETENTION).abs() < 0.01);
+    }
+
+    #[test]
+    fn test_adaptive_retention_with_high_scores() {
+        let conn = db::init_memory_db().unwrap();
+        // Simulate high scores
+        for _ in 0..5 {
+            crate::engine::adaptive::log_activity(&conn, 1, "quiz", Some(95.0)).unwrap();
+        }
+        let target = adaptive_retention_target(&conn, 1);
+        assert!(target > DEFAULT_DESIRED_RETENTION, "High scores should raise target");
+        assert!(target <= MAX_ADAPTIVE_RETENTION);
+    }
+
+    #[test]
+    fn test_adaptive_retention_with_low_scores() {
+        let conn = db::init_memory_db().unwrap();
+        for _ in 0..5 {
+            crate::engine::adaptive::log_activity(&conn, 1, "quiz", Some(40.0)).unwrap();
+        }
+        let target = adaptive_retention_target(&conn, 1);
+        assert!(target < DEFAULT_DESIRED_RETENTION, "Low scores should lower target");
+        assert!(target >= MIN_ADAPTIVE_RETENTION);
+    }
+
+    #[test]
+    fn test_retention_report_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let reports = retention_report(&conn).unwrap();
+        assert!(reports.is_empty());
     }
 
     #[test]

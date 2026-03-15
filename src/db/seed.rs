@@ -65,6 +65,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_thermodynamics(conn)?;
     seed_cognitive_science(conn)?;
     seed_cloze_questions(conn)?;
+    seed_ecology(conn)?;
+    seed_abstract_algebra(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -746,7 +748,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 48); // 46 previous + Thermodynamics + Cognitive Science
+        assert_eq!(count, 50); // 48 previous + Ecology + Abstract Algebra
     }
 
     #[test]
@@ -756,7 +758,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 48);
+        assert_eq!(count, 50);
     }
 
     #[test]
@@ -6275,6 +6277,248 @@ pub fn seed_cloze_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
             rusqlite::params![tid, "Baddeley's working memory model has four components: central executive, ___ loop, ___ sketchpad, and episodic ___.", "cloze", "phonological;visuospatial;buffer", "Verbal visual and integration components", "hard"],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_ecology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Ecology'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Ecology', 'The study of ecosystems, populations, and how organisms interact with each other and their environment.')",
+        [],
+    )?;
+    let eco_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Ecology'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Population Dynamics", "beginner"),
+        ("Community Ecology", "intermediate"),
+        ("Ecosystem Energy Flow", "beginner"),
+        ("Biogeochemical Cycles", "intermediate"),
+        ("Biodiversity & Conservation", "advanced"),
+    ];
+    for (name, diff) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty) VALUES (?1, ?2, ?3)",
+            rusqlite::params![eco_id, name, diff],
+        )?;
+    }
+
+    let pop_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Population Dynamics'", [], |r| r.get(0),
+    )?;
+    let comm_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Community Ecology'", [], |r| r.get(0),
+    )?;
+    let energy_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Ecosystem Energy Flow'", [], |r| r.get(0),
+    )?;
+    let cycles_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Biogeochemical Cycles'", [], |r| r.get(0),
+    )?;
+    let biodiv_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Biodiversity & Conservation'", [], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (pop_id, "Exponential vs Logistic Growth", "Populations grow exponentially (J-curve) when resources are unlimited, but switch to logistic growth (S-curve) as they approach carrying capacity (K). The growth rate r determines how fast a population grows.", 1),
+        (pop_id, "Carrying Capacity & Limiting Factors", "Carrying capacity (K) is the maximum population size an environment can sustain. Limiting factors include food, water, space, and predation. Density-dependent factors intensify as population grows.", 2),
+        (comm_id, "Symbiosis & Species Interactions", "Species interact through mutualism (+/+), commensalism (+/0), parasitism (+/−), and competition (−/−). These relationships shape community structure and drive coevolution.", 1),
+        (comm_id, "Ecological Succession", "Primary succession occurs on bare rock; secondary succession follows a disturbance. Pioneer species arrive first, and through facilitation, the community progresses toward a climax community.", 2),
+        (energy_id, "Trophic Levels & Food Webs", "Energy flows from producers (autotrophs) to primary consumers to secondary consumers. Only ~10% of energy transfers between trophic levels (10% rule). Food webs show complex feeding relationships.", 1),
+        (energy_id, "Primary Productivity", "Gross primary productivity (GPP) is total photosynthesis. Net primary productivity (NPP = GPP − respiration) is energy available to consumers. Tropical rainforests and estuaries have the highest NPP.", 2),
+        (cycles_id, "Carbon & Nitrogen Cycles", "Carbon cycles through atmosphere (CO₂), biosphere (organic compounds), lithosphere (fossil fuels), and hydrosphere (dissolved CO₂). Nitrogen fixation converts N₂ to usable NH₃ via bacteria.", 1),
+        (cycles_id, "Water & Phosphorus Cycles", "The water cycle involves evaporation, transpiration, condensation, and precipitation. Phosphorus has no atmospheric phase — it cycles through rocks, soil, water, and organisms.", 2),
+        (biodiv_id, "Measuring Biodiversity", "Biodiversity includes genetic, species, and ecosystem diversity. Species richness counts species; Shannon index (H') measures diversity including evenness. Higher H' = more diverse.", 1),
+        (biodiv_id, "Conservation Biology", "Threats include habitat loss, invasive species, overexploitation, pollution, and climate change (HIPPO). Conservation strategies include protected areas, corridors, captive breeding, and rewilding.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Quiz questions
+    let quizzes: Vec<QuizRowHint> = vec![
+        (pop_id, "What shape describes logistic population growth?", "multiple_choice", "S-curve", Some("J-curve"), Some("W-curve"), Some("Linear"), None, "Logistic growth produces an S-shaped (sigmoid) curve as the population approaches carrying capacity.", "easy"),
+        (pop_id, "True or false: Density-independent factors become stronger as population grows.", "true_false", "false", None, None, None, None, "Density-DEPENDENT factors become stronger with population size. Density-independent factors (storms, fires) affect all population sizes equally.", "easy"),
+        (comm_id, "A clownfish living in a sea anemone is an example of:", "multiple_choice", "Mutualism", Some("Parasitism"), Some("Commensalism"), Some("Competition"), None, "Both species benefit: the clownfish gets protection, and the anemone gets food scraps and cleaning.", "easy"),
+        (comm_id, "What is the first stage of primary succession?", "fill_in_blank", "colonization by pioneer species", None, None, None, None, "Pioneer species like lichens and mosses colonize bare rock first, breaking it down into soil.", "medium"),
+        (energy_id, "Approximately what percentage of energy transfers between trophic levels?", "multiple_choice", "10%", Some("1%"), Some("50%"), Some("90%"), None, "The 10% rule: only about 10% of energy at one trophic level is passed to the next. The rest is lost as heat.", "easy"),
+        (energy_id, "Which ecosystem has the highest net primary productivity?", "multiple_choice", "Tropical rainforest", Some("Open ocean"), Some("Desert"), Some("Tundra"), None, "Tropical rainforests have the highest NPP due to abundant sunlight, water, and warm temperatures year-round.", "medium"),
+        (cycles_id, "Which process converts atmospheric N₂ into ammonia (NH₃)?", "fill_in_blank", "nitrogen fixation", None, None, None, None, "Nitrogen fixation is performed by bacteria (e.g., Rhizobium in root nodules) that convert N₂ to NH₃.", "medium"),
+        (cycles_id, "True or false: Phosphorus has a significant atmospheric component.", "true_false", "false", None, None, None, None, "Unlike carbon and nitrogen, phosphorus does not have a gaseous phase. It cycles through rocks, water, soil, and organisms.", "easy"),
+        (biodiv_id, "What does the Shannon diversity index (H') measure?", "multiple_choice", "Species diversity including evenness", Some("Only species richness"), Some("Genetic diversity"), Some("Ecosystem area"), None, "Shannon index accounts for both the number of species (richness) and their relative abundance (evenness).", "hard"),
+        (biodiv_id, "Name the five major threats to biodiversity (HIPPO acronym).", "fill_in_blank", "Habitat loss, Invasive species, Pollution, Population growth, Overexploitation", None, None, None, None, "HIPPO: Habitat loss, Invasive species, Pollution, Population growth (human), Overexploitation.", "hard"),
+    ];
+    for (tid, q, qt, ca, a, b, c, d, expl, diff) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qt, ca, a, b, c, d, expl, diff],
+        )?;
+    }
+
+    // Categorize quiz questions (new type)
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        rusqlite::params![
+            comm_id,
+            "Categorize each interaction: clownfish+anemone, tapeworm+host, barnacle+whale, lion+hyena",
+            "categorize",
+            "Mutualism:clownfish+anemone;Parasitism:tapeworm+host;Commensalism:barnacle+whale;Competition:lion+hyena",
+            "Think about who benefits and who is harmed",
+            "Mutualism (+/+), Parasitism (+/−), Commensalism (+/0), Competition (−/−)",
+            "hard"
+        ],
+    )?;
+
+    // Learning paths
+    let path_topics = [
+        (pop_id, "Understand how populations grow and what limits them"),
+        (energy_id, "Follow energy through trophic levels and food webs"),
+        (comm_id, "Explore species interactions and community dynamics"),
+        (cycles_id, "Trace matter through biogeochemical cycles"),
+        (biodiv_id, "Measure and protect biodiversity"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('ecology foundations', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_abstract_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Abstract Algebra'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Abstract Algebra', 'The study of algebraic structures — groups, rings, and fields — and their properties and transformations.')",
+        [],
+    )?;
+    let alg_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Abstract Algebra'",
+        [],
+        |r| r.get(0),
+    )?;
+
+    let topics = [
+        ("Groups & Subgroups", "intermediate"),
+        ("Ring Theory", "advanced"),
+        ("Field Extensions", "advanced"),
+        ("Homomorphisms & Isomorphisms", "intermediate"),
+    ];
+    for (name, diff) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty) VALUES (?1, ?2, ?3)",
+            rusqlite::params![alg_id, name, diff],
+        )?;
+    }
+
+    let groups_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Groups & Subgroups'", [], |r| r.get(0),
+    )?;
+    let rings_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Ring Theory'", [], |r| r.get(0),
+    )?;
+    let fields_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Field Extensions'", [], |r| r.get(0),
+    )?;
+    let homo_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Homomorphisms & Isomorphisms'", [], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (groups_id, "What is a Group?", "A group (G, •) is a set G with a binary operation satisfying four axioms: closure, associativity, identity element, and inverse element. Example: (ℤ, +) is a group with identity 0.", 1),
+        (groups_id, "Subgroups & Lagrange's Theorem", "A subgroup H ≤ G is a subset of G that is itself a group under the same operation. Lagrange's theorem: |H| divides |G| for finite groups. The order of any element divides |G|.", 2),
+        (groups_id, "Cyclic Groups", "A cyclic group is generated by a single element g: G = ⟨g⟩ = {gⁿ | n ∈ ℤ}. Every cyclic group is abelian. ℤₙ under addition is cyclic of order n.", 3),
+        (rings_id, "Ring Axioms", "A ring (R, +, ·) is an abelian group under + with an associative multiplication that distributes over addition. A commutative ring has ab = ba. ℤ is a commutative ring.", 1),
+        (rings_id, "Ideals & Quotient Rings", "An ideal I ⊆ R satisfies: r·a ∈ I and a·r ∈ I for all r ∈ R, a ∈ I. The quotient ring R/I consists of cosets a + I. Prime ideals yield integral domains.", 2),
+        (fields_id, "Fields & Their Properties", "A field is a commutative ring where every nonzero element has a multiplicative inverse. ℚ, ℝ, ℂ, and ℤₚ (p prime) are fields. Fields have no zero divisors.", 1),
+        (fields_id, "Field Extensions & Degree", "A field extension L/K means L is a field containing K. The degree [L:K] = dim_K(L). Example: [ℂ:ℝ] = 2, [ℚ(√2):ℚ] = 2. The tower law: [M:K] = [M:L]·[L:K].", 2),
+        (homo_id, "Group Homomorphisms", "A group homomorphism φ: G → H satisfies φ(ab) = φ(a)φ(b). The kernel ker(φ) = {g | φ(g) = e_H} is a normal subgroup. The image im(φ) is a subgroup of H.", 1),
+        (homo_id, "Isomorphism Theorems", "First Isomorphism Theorem: G/ker(φ) ≅ im(φ). An isomorphism is a bijective homomorphism. Isomorphic groups have identical algebraic structure.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Quiz questions
+    let quizzes: Vec<QuizRowHint> = vec![
+        (groups_id, "Which of these is NOT a group axiom?", "multiple_choice", "Commutativity", Some("Closure"), Some("Associativity"), Some("Identity"), None, "Commutativity is NOT required for a general group. Groups with commutativity are called abelian groups.", "medium"),
+        (groups_id, "What is the identity element of (ℤ, +)?", "fill_in_blank", "0", None, None, None, None, "For addition on integers, 0 is the identity since a + 0 = 0 + a = a for all a.", "easy"),
+        (groups_id, "True or false: Every cyclic group is abelian.", "true_false", "true", None, None, None, None, "Yes — if G = ⟨g⟩, then gᵃ · gᵇ = gᵃ⁺ᵇ = gᵇ · gᵃ, so the operation commutes.", "easy"),
+        (groups_id, "If |G| = 12, which of these CANNOT be the order of a subgroup?", "multiple_choice", "5", Some("2"), Some("3"), Some("6"), None, "By Lagrange's theorem, subgroup order must divide group order. 5 does not divide 12.", "medium"),
+        (rings_id, "A ring requires multiplication to be:", "multiple_choice", "Associative and distributive over addition", Some("Commutative"), Some("Invertible for all elements"), Some("Idempotent"), None, "Ring multiplication must be associative and distribute over addition. Commutativity and inverses are not required.", "medium"),
+        (rings_id, "In ℤ₆, what are the zero divisors?", "fill_in_blank", "2, 3, 4", None, None, None, None, "2·3=0, 3·4=0 in ℤ₆. Elements 2, 3, and 4 are zero divisors. 1 and 5 are units.", "hard"),
+        (fields_id, "True or false: ℤ₄ is a field.", "true_false", "false", None, None, None, None, "ℤ₄ is not a field because 2 has no multiplicative inverse (2·x ≡ 1 mod 4 has no solution), and 2·2 = 0 makes 2 a zero divisor.", "medium"),
+        (fields_id, "What is the degree [ℂ:ℝ]?", "fill_in_blank", "2", None, None, None, None, "ℂ = ℝ(i), and {1, i} is a basis for ℂ over ℝ, so the degree is 2.", "medium"),
+        (homo_id, "The kernel of a group homomorphism is always a:", "fill_in_blank", "normal subgroup", None, None, None, None, "The kernel ker(φ) is always a normal subgroup of the domain group G.", "medium"),
+        (homo_id, "State the First Isomorphism Theorem conclusion: G/ker(φ) ≅ ___", "cloze", "im(φ)", None, None, None, None, "The First Isomorphism Theorem: the quotient of G by the kernel is isomorphic to the image of φ.", "hard"),
+    ];
+    for (tid, q, qt, ca, a, b, c, d, expl, diff) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qt, ca, a, b, c, d, expl, diff],
+        )?;
+    }
+
+    // Categorize quiz
+    conn.execute(
+        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?6,?7)",
+        rusqlite::params![
+            homo_id,
+            "Categorize each map: φ(x)=2x from ℤ→ℤ, det from GL_n→ℝ*, f(x)=x² from ℝ→ℝ, exp from (ℝ,+)→(ℝ⁺,·)",
+            "categorize",
+            "Homomorphism:φ(x)=2x from ℤ→ℤ,det from GL_n→ℝ*,exp from (ℝ,+)→(ℝ⁺,·);Not homomorphism:f(x)=x² from ℝ→ℝ",
+            "Check if each preserves the group operation",
+            "φ(x)=2x preserves addition, det preserves multiplication, exp(a+b)=exp(a)·exp(b), but (a+b)²≠a²+b² in general.",
+            "hard"
+        ],
+    )?;
+
+    // Learning path
+    let path_topics = [
+        (groups_id, "Master group axioms, subgroups, and cyclic groups"),
+        (homo_id, "Understand structure-preserving maps and isomorphism theorems"),
+        (rings_id, "Learn ring axioms, ideals, and quotient rings"),
+        (fields_id, "Explore fields, extensions, and degree theory"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('abstract algebra journey', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
         )?;
     }
 

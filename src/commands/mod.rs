@@ -24,6 +24,7 @@ pub mod path;
 pub mod progress;
 pub mod quiz;
 pub mod recommend;
+pub mod retention;
 pub mod reset;
 pub mod review;
 pub mod search;

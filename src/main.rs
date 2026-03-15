@@ -181,6 +181,8 @@ enum Commands {
         #[arg(short, long, default_value = "14")]
         days: usize,
     },
+    /// Detailed retention analysis with adaptive targets per topic
+    Retention,
     /// Cram mode — intensive review of your lowest-retention topics (exam prep)
     Cram {
         /// Number of topics to cram
@@ -242,6 +244,7 @@ fn main() {
         Commands::Heatmap { weeks } => commands::heatmap::run(&conn, weeks),
         Commands::BestHours => commands::best_hours::run(&conn),
         Commands::Trend { days } => commands::trend::run(&conn, days),
+        Commands::Retention => commands::retention::run(&conn),
         Commands::Cram { count } => commands::cram::run(&conn, count),
         Commands::StudyPlan { days } => commands::study_plan::run(&conn, days),
     };
