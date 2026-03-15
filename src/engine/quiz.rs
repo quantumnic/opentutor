@@ -208,6 +208,40 @@ fn levenshtein(a: &str, b: &str) -> usize {
     prev[n]
 }
 
+/// Check cloze deletion answer: the correct answer contains multiple blanks
+/// separated by semicolons (e.g., "mitochondria;ATP;energy"). The user's
+/// answer should match all blanks in order. Partial credit is awarded for
+/// getting some blanks correct.
+#[allow(dead_code)]
+pub fn check_cloze_scored(correct: &str, answer: &str) -> AnswerResult {
+    let correct_parts: Vec<&str> = correct.split(';').map(|s| s.trim()).collect();
+    let answer_parts: Vec<&str> = answer.split(';').map(|s| s.trim()).collect();
+
+    if correct_parts.is_empty() {
+        return AnswerResult::wrong();
+    }
+
+    let mut hits = 0;
+    for (i, cp) in correct_parts.iter().enumerate() {
+        if let Some(ap) = answer_parts.get(i) {
+            if ap.to_lowercase() == cp.to_lowercase() {
+                hits += 1;
+            } else if cp.len() > 4 && fuzzy_match(&ap.to_lowercase(), &cp.to_lowercase()) {
+                hits += 1; // Accept fuzzy match for longer blanks
+            }
+        }
+    }
+
+    if hits == correct_parts.len() {
+        AnswerResult::full()
+    } else if hits > 0 {
+        let fraction = hits as f64 / correct_parts.len() as f64;
+        AnswerResult::half_right(fraction * 0.75)
+    } else {
+        AnswerResult::wrong()
+    }
+}
+
 /// Accept fuzzy matches for fill-in-the-blank answers.
 /// For short answers (≤4 chars): exact match only.
 /// For longer answers: allow 1 edit per 5 characters (max 2 edits).
@@ -318,6 +352,11 @@ pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResul
     // Select-all: partial credit for correct selections
     if question.question_type == "select_all" {
         return check_select_all_scored(&correct_lower, &answer_lower);
+    }
+
+    // Cloze deletion: multiple blanks
+    if question.question_type == "cloze" {
+        return check_cloze_scored(&correct_lower, &answer_lower);
     }
 
     // Fill-in-blank: near-miss detection
@@ -453,6 +492,11 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     // "left=right" pairs. The user's answer should contain the same pairs in any order.
     if question.question_type == "matching" {
         return check_matching_answer(&correct, &answer);
+    }
+
+    // For cloze questions, check each blank
+    if question.question_type == "cloze" {
+        return check_cloze_scored(&correct, &answer).correct;
     }
 
     // For select_all questions, the correct_answer is a comma-separated list of
@@ -1245,5 +1289,96 @@ mod tests {
             let qs = get_questions(&conn, *tid, 10).unwrap();
             assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
         }
+    }
+
+    #[test]
+    fn test_cloze_exact_match() {
+        let result = check_cloze_scored("mitochondria;ATP;respiration", "mitochondria;ATP;respiration");
+        assert!(result.correct);
+        assert!((result.credit - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cloze_partial_match() {
+        let result = check_cloze_scored("mitochondria;ATP;respiration", "mitochondria;ATP;digestion");
+        assert!(!result.correct);
+        assert!(result.credit > 0.0, "2/3 correct should give partial credit");
+        assert!(result.credit < 1.0);
+    }
+
+    #[test]
+    fn test_cloze_all_wrong() {
+        let result = check_cloze_scored("mitochondria;ATP;respiration", "nucleus;DNA;replication");
+        assert!(!result.correct);
+        assert!((result.credit - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_cloze_case_insensitive() {
+        let result = check_cloze_scored("Mitochondria;ATP", "mitochondria;atp");
+        assert!(result.correct);
+    }
+
+    #[test]
+    fn test_cloze_fuzzy_typo() {
+        // "mitocondria" is a 1-char typo of "mitochondria" (11 chars)
+        let result = check_cloze_scored("mitochondria;ATP", "mitocondria;ATP");
+        assert!(result.correct, "Fuzzy match should accept small typo in long words");
+    }
+
+    #[test]
+    fn test_thermodynamics_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let td_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Thermodynamics'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(td_id.is_some(), "Thermodynamics subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([td_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 5, "Thermodynamics should have 5 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_cognitive_science_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let cs_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Cognitive Science'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(cs_id.is_some(), "Cognitive Science subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([cs_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 5, "Cognitive Science should have 5 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_cloze_questions_seeded() {
+        let conn = db::init_memory_db().unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'cloze'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert!(count >= 3, "Should have at least 3 cloze questions seeded, got {}", count);
     }
 }

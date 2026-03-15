@@ -62,6 +62,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_philosophy_of_mind(conn)?;
     seed_organic_chemistry(conn)?;
     seed_graph_theory(conn)?;
+    seed_thermodynamics(conn)?;
+    seed_cognitive_science(conn)?;
+    seed_cloze_questions(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -743,7 +746,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 46); // 44 previous + Organic Chemistry + Graph Theory
+        assert_eq!(count, 48); // 46 previous + Thermodynamics + Cognitive Science
     }
 
     #[test]
@@ -753,7 +756,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 46);
+        assert_eq!(count, 48);
     }
 
     #[test]
@@ -6020,6 +6023,258 @@ pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
             rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_thermodynamics(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
+        ["Thermodynamics", "The science of heat, energy, and work — from engines to entropy."],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Thermodynamics'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        (subj_id, "Zeroth & First Law", "beginner", 1),
+        (subj_id, "Second Law & Entropy", "intermediate", 2),
+        (subj_id, "Heat Engines & Carnot Cycle", "intermediate", 3),
+        (subj_id, "Thermodynamic Potentials", "advanced", 4),
+        (subj_id, "Phase Transitions", "advanced", 5),
+    ];
+    for (sid, name, diff, ord) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![sid, name, diff, ord],
+        )?;
+    }
+
+    let t1: i64 = conn.query_row("SELECT id FROM topics WHERE name='Zeroth & First Law'", [], |r| r.get(0))?;
+    let t2: i64 = conn.query_row("SELECT id FROM topics WHERE name='Second Law & Entropy'", [], |r| r.get(0))?;
+    let t3: i64 = conn.query_row("SELECT id FROM topics WHERE name='Heat Engines & Carnot Cycle'", [], |r| r.get(0))?;
+    let t4: i64 = conn.query_row("SELECT id FROM topics WHERE name='Thermodynamic Potentials'", [], |r| r.get(0))?;
+    let t5: i64 = conn.query_row("SELECT id FROM topics WHERE name='Phase Transitions'", [], |r| r.get(0))?;
+
+    let lessons: Vec<LessonRow> = vec![
+        (t1, "Temperature & Thermal Equilibrium", "The zeroth law states that if A is in thermal equilibrium with B, and B with C, then A is in equilibrium with C — establishing temperature as a measurable property.", 1),
+        (t1, "Conservation of Energy", "The first law: energy cannot be created or destroyed, only transformed. In any process, dU = Q - W (change in internal energy = heat added minus work done).", 2),
+        (t2, "Entropy & Disorder", "Entropy measures the number of microscopic configurations consistent with a system's macroscopic state. The second law: in an isolated system, entropy never decreases.", 1),
+        (t2, "Irreversibility", "Real processes are irreversible — they increase total entropy. Heat flows spontaneously from hot to cold, never the reverse without work input.", 2),
+        (t3, "Heat Engines", "A heat engine converts thermal energy into mechanical work by exploiting temperature differences between a hot source and a cold sink.", 1),
+        (t3, "Carnot Efficiency", "The Carnot cycle is the most efficient possible engine between two temperatures: efficiency = 1 - Tc/Th. No real engine can exceed this.", 2),
+        (t4, "Free Energy", "Gibbs free energy G = H - TS determines spontaneity at constant pressure and temperature. If dG < 0, the process is spontaneous.", 1),
+        (t4, "Helmholtz & Enthalpy", "Helmholtz free energy F = U - TS governs constant-volume processes. Enthalpy H = U + PV is useful for constant-pressure processes.", 2),
+        (t5, "States of Matter", "Phase transitions (melting, boiling, sublimation) occur when thermal energy overcomes intermolecular forces.", 1),
+        (t5, "Critical Points & Phase Diagrams", "Beyond the critical point, liquid and gas become indistinguishable (supercritical fluid). Phase diagrams map transitions in P-T space.", 2),
+    ];
+    for (tid, title, content, ord) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![tid, title, content, ord],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (t1, "First Law", "Energy is conserved: the change in internal energy equals heat added minus work done. Think of a bank account — deposits (heat) minus withdrawals (work) = balance change.", Some("A thermos minimizes heat transfer so internal energy stays constant."), Some("If you compress a gas in an insulated container, what happens to its temperature?")),
+        (t2, "Entropy", "Entropy measures the number of microstates. High entropy = many possible arrangements. The universe trends toward maximum entropy.", Some("A shuffled deck has high entropy — astronomically more disordered arrangements than ordered ones."), Some("Can entropy ever decrease locally? What is the cost?")),
+        (t3, "Carnot Cycle", "The theoretical maximum efficiency of a heat engine between temperatures Th and Tc. Real engines always fall short due to friction and irreversibility.", Some("Like a waterfall powering a mill — the bigger the height difference, the more work you extract."), Some("Why can't we build an engine that converts 100% of heat into work?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    // QuizRowHint: (topic_id, question, q_type, correct_answer, opt_a, opt_b, opt_c, opt_d, hint, difficulty)
+    let quizzes: Vec<QuizRowHint> = vec![
+        (t1, "What does the zeroth law of thermodynamics establish?", "multiple_choice", "Temperature as a measurable property", Some("Temperature as a measurable property"), Some("Entropy"), Some("Pressure"), Some("Volume"), "Think about what thermal equilibrium defines", "medium"),
+        (t1, "In the first law, dU = Q - W. What does W represent?", "multiple_choice", "Work done by the system", Some("Work done by the system"), Some("Weight"), Some("Wavelength"), Some("Work done on the system"), "Energy leaving the system", "easy"),
+        (t1, "True or false: Energy can be created in an exothermic reaction.", "true_false", "false", Some("true"), Some("false"), None, None, "The first law — energy is transformed not created", "easy"),
+        (t1, "The first law is a statement of ___.", "fill_in_blank", "conservation of energy", None, None, None, None, "What fundamental principle does it express?", "easy"),
+        (t2, "What happens to total entropy of an isolated system over time?", "multiple_choice", "It increases or stays the same", Some("It increases or stays the same"), Some("It decreases"), Some("It oscillates"), Some("It becomes zero"), "The second law", "medium"),
+        (t2, "In Boltzmann's formula S = k_B ln(W), W represents ___.", "fill_in_blank", "number of microstates", None, None, None, None, "Boltzmann's formula", "hard"),
+        (t2, "True or false: A refrigerator violates the second law.", "true_false", "false", Some("true"), Some("false"), None, None, "Consider external work input", "medium"),
+        (t3, "The Carnot efficiency formula is ___.", "fill_in_blank", "1 - Tc/Th", None, None, None, None, "Uses cold and hot reservoir temperatures", "medium"),
+        (t3, "A Carnot engine operates between 600K and 300K. Its efficiency is ___.", "fill_in_blank", "50%", None, None, None, None, "Apply 1 - Tc/Th", "medium"),
+        (t3, "Order the Carnot cycle steps:", "ordering", "Isothermal expansion,Adiabatic expansion,Isothermal compression,Adiabatic compression", None, None, None, None, "Two isothermal and two adiabatic steps", "hard"),
+        (t4, "When is a process spontaneous in terms of Gibbs free energy?", "multiple_choice", "dG < 0", Some("dG < 0"), Some("dG > 0"), Some("dG = 0"), Some("dH < 0 always"), "Think about free energy available for work", "medium"),
+        (t4, "Match thermodynamic potentials with their natural variables:", "matching", "Gibbs=T and P;Helmholtz=T and V;Enthalpy=S and P;Internal Energy=S and V", None, None, None, None, "Each potential has two natural variables", "hard"),
+        (t5, "What is the triple point?", "multiple_choice", "Where solid liquid and gas coexist", Some("Where solid liquid and gas coexist"), Some("Where only liquid exists"), Some("Maximum temperature"), Some("Zero entropy point"), "Three phases at once", "easy"),
+        (t5, "True or false: Above the critical point there is no distinction between liquid and gas.", "true_false", "true", Some("true"), Some("false"), None, None, "Supercritical fluid", "medium"),
+        (t5, "The energy absorbed during a phase change at constant temperature is called ___.", "fill_in_blank", "latent heat", None, None, None, None, "Hidden heat — temperature does not change during transition", "easy"),
+    ];
+    for (tid, q, qt, ans, oa, ob, oc, od, hint, diff) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9,?10)",
+            rusqlite::params![tid, q, qt, ans, oa, ob, oc, od, hint, diff],
+        )?;
+    }
+
+    let paths = [
+        ("thermodynamics", 1, t1, "Start with the fundamental laws"),
+        ("thermodynamics", 2, t2, "Understand entropy and irreversibility"),
+        ("thermodynamics", 3, t3, "Apply to heat engines"),
+        ("thermodynamics", 4, t4, "Thermodynamic potentials and free energy"),
+        ("thermodynamics", 5, t5, "Phase transitions and critical phenomena"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_cognitive_science(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
+        ["Cognitive Science", "The interdisciplinary study of the mind — perception, memory, language, and decision-making."],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Cognitive Science'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        (subj_id, "Perception & Attention", "beginner", 1),
+        (subj_id, "Memory Systems", "beginner", 2),
+        (subj_id, "Language & Cognition", "intermediate", 3),
+        (subj_id, "Decision Making & Heuristics", "intermediate", 4),
+        (subj_id, "Cognitive Development", "advanced", 5),
+    ];
+    for (sid, name, diff, ord) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![sid, name, diff, ord],
+        )?;
+    }
+
+    let t1: i64 = conn.query_row("SELECT id FROM topics WHERE name='Perception & Attention'", [], |r| r.get(0))?;
+    let t2: i64 = conn.query_row("SELECT id FROM topics WHERE name='Memory Systems'", [], |r| r.get(0))?;
+    let t3: i64 = conn.query_row("SELECT id FROM topics WHERE name='Language & Cognition'", [], |r| r.get(0))?;
+    let t4: i64 = conn.query_row("SELECT id FROM topics WHERE name='Decision Making & Heuristics'", [], |r| r.get(0))?;
+    let t5: i64 = conn.query_row("SELECT id FROM topics WHERE name='Cognitive Development'", [], |r| r.get(0))?;
+
+    let lessons: Vec<LessonRow> = vec![
+        (t1, "Selective Attention", "We cannot process everything — attention acts as a filter. The cocktail party effect shows we can focus on one conversation in a noisy room yet still notice our name.", 1),
+        (t1, "Change Blindness", "Large changes in a visual scene can go unnoticed if they coincide with a disruption. This reveals that we do not store a detailed representation of the world.", 2),
+        (t2, "Working Memory", "Baddeley's model: working memory has a central executive, phonological loop (verbal), visuospatial sketchpad (visual), and episodic buffer. Capacity is about 4 chunks.", 1),
+        (t2, "Long-Term Memory", "Declarative memory (facts and events) vs procedural memory (skills). Consolidation transfers memories from hippocampus to cortex during sleep.", 2),
+        (t3, "Sapir-Whorf Hypothesis", "Does language shape thought? The strong version (linguistic determinism) is largely rejected, but the weak version (linguistic relativity) has experimental support.", 1),
+        (t3, "Language Acquisition", "Children acquire language through innate capacity (Chomsky's universal grammar) and environmental exposure. Critical period: roughly birth to puberty.", 2),
+        (t4, "Cognitive Biases", "Heuristics are mental shortcuts that usually work but can cause systematic errors: anchoring, availability, representativeness, confirmation bias.", 1),
+        (t4, "Prospect Theory", "Kahneman and Tversky showed people are loss-averse: losing $100 feels worse than gaining $100 feels good. We evaluate outcomes relative to a reference point.", 2),
+        (t5, "Piaget's Stages", "Cognitive development proceeds through stages: sensorimotor (0-2), preoperational (2-7), concrete operational (7-11), formal operational (11+).", 1),
+        (t5, "Theory of Mind", "Around age 4, children develop the ability to attribute mental states to others — understanding that others can hold false beliefs.", 2),
+    ];
+    for (tid, title, content, ord) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![tid, title, content, ord],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (t1, "Selective Attention", "The brain filters sensory input to focus on relevant information. Without this filter we would be overwhelmed by sensory data.", Some("Like a spotlight on a dark stage — you illuminate one area at a time even though the whole stage exists."), Some("What happens to the unattended information? Is it completely lost?")),
+        (t2, "Memory Consolidation", "New memories are initially fragile and gradually stabilize through consolidation especially during sleep. Rehearsal and spaced practice strengthen this.", Some("Like saving a document — RAM (working memory) is fast but volatile; the hard drive (long-term memory) is slower but permanent."), Some("Why does sleep deprivation impair memory formation?")),
+        (t4, "Anchoring Bias", "Initial information disproportionately influences subsequent judgments. Even arbitrary anchors affect estimates.", Some("Like a ship's anchor — even if you try to drift you stay near where you first dropped anchor."), Some("How can awareness of anchoring help in negotiations?")),
+    ];
+    for (tid, concept, expl, analogy, followup) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1,?2,?3,?4,?5)",
+            rusqlite::params![tid, concept, expl, analogy, followup],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (t1, "The cocktail party effect demonstrates which cognitive process?", "multiple_choice", "Selective attention", Some("Selective attention"), Some("Memory consolidation"), Some("Perception binding"), Some("Motor planning"), "Focusing on one voice in a crowd", "easy"),
+        (t1, "True or false: Change blindness shows that our visual perception stores every detail.", "true_false", "false", Some("true"), Some("false"), None, None, "The opposite is true", "easy"),
+        (t1, "The inability to notice large changes in visual scenes is called ___.", "fill_in_blank", "change blindness", None, None, None, None, "A blindness to changes", "medium"),
+        (t2, "How many chunks can working memory typically hold?", "fill_in_blank", "4", None, None, None, None, "Cowan's updated estimate not Miller's 7", "medium"),
+        (t2, "Match memory systems with their descriptions:", "matching", "Procedural=Skills and habits;Episodic=Personal experiences;Semantic=General knowledge;Working=Short-term manipulation", None, None, None, None, "Four types of memory", "medium"),
+        (t2, "Order the memory processes:", "ordering", "Encoding,Storage,Consolidation,Retrieval", None, None, None, None, "From input to recall", "easy"),
+        (t3, "Who proposed the concept of universal grammar?", "fill_in_blank", "Chomsky", None, None, None, None, "A famous MIT linguist", "easy"),
+        (t3, "The weak version of the Sapir-Whorf hypothesis is called ___.", "fill_in_blank", "linguistic relativity", None, None, None, None, "Language influences but does not determine thought", "medium"),
+        (t3, "True or false: The critical period for language acquisition ends around puberty.", "true_false", "true", Some("true"), Some("false"), None, None, "After this period native-like acquisition becomes harder", "medium"),
+        (t4, "Which bias describes relying too heavily on the first piece of information encountered?", "multiple_choice", "Anchoring", Some("Anchoring"), Some("Confirmation bias"), Some("Availability heuristic"), Some("Framing effect"), "First information anchors the judgment", "easy"),
+        (t4, "In prospect theory people are ___ — losses hurt more than equivalent gains feel good.", "fill_in_blank", "loss-averse", None, None, None, None, "Losing $100 vs gaining $100", "medium"),
+        (t4, "Select ALL cognitive biases from this list:", "select_all", "Anchoring,Confirmation bias,Availability heuristic", Some("Photosynthesis"), Some("Anchoring"), Some("Confirmation bias"), Some("Availability heuristic"), "Three are biases one is biology", "medium"),
+        (t5, "At what approximate age do children develop theory of mind?", "fill_in_blank", "4", None, None, None, None, "False belief task", "medium"),
+        (t5, "Order Piaget's stages of cognitive development:", "ordering", "Sensorimotor,Preoperational,Concrete operational,Formal operational", None, None, None, None, "From birth to adolescence", "medium"),
+        (t5, "True or false: In the preoperational stage children can perform conservation tasks.", "true_false", "false", Some("true"), Some("false"), None, None, "Conservation develops in the concrete operational stage", "medium"),
+    ];
+    for (tid, q, qt, ans, oa, ob, oc, od, hint, diff) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?9,?10)",
+            rusqlite::params![tid, q, qt, ans, oa, ob, oc, od, hint, diff],
+        )?;
+    }
+
+    let paths = [
+        ("cognitive science", 1, t1, "How we perceive and attend to the world"),
+        ("cognitive science", 2, t2, "Memory: encoding storage and retrieval"),
+        ("cognitive science", 3, t3, "How language and thought interact"),
+        ("cognitive science", 4, t4, "Decision-making and cognitive biases"),
+        ("cognitive science", 5, t5, "How cognition develops across the lifespan"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_cloze_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let arith_id: Option<i64> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Arithmetic'", [], |r| r.get(0),
+    ).ok();
+
+    if let Some(tid) = arith_id {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
+            rusqlite::params![tid, "The order of operations is: ___, exponents, ___, division, ___, subtraction.", "cloze", "parentheses;multiplication;addition", "Think PEMDAS", "medium"],
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
+            rusqlite::params![tid, "In the equation 3 x ___ = 12, the missing number is ___.", "cloze", "4;4", "Division is the inverse of multiplication", "easy"],
+        )?;
+    }
+
+    let cells_id: Option<i64> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Cells'", [], |r| r.get(0),
+    ).ok();
+    if let Some(tid) = cells_id {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
+            rusqlite::params![tid, "The ___ is the powerhouse of the cell, producing ___ through cellular ___.", "cloze", "mitochondria;ATP;respiration", "Energy production organelle", "medium"],
+        )?;
+    }
+
+    let thermo_t1: Option<i64> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Zeroth & First Law'", [], |r| r.get(0),
+    ).ok();
+    if let Some(tid) = thermo_t1 {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
+            rusqlite::params![tid, "The first law states dU = ___ - ___, where U is internal energy.", "cloze", "Q;W", "Heat and work", "medium"],
+        )?;
+    }
+
+    let mem_id: Option<i64> = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Memory Systems'", [], |r| r.get(0),
+    ).ok();
+    if let Some(tid) = mem_id {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
+            rusqlite::params![tid, "Baddeley's working memory model has four components: central executive, ___ loop, ___ sketchpad, and episodic ___.", "cloze", "phonological;visuospatial;buffer", "Verbal visual and integration components", "hard"],
         )?;
     }
 

@@ -64,6 +64,9 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
                     println!("     {} {}", format!("{})", letter).dimmed(), opt);
                 }
             }
+            "cloze" => {
+                println!("     {}", "(Fill in ALL blanks — separate answers with semicolons)".dimmed());
+            }
             "matching" => {
                 println!("     {}", "(Match each item on the left with the correct item on the right)".dimmed());
                 // Parse correct_answer pairs (e.g. "Dog=Mammal;Snake=Reptile") and display

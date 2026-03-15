@@ -898,6 +898,97 @@ pub fn memory_forecast(conn: &Connection) -> Result<Vec<ForecastEntry>, rusqlite
     Ok(forecasts)
 }
 
+/// Review load balancer: redistributes next_review dates to avoid review
+/// spikes (too many reviews on one day). Looks ahead N days and shifts
+/// reviews from overloaded days to adjacent lighter days, respecting a
+/// daily cap. This smooths out the review workload without significantly
+/// affecting retention (small shifts of 1-2 days have minimal impact).
+#[allow(dead_code)]
+pub fn balance_review_load(conn: &Connection, days_ahead: usize) -> Result<usize, rusqlite::Error> {
+    let daily_cap = get_daily_review_cap(conn);
+    let today = chrono::Local::now().format("%Y-%m-%d").to_string();
+
+    // Count reviews per day in the lookahead window
+    let mut day_counts: Vec<(String, i64)> = Vec::new();
+    for d in 0..days_ahead {
+        let date = (chrono::Local::now() + chrono::Duration::days(d as i64))
+            .format("%Y-%m-%d")
+            .to_string();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM user_progress WHERE next_review LIKE ?1 || '%'",
+            [&date],
+            |r| r.get(0),
+        )?;
+        day_counts.push((date, count));
+    }
+
+    let mut shifted = 0usize;
+
+    // For each overloaded day, shift excess reviews to the next lighter day
+    for i in 0..day_counts.len() {
+        if day_counts[i].1 <= daily_cap as i64 {
+            continue;
+        }
+        let excess = day_counts[i].1 - daily_cap as i64;
+        // Find the next day with room
+        let mut target = None;
+        for (j, dc) in day_counts.iter().enumerate().skip(i + 1) {
+            if dc.1 < daily_cap as i64 {
+                target = Some(j);
+                break;
+            }
+        }
+        if let Some(t) = target {
+            let shift_count = excess.min(daily_cap as i64 - day_counts[t].1);
+            if shift_count > 0 {
+                // Move `shift_count` reviews from day[i] to day[t]
+                let mut stmt = conn.prepare(
+                    "SELECT topic_id FROM user_progress WHERE next_review LIKE ?1 || '%' LIMIT ?2",
+                )?;
+                let topic_ids: Vec<i64> = stmt
+                    .query_map(rusqlite::params![&day_counts[i].0, shift_count], |r| r.get(0))?
+                    .filter_map(|r| r.ok())
+                    .collect();
+
+                for tid in &topic_ids {
+                    // Don't shift today's reviews — those are due now
+                    if day_counts[i].0 == today {
+                        continue;
+                    }
+                    conn.execute(
+                        "UPDATE user_progress SET next_review = ?1 WHERE topic_id = ?2",
+                        rusqlite::params![&day_counts[t].0, tid],
+                    )?;
+                    shifted += 1;
+                }
+                day_counts[i].1 -= shifted as i64;
+                day_counts[t].1 += shifted as i64;
+            }
+        }
+    }
+
+    Ok(shifted)
+}
+
+/// Review workload distribution: returns a Vec of (date_string, review_count)
+/// for the next N days, useful for displaying review load forecasts.
+#[allow(dead_code)]
+pub fn review_load_forecast(conn: &Connection, days: usize) -> Result<Vec<(String, i64)>, rusqlite::Error> {
+    let mut result = Vec::with_capacity(days);
+    for d in 0..days {
+        let date = (chrono::Local::now() + chrono::Duration::days(d as i64))
+            .format("%Y-%m-%d")
+            .to_string();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM user_progress WHERE next_review <= ?1 || ' 23:59:59'",
+            [&date],
+            |r| r.get(0),
+        )?;
+        result.push((date, count));
+    }
+    Ok(result)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1337,6 +1428,20 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let remaining = remaining_reviews_today(&conn);
         assert_eq!(remaining, DEFAULT_DAILY_REVIEW_CAP);
+    }
+
+    #[test]
+    fn test_balance_review_load_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let shifted = balance_review_load(&conn, 7).unwrap();
+        assert_eq!(shifted, 0, "No reviews to balance when empty");
+    }
+
+    #[test]
+    fn test_review_load_forecast_returns_days() {
+        let conn = db::init_memory_db().unwrap();
+        let forecast = review_load_forecast(&conn, 7).unwrap();
+        assert_eq!(forecast.len(), 7, "Should return 7 days of forecast");
     }
 
     #[test]

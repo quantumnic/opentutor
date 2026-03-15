@@ -181,6 +181,12 @@ enum Commands {
         #[arg(short, long, default_value = "14")]
         days: usize,
     },
+    /// Cram mode — intensive review of your lowest-retention topics (exam prep)
+    Cram {
+        /// Number of topics to cram
+        #[arg(short, long, default_value = "10")]
+        count: usize,
+    },
     /// Generate a personalized study plan based on your progress
     StudyPlan {
         /// Number of days to plan for
@@ -236,6 +242,7 @@ fn main() {
         Commands::Heatmap { weeks } => commands::heatmap::run(&conn, weeks),
         Commands::BestHours => commands::best_hours::run(&conn),
         Commands::Trend { days } => commands::trend::run(&conn, days),
+        Commands::Cram { count } => commands::cram::run(&conn, count),
         Commands::StudyPlan { days } => commands::study_plan::run(&conn, days),
     };
 
