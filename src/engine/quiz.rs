@@ -1496,6 +1496,52 @@ mod tests {
     }
 
     #[test]
+    fn test_cryptography_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let cr_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Cryptography'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(cr_id.is_some(), "Cryptography subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([cr_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 6, "Cryptography should have 6 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_information_theory_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let it_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Information Theory'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(it_id.is_some(), "Information Theory subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([it_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 5, "Information Theory should have 5 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
     fn test_categorize_full_credit() {
         let result = check_categorize_scored(
             "fruit:apple,banana;veggie:carrot",

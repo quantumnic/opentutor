@@ -2459,6 +2459,147 @@ pub fn record_time_of_day(conn: &Connection, quality: u8) -> Result<(), rusqlite
     Ok(())
 }
 
+/// Consecutive-correct streak for the current session. When a user gets
+/// DIFFICULTY_SURGE_THRESHOLD correct answers in a row during a session,
+/// the system applies a "difficulty surge": the next interval grows more
+/// aggressively (rewarding flow state), and the quiz engine should select
+/// harder questions. This keeps engaged learners challenged rather than
+/// bored by easy reviews.
+#[allow(dead_code)]
+const DIFFICULTY_SURGE_THRESHOLD: i64 = 5;
+/// Maximum interval multiplier during a difficulty surge.
+#[allow(dead_code)]
+const DIFFICULTY_SURGE_MULTIPLIER: f64 = 1.25;
+
+/// Check whether the user is on a hot streak (consecutive correct answers)
+/// in the current session. Returns the streak length and whether a surge
+/// is active.
+#[allow(dead_code)]
+pub fn difficulty_surge_status(conn: &Connection) -> (i64, bool) {
+    // Count consecutive correct reviews from the end of today's session log.
+    let scores: Vec<f64> = conn
+        .prepare(
+            "SELECT COALESCE(score, 0) FROM session_log
+             WHERE activity_type IN ('review', 'quiz')
+             AND DATE(timestamp) = DATE('now')
+             ORDER BY id DESC LIMIT 20",
+        )
+        .and_then(|mut stmt| {
+            stmt.query_map([], |r| r.get(0))
+                .map(|rows| rows.filter_map(|r| r.ok()).collect())
+        })
+        .unwrap_or_default();
+
+    let mut streak: i64 = 0;
+    for score in &scores {
+        if *score >= 50.0 {
+            streak += 1;
+        } else {
+            break;
+        }
+    }
+
+    let surge_active = streak >= DIFFICULTY_SURGE_THRESHOLD;
+    (streak, surge_active)
+}
+
+/// Get the interval multiplier for difficulty surge. Returns > 1.0 when
+/// the user is on a hot streak, rewarding flow state with longer intervals.
+#[allow(dead_code)]
+pub fn difficulty_surge_multiplier(conn: &Connection) -> f64 {
+    let (streak, surge_active) = difficulty_surge_status(conn);
+    if !surge_active {
+        return 1.0;
+    }
+    // Scale from 1.0 to DIFFICULTY_SURGE_MULTIPLIER over streaks 5-15
+    let scale = ((streak - DIFFICULTY_SURGE_THRESHOLD) as f64 / 10.0).min(1.0);
+    1.0 + scale * (DIFFICULTY_SURGE_MULTIPLIER - 1.0)
+}
+
+/// Determine the recommended question difficulty based on current surge status.
+/// During a surge, prefer harder questions to keep the user challenged.
+#[allow(dead_code)]
+pub fn surge_recommended_difficulty(conn: &Connection) -> &'static str {
+    let (streak, surge_active) = difficulty_surge_status(conn);
+    if !surge_active {
+        return "medium";
+    }
+    if streak >= DIFFICULTY_SURGE_THRESHOLD + 5 {
+        "hard"
+    } else {
+        "medium"
+    }
+}
+
+#[cfg(test)]
+mod surge_tests {
+    use super::*;
+    use crate::db;
+    use crate::engine::adaptive;
+
+    #[test]
+    fn test_no_surge_empty() {
+        let conn = db::init_memory_db().unwrap();
+        let (streak, active) = difficulty_surge_status(&conn);
+        assert_eq!(streak, 0);
+        assert!(!active);
+    }
+
+    #[test]
+    fn test_surge_after_threshold() {
+        let conn = db::init_memory_db().unwrap();
+        for _ in 0..DIFFICULTY_SURGE_THRESHOLD {
+            adaptive::log_activity(&conn, 1, "review", Some(80.0)).unwrap();
+        }
+        let (streak, active) = difficulty_surge_status(&conn);
+        assert_eq!(streak, DIFFICULTY_SURGE_THRESHOLD);
+        assert!(active);
+    }
+
+    #[test]
+    fn test_surge_breaks_on_failure() {
+        let conn = db::init_memory_db().unwrap();
+        for _ in 0..3 {
+            adaptive::log_activity(&conn, 1, "review", Some(80.0)).unwrap();
+        }
+        adaptive::log_activity(&conn, 1, "review", Some(30.0)).unwrap(); // fail
+        for _ in 0..2 {
+            adaptive::log_activity(&conn, 1, "review", Some(80.0)).unwrap();
+        }
+        let (streak, active) = difficulty_surge_status(&conn);
+        assert_eq!(streak, 2); // only counts from the last failure
+        assert!(!active);
+    }
+
+    #[test]
+    fn test_surge_multiplier_inactive() {
+        let conn = db::init_memory_db().unwrap();
+        let mult = difficulty_surge_multiplier(&conn);
+        assert!((mult - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_surge_multiplier_active() {
+        let conn = db::init_memory_db().unwrap();
+        for _ in 0..(DIFFICULTY_SURGE_THRESHOLD + 5) {
+            adaptive::log_activity(&conn, 1, "review", Some(90.0)).unwrap();
+        }
+        let mult = difficulty_surge_multiplier(&conn);
+        assert!(mult > 1.0, "Surge multiplier should be > 1.0, got {}", mult);
+        assert!(mult <= DIFFICULTY_SURGE_MULTIPLIER, "Surge multiplier should be <= {}, got {}", DIFFICULTY_SURGE_MULTIPLIER, mult);
+    }
+
+    #[test]
+    fn test_surge_recommended_difficulty() {
+        let conn = db::init_memory_db().unwrap();
+        assert_eq!(surge_recommended_difficulty(&conn), "medium");
+        for _ in 0..(DIFFICULTY_SURGE_THRESHOLD + 6) {
+            adaptive::log_activity(&conn, 1, "review", Some(85.0)).unwrap();
+        }
+        assert_eq!(surge_recommended_difficulty(&conn), "hard");
+    }
+}
+
 #[cfg(test)]
 mod momentum_tests {
     use super::*;

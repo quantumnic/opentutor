@@ -74,6 +74,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_marine_biology(conn)?;
     seed_astrophysics(conn)?;
     seed_neuroscience(conn)?;
+    seed_cryptography(conn)?;
+    seed_information_theory(conn)?;
+    seed_extra_core_quizzes(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -755,7 +758,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 56); // 54 previous + Astrophysics + Neuroscience
+        assert_eq!(count, 58); // 56 previous + Cryptography + Information Theory
     }
 
     #[test]
@@ -765,7 +768,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 56);
+        assert_eq!(count, 58);
     }
 
     #[test]
@@ -7240,6 +7243,375 @@ fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('brain explorer', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
         )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Cryptography'", [], |r| r.get(0)
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Cryptography', 'The science of secure communication — ciphers, encryption, hashing, and the mathematical foundations of digital security.')",
+        [],
+    )?;
+    let sub_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Cryptography'", [], |r| r.get(0)
+    )?;
+
+    let topics = [
+        ("Classical Ciphers", "beginner", 1),
+        ("Symmetric Encryption", "intermediate", 2),
+        ("Asymmetric Encryption", "intermediate", 3),
+        ("Hash Functions", "intermediate", 4),
+        ("Digital Signatures", "advanced", 5),
+        ("Cryptographic Protocols", "advanced", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sub_id, name, diff, order],
+        )?;
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (1, "From Caesar to Enigma", "Classical ciphers are the ancestors of modern encryption. The Caesar cipher shifts each letter by a fixed number (ROT13 shifts by 13). The Vigenère cipher uses a keyword to vary the shift per letter, resisting simple frequency analysis. The Enigma machine used rotors and plugboards — its breaking by Turing's team shortened WWII by years.", 1),
+        (1, "Breaking Classical Ciphers", "Frequency analysis exploits the fact that letters in natural language have predictable frequencies (E is most common in English). The Kasiski examination breaks Vigenère by finding repeated ciphertext sequences to deduce key length. Brute force works for short keys.", 2),
+        (2, "Symmetric Key Encryption", "Symmetric encryption uses the same key for encryption and decryption. AES (Advanced Encryption Standard) is the gold standard: it processes data in 128-bit blocks using 10-14 rounds of substitution and permutation. Modes like CBC chain blocks together; CTR turns a block cipher into a stream cipher.", 1),
+        (2, "Block Cipher Modes", "ECB (Electronic Codebook) encrypts each block independently — identical plaintext blocks produce identical ciphertext (bad!). CBC (Cipher Block Chaining) XORs each block with the previous ciphertext block. GCM (Galois/Counter Mode) provides both encryption and authentication.", 2),
+        (3, "Public Key Cryptography", "Asymmetric encryption uses a key pair: a public key (shared freely) for encryption and a private key (kept secret) for decryption. RSA relies on the difficulty of factoring large semiprimes. Diffie-Hellman enables key exchange over insecure channels using the discrete logarithm problem.", 1),
+        (3, "Elliptic Curve Cryptography", "ECC achieves the same security as RSA with much smaller keys. A 256-bit ECC key ≈ 3072-bit RSA key. It's based on the difficulty of the elliptic curve discrete logarithm problem (ECDLP). Used in TLS, Bitcoin, and modern key exchange (X25519).", 2),
+        (4, "Cryptographic Hash Functions", "A hash function maps arbitrary data to a fixed-size digest. Properties: deterministic, fast, avalanche effect (small input change → huge output change), pre-image resistant (can't reverse), collision resistant (hard to find two inputs with same hash). SHA-256 produces a 256-bit hash.", 1),
+        (4, "Applications of Hashing", "Password storage uses hashed+salted passwords (bcrypt, Argon2). Merkle trees hash pairs of transactions for blockchain integrity. HMAC combines a hash with a secret key for message authentication. Content-addressable storage (Git, IPFS) uses hashes as identifiers.", 2),
+        (5, "How Digital Signatures Work", "Digital signatures prove authorship and integrity. The signer hashes the message, then encrypts the hash with their private key. Anyone can verify by decrypting with the public key and comparing hashes. RSA, ECDSA, and EdDSA are common algorithms.", 1),
+        (5, "Certificates and PKI", "Public Key Infrastructure (PKI) uses certificate authorities (CAs) to bind public keys to identities. X.509 certificates contain a public key, identity info, and the CA's signature. Certificate chains create a trust hierarchy from root CAs to end-entity certificates.", 2),
+        (6, "TLS and Secure Communication", "TLS (Transport Layer Security) secures web traffic. The handshake: client sends supported ciphers, server picks one and sends its certificate, they establish a shared session key via Diffie-Hellman, then communicate using symmetric encryption (AES-GCM).", 1),
+        (6, "Zero-Knowledge Proofs", "A zero-knowledge proof lets you prove you know a secret without revealing it. Properties: completeness (honest prover convinces verifier), soundness (cheater can't fool verifier), zero-knowledge (verifier learns nothing beyond the statement's truth). Used in cryptocurrency privacy (ZK-SNARKs).", 2),
+    ];
+    for (idx, title, content, order) in &lessons {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (1, "Caesar Cipher", "A substitution cipher where each letter is shifted by a fixed number. With shift 3: A→D, B→E, C→F. Only 25 possible keys, trivially broken by brute force.", Some("Like a combination lock with only 25 positions — you can try them all in seconds."), Some("Why is the Caesar cipher still taught if it's so weak?")),
+        (2, "AES Encryption", "AES processes 128-bit blocks through multiple rounds of SubBytes (substitution), ShiftRows (permutation), MixColumns (diffusion), and AddRoundKey (key mixing). Each round increases diffusion — a single bit change affects all output bits.", Some("Like mixing ingredients in a cake — each round of stirring makes it harder to separate the original ingredients."), Some("Why does AES use multiple rounds instead of just one complex operation?")),
+        (3, "RSA Algorithm", "RSA security relies on the difficulty of factoring N = p × q where p and q are large primes. Public key is (N, e), private key is d where ed ≡ 1 (mod φ(N)). Encryption: c = m^e mod N. Decryption: m = c^d mod N.", Some("Like a mailbox — anyone can drop a letter in (encrypt with public key), but only the key holder can open it (decrypt with private key)."), Some("What makes RSA vulnerable to quantum computers?")),
+        (4, "SHA-256", "SHA-256 processes data in 512-bit blocks through 64 rounds of compression. The avalanche effect means changing one input bit changes ~50% of output bits. Used in Bitcoin mining, certificate fingerprints, and file integrity verification.", Some("Like a fingerprint — unique to each person (message), but you can't reconstruct the person from the fingerprint."), Some("Why is SHA-256 considered collision resistant?")),
+        (5, "Digital Signatures", "A digital signature is created by hashing a message and encrypting the hash with the sender's private key. Verification decrypts with the public key and compares hashes. This provides authentication (who sent it), integrity (not modified), and non-repudiation (sender can't deny it).", Some("Like signing a letter with a wax seal — it proves who sent it and shows if someone tampered with it."), Some("Why do digital signatures hash the message first instead of signing the whole message?")),
+        (6, "Zero-Knowledge Proofs", "Imagine you want to prove you know the password to a cave with two paths that meet in the middle. You enter from a random side; the verifier asks you to exit from a specific side. If you know the password, you always succeed. After many rounds, the verifier is convinced without learning the password.", Some("Like proving you can solve a Rubik's cube blindfolded — the audience sees the result but not the moves."), Some("What is the difference between interactive and non-interactive zero-knowledge proofs?")),
+    ];
+    for (idx, concept, explanation, analogy, follow_up) in &explanations {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (1, "The Caesar cipher shifts each letter by a fixed ___.", "fill_in_blank", "number",
+         None, None, None, None, "It's a simple substitution technique.", "The Caesar cipher shifts each letter by a constant number of positions in the alphabet."),
+        (1, "Which technique is used to break simple substitution ciphers?", "multiple_choice", "Frequency analysis",
+         Some("Brute force only"), Some("Frequency analysis"), Some("Rainbow tables"), Some("Side-channel attacks"),
+         "Think about letter frequency in natural language.", "Frequency analysis exploits predictable letter distributions (e.g., E is most common in English)."),
+        (1, "The Enigma machine was broken by:", "multiple_choice", "Alan Turing's team at Bletchley Park",
+         Some("The CIA"), Some("Albert Einstein"), Some("Alan Turing's team at Bletchley Park"), Some("IBM"),
+         "A famous British codebreaker.", "Turing and colleagues built electromechanical 'bombes' to systematically test Enigma settings."),
+        (2, "AES operates on blocks of ___ bits.", "fill_in_blank", "128",
+         None, None, None, None, "It's a power of 2, between 64 and 256.", "AES uses a fixed block size of 128 bits, though key sizes can be 128, 192, or 256 bits."),
+        (2, "ECB mode is insecure because:", "multiple_choice", "Identical plaintext blocks produce identical ciphertext blocks",
+         Some("It's too slow"), Some("Identical plaintext blocks produce identical ciphertext blocks"), Some("It doesn't use a key"), Some("It only works with small files"),
+         "Think about patterns leaking through.", "ECB encrypts each block independently, so patterns in plaintext are visible in ciphertext."),
+        (3, "RSA security relies on the difficulty of:", "multiple_choice", "Factoring large semiprimes",
+         Some("The discrete logarithm problem"), Some("Factoring large semiprimes"), Some("Solving linear equations"), Some("Finding hash collisions"),
+         "It involves two large prime numbers multiplied together.", "RSA uses N = p × q where p and q are large primes; factoring N back into p and q is computationally infeasible."),
+        (3, "A 256-bit ECC key provides security comparable to a ___-bit RSA key.", "fill_in_blank", "3072",
+         None, None, None, None, "ECC is much more efficient — think thousands.", "ECC achieves equivalent security with much smaller keys: 256-bit ECC ≈ 3072-bit RSA."),
+        (4, "Which property means a hash function's output changes dramatically with a tiny input change?", "multiple_choice", "Avalanche effect",
+         Some("Determinism"), Some("Collision resistance"), Some("Avalanche effect"), Some("Pre-image resistance"),
+         "Think about a small cause having a big effect.", "The avalanche effect ensures that changing even one bit of input changes approximately 50% of output bits."),
+        (4, "True or false: You can reverse a SHA-256 hash to recover the original input.", "true_false", "false",
+         None, None, None, None, "Think about pre-image resistance.", "Cryptographic hash functions are designed to be pre-image resistant — you cannot feasibly recover the input from the hash."),
+        (5, "Digital signatures provide authentication, integrity, and ___.", "fill_in_blank", "non-repudiation",
+         None, None, None, None, "The sender cannot deny having signed.", "Non-repudiation means the signer cannot later deny having created the signature."),
+        (5, "In PKI, who signs end-entity certificates?", "multiple_choice", "Certificate Authorities (CAs)",
+         Some("The end user"), Some("Certificate Authorities (CAs)"), Some("The web browser"), Some("DNS servers"),
+         "There's a trusted third party.", "Certificate Authorities verify identities and sign certificates, creating a chain of trust."),
+        (6, "TLS handshakes typically use ___ for key exchange.", "fill_in_blank", "Diffie-Hellman",
+         None, None, None, None, "A key exchange protocol named after two cryptographers.", "Modern TLS uses (Elliptic Curve) Diffie-Hellman key exchange for forward secrecy."),
+        (6, "Zero-knowledge proofs reveal the secret being proved.", "true_false", "false",
+         None, None, None, None, "The name gives it away.", "By definition, zero-knowledge proofs prove knowledge of a secret without revealing any information about the secret itself."),
+    ];
+    for (idx, q, qtype, correct, oa, ob, oc, od, hint, expl) in &quizzes {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![tid, q, qtype, correct, oa, ob, oc, od, hint, expl],
+        )?;
+    }
+
+    let path_steps: Vec<(i64, &str)> = vec![
+        (1, "Start with classical ciphers to understand substitution and transposition"),
+        (2, "Learn symmetric encryption (AES) and block cipher modes"),
+        (4, "Understand hash functions and their applications"),
+        (3, "Explore public key cryptography (RSA, ECC, Diffie-Hellman)"),
+        (5, "Learn how digital signatures and PKI create trust"),
+        (6, "Study protocols like TLS and advanced concepts like zero-knowledge proofs"),
+    ];
+    for (i, (sort, desc)) in path_steps.iter().enumerate() {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('crypto master', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_information_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Information Theory'", [], |r| r.get(0)
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Information Theory', 'The mathematics of information — entropy, compression, channel capacity, and the fundamental limits of communication.')",
+        [],
+    )?;
+    let sub_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Information Theory'", [], |r| r.get(0)
+    )?;
+
+    let topics = [
+        ("Entropy & Information", "beginner", 1),
+        ("Source Coding", "intermediate", 2),
+        ("Channel Capacity", "intermediate", 3),
+        ("Error Correction", "intermediate", 4),
+        ("Data Compression", "advanced", 5),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sub_id, name, diff, order],
+        )?;
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (1, "What Is Information?", "Claude Shannon defined information as the reduction of uncertainty. A coin flip carries 1 bit of information (two equally likely outcomes). A die roll carries ~2.58 bits. Information content of an event with probability p is -log₂(p) bits. Rare events carry more information than common ones.", 1),
+        (1, "Shannon Entropy", "Entropy H(X) = -Σ p(x) log₂ p(x) measures the average information per symbol in a source. Maximum entropy occurs when all outcomes are equally likely. English text has entropy ~1.0-1.5 bits per character (far less than 4.7 bits for 26 equiprobable letters) due to statistical patterns.", 2),
+        (2, "The Source Coding Theorem", "Shannon's first theorem: a source with entropy H can be compressed to an average of H bits per symbol, but no fewer. This sets the fundamental limit of lossless compression. Huffman coding and arithmetic coding approach this limit.", 1),
+        (2, "Huffman Coding", "Huffman coding assigns shorter codes to more frequent symbols and longer codes to rarer ones. Build a binary tree bottom-up: repeatedly merge the two least frequent nodes. The code for each symbol is the path from root to leaf. Optimal for symbol-by-symbol coding.", 2),
+        (3, "Channel Capacity", "Shannon's channel coding theorem: every noisy channel has a capacity C (bits per use). Communication is possible at any rate below C with arbitrarily low error probability. The binary symmetric channel with crossover probability p has capacity C = 1 - H(p).", 1),
+        (3, "Shannon's Noisy Channel Theorem", "The remarkable insight: by adding structured redundancy (error-correcting codes), we can communicate reliably over noisy channels at rates up to capacity C. This was initially doubted — many believed noise would always degrade communication proportionally.", 2),
+        (4, "Error Detection and Correction", "Parity bits detect single errors. Hamming codes correct single errors and detect double errors using check bits at power-of-2 positions. The Hamming distance between codewords determines error-correcting capability: distance d corrects ⌊(d-1)/2⌋ errors.", 1),
+        (4, "Modern Error Correction", "Reed-Solomon codes (used in CDs, QR codes) correct burst errors by operating on blocks of symbols. Turbo codes and LDPC codes approach Shannon's channel capacity. Polar codes (Arıkan, 2008) provably achieve capacity and are used in 5G communications.", 2),
+        (5, "Lossless Compression", "Lossless compression preserves all data. LZ77/LZ78 (used in gzip, PNG) find repeated patterns and replace them with references. Burrows-Wheeler Transform (used in bzip2) rearranges data to group similar characters. Dictionary-based and statistical methods can be combined.", 1),
+        (5, "Lossy Compression", "Lossy compression discards imperceptible information. JPEG uses DCT (Discrete Cosine Transform) to convert spatial data to frequency domain, then quantizes high-frequency components. MP3 uses psychoacoustic models to remove sounds below the hearing threshold. Rate-distortion theory describes the tradeoff.", 2),
+    ];
+    for (idx, title, content, order) in &lessons {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (1, "Shannon Entropy", "Entropy measures the average surprise or uncertainty in a random variable. High entropy = high uncertainty = more information per symbol. A biased coin (90% heads) has lower entropy than a fair coin because outcomes are more predictable.", Some("Entropy is like the average 'surprise factor' of a news feed — the more unpredictable the stories, the higher the entropy."), Some("Why does English text have much lower entropy than random letter sequences?")),
+        (2, "Huffman Coding", "Huffman coding creates a prefix-free binary code where no codeword is a prefix of another. Frequent symbols get short codes (like Morse code: E = '.' is short because E is common). The resulting code is optimal among all symbol-by-symbol codes.", Some("Like packing a suitcase — frequently used items go on top (short codes) and rarely used items go at the bottom (long codes)."), Some("When might arithmetic coding outperform Huffman coding?")),
+        (3, "Channel Capacity", "Channel capacity is the maximum rate at which information can be transmitted reliably. Shannon proved the existence of codes achieving capacity but didn't show how to construct them — this took 50 years until turbo codes (1993) and polar codes (2008).", Some("Like a highway's speed limit — you can drive at any speed below the limit safely, but exceeding it guarantees crashes."), Some("Why is it surprising that reliable communication is possible at any rate below capacity?")),
+        (4, "Hamming Codes", "Hamming codes place check bits at positions that are powers of 2 (positions 1, 2, 4, 8...). Each check bit covers a specific set of data positions. When an error occurs, the pattern of failed check bits (the syndrome) directly indicates the position of the error.", Some("Like a Sudoku grid — if a number is wrong, the row and column constraints pinpoint exactly where the error is."), Some("What is the relationship between Hamming distance and error-correcting capability?")),
+        (5, "Lossy Compression", "Lossy compression exploits human perceptual limitations. JPEG removes high-frequency visual details humans can barely see. MP3 removes sounds masked by louder nearby frequencies. The quality-size tradeoff is governed by rate-distortion theory.", Some("Like a painter creating an impression rather than a photograph — it captures the essence while leaving out details the viewer won't miss."), Some("How does the human visual system's sensitivity to luminance vs. chrominance affect JPEG compression?")),
+    ];
+    for (idx, concept, explanation, analogy, follow_up) in &explanations {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (1, "A fair coin flip carries ___ bit(s) of information.", "fill_in_blank", "1",
+         None, None, None, None, "Two equally likely outcomes = log₂(2).", "A fair coin has two equally likely outcomes, so information = log₂(2) = 1 bit."),
+        (1, "Entropy is maximized when all outcomes are:", "multiple_choice", "Equally likely",
+         Some("Very rare"), Some("Equally likely"), Some("Deterministic"), Some("Binary"),
+         "Think about maximum uncertainty.", "Maximum entropy occurs when all outcomes have equal probability — maximum uncertainty."),
+        (1, "The entropy of English text is approximately ___ bits per character.", "fill_in_blank", "1",
+         None, None, None, None, "It's much less than log₂(26) ≈ 4.7 bits.", "English text has ~1.0-1.5 bits per character due to statistical patterns and redundancy."),
+        (2, "Shannon's source coding theorem says data cannot be compressed below its:", "multiple_choice", "Entropy",
+         Some("Average length"), Some("Entropy"), Some("Variance"), Some("Bandwidth"),
+         "It's the fundamental measure of information content.", "The source coding theorem establishes entropy as the fundamental compression limit."),
+        (2, "In Huffman coding, more frequent symbols get ___ codes.", "fill_in_blank", "shorter",
+         None, None, None, None, "Think about efficiency — common things should be quick.", "Huffman coding assigns shorter codewords to more frequent symbols, minimizing average code length."),
+        (3, "Shannon proved reliable communication is possible at any rate below channel ___.", "fill_in_blank", "capacity",
+         None, None, None, None, "The fundamental limit of a noisy channel.", "Shannon's channel coding theorem guarantees reliable communication at any rate below the channel capacity C."),
+        (3, "True or false: Adding redundancy always reduces the effective data rate to zero.", "true_false", "false",
+         None, None, None, None, "Shannon showed something surprising about redundancy.", "Shannon proved that structured redundancy allows reliable communication at positive rates up to capacity."),
+        (4, "A Hamming code with distance d can correct up to ___ errors.", "fill_in_blank", "⌊(d-1)/2⌋",
+         None, None, None, None, "Think about the formula relating distance and correction.", "A code with minimum Hamming distance d can correct up to ⌊(d-1)/2⌋ errors."),
+        (4, "Which modern code is used in 5G communications?", "multiple_choice", "Polar codes",
+         Some("Hamming codes"), Some("Reed-Solomon codes"), Some("Polar codes"), Some("Morse code"),
+         "Invented by Arıkan in 2008.", "Polar codes, invented by Erdal Arıkan, provably achieve channel capacity and are used in 5G."),
+        (5, "JPEG compression uses the ___ transform.", "fill_in_blank", "DCT",
+         None, None, None, None, "Discrete Cosine... ", "JPEG uses the Discrete Cosine Transform (DCT) to convert image data to frequency domain."),
+        (5, "True or false: Lossless compression can compress all files to at least 50% of their original size.", "true_false", "false",
+         None, None, None, None, "Think about the pigeonhole principle.", "By the pigeonhole principle, no lossless algorithm can compress all possible inputs — some must grow."),
+    ];
+    for (idx, q, qtype, correct, oa, ob, oc, od, hint, expl) in &quizzes {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)",
+            rusqlite::params![tid, q, qtype, correct, oa, ob, oc, od, hint, expl],
+        )?;
+    }
+
+    let path_steps: Vec<(i64, &str)> = vec![
+        (1, "Understand entropy and the mathematical definition of information"),
+        (2, "Learn source coding and compression fundamentals"),
+        (3, "Explore channel capacity and Shannon's noisy channel theorem"),
+        (4, "Study error detection and correction codes"),
+        (5, "Apply compression techniques: lossless and lossy"),
+    ];
+    for (i, (sort, desc)) in path_steps.iter().enumerate() {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('information theorist', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+/// Seed additional quiz questions for core subjects to increase quiz depth.
+pub fn seed_extra_core_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Extra Mathematics quizzes (subject_id=1)
+    let math_topics: Vec<(i64, String)> = conn.prepare(
+        "SELECT t.id, t.name FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Mathematics'"
+    )?.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.filter_map(|r| r.ok()).collect();
+
+    for (tid, name) in &math_topics {
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1", [tid], |r| r.get(0)
+        )?;
+        if count >= 6 { continue; } // Already has enough questions
+
+        match name.as_str() {
+            "Arithmetic" => {
+                let extras = [
+                    ("What is 15 × 12?", "fill_in_blank", "180", "Multiply step by step: 15 × 12 = 15 × 10 + 15 × 2.", "Use the distributive property."),
+                    ("True or false: Division by zero is undefined.", "true_false", "true", "Division by zero has no meaningful result — it's undefined in standard arithmetic.", "There is no number that, multiplied by zero, gives a non-zero result."),
+                    ("Order these operations by precedence: Addition, Exponents, Multiplication, Parentheses", "ordering", "Parentheses,Exponents,Multiplication,Addition", "PEMDAS/BODMAS: Parentheses first, then Exponents, then Multiplication/Division, then Addition/Subtraction.", "Think of the PEMDAS acronym."),
+                ];
+                for (q, qt, ans, expl, hint) in &extras {
+                    conn.execute(
+                        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![tid, q, qt, ans, hint, expl],
+                    )?;
+                }
+            }
+            "Fractions" => {
+                let extras = [
+                    ("What is 3/4 + 1/4?", "fill_in_blank", "1", "3/4 + 1/4 = 4/4 = 1. When denominators match, add numerators.", "Same denominators make this easy."),
+                    ("Which fraction is equivalent to 0.75?", "multiple_choice", "3/4", "0.75 = 75/100 = 3/4. Divide both numerator and denominator by 25.", "Think about what fraction of a dollar is 75 cents."),
+                    ("True or false: 2/3 is greater than 3/4.", "true_false", "false", "2/3 ≈ 0.667 while 3/4 = 0.75. So 3/4 > 2/3.", "Convert both to decimals to compare."),
+                ];
+                for (q, qt, ans, expl, hint) in &extras {
+                    conn.execute(
+                        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![tid, q, qt, ans, hint, expl],
+                    )?;
+                }
+            }
+            "Algebra Basics" => {
+                let extras = [
+                    ("If 2x + 6 = 14, what is x?", "fill_in_blank", "4", "2x + 6 = 14 → 2x = 8 → x = 4. Subtract 6, then divide by 2.", "Isolate x by undoing operations."),
+                    ("The expression x² - 9 factors into:", "multiple_choice", "(x+3)(x-3)", "x² - 9 is a difference of squares: a² - b² = (a+b)(a-b) where a=x, b=3.", "This is a difference of squares."),
+                ];
+                for (q, qt, ans, expl, hint) in &extras {
+                    conn.execute(
+                        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![tid, q, qt, ans, hint, expl],
+                    )?;
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // Extra Science quizzes (subject_id=2)
+    let sci_topics: Vec<(i64, String)> = conn.prepare(
+        "SELECT t.id, t.name FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Science'"
+    )?.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?.filter_map(|r| r.ok()).collect();
+
+    for (tid, name) in &sci_topics {
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1", [tid], |r| r.get(0)
+        )?;
+        if count >= 6 { continue; }
+
+        match name.as_str() {
+            "Photosynthesis" => {
+                let extras = [
+                    ("The chemical equation for photosynthesis: 6CO₂ + 6H₂O → C₆H₁₂O₆ + ___.", "fill_in_blank", "6O₂", "Photosynthesis produces glucose and oxygen: 6CO₂ + 6H₂O → C₆H₁₂O₆ + 6O₂.", "The byproduct is what we breathe."),
+                    ("Photosynthesis occurs in which organelle?", "multiple_choice", "Chloroplast", "Chloroplasts contain chlorophyll, the green pigment that captures light energy.", "It contains chlorophyll."),
+                ];
+                for (q, qt, ans, expl, hint) in &extras {
+                    conn.execute(
+                        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![tid, q, qt, ans, hint, expl],
+                    )?;
+                }
+            }
+            "States of Matter" => {
+                let extras = [
+                    ("Order the states of matter by increasing molecular energy: Solid, Gas, Liquid", "ordering", "Solid,Liquid,Gas", "Molecules in solids have the least kinetic energy, gases the most.", "Think about how much molecules move in each state."),
+                    ("The process of a solid turning directly into a gas is called ___.", "fill_in_blank", "sublimation", "Sublimation skips the liquid phase. Dry ice (CO₂) is a common example.", "Think of dry ice."),
+                ];
+                for (q, qt, ans, expl, hint) in &extras {
+                    conn.execute(
+                        "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+                        rusqlite::params![tid, q, qt, ans, hint, expl],
+                    )?;
+                }
+            }
+            _ => {}
+        }
     }
 
     Ok(())
