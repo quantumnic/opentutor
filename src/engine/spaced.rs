@@ -36,6 +36,10 @@ const SAME_DAY_REVIEW_FACTOR: f64 = 0.25;
 /// long review sessions — later reviews are worth slightly less.
 const FATIGUE_THRESHOLD: i64 = 10;
 const FATIGUE_DECAY_PER_REVIEW: f64 = 0.05;
+/// Sleep consolidation bonus: reviewing on a new day (after sleep) earns a
+/// small interval multiplier. Research shows memory consolidation during
+/// sleep strengthens traces reviewed the previous day (Walker, 2017).
+const SLEEP_CONSOLIDATION_BONUS: f64 = 1.08;
 
 /// Returns a difficulty multiplier for initial intervals based on topic difficulty.
 /// Harder topics get shorter initial intervals (multiplier < 1.0) to reinforce
@@ -148,6 +152,19 @@ pub fn update_spaced_repetition(
         )
         .unwrap_or(false);
 
+    // Sleep consolidation: check if last review was on a previous day.
+    // Memory research shows sleep-dependent consolidation strengthens
+    // memories reviewed before sleep (Walker, 2017; Diekelmann & Born, 2010).
+    let has_sleep_gap: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM user_progress
+             WHERE topic_id = ?1 AND last_reviewed IS NOT NULL
+             AND DATE(last_reviewed) < DATE('now')",
+            [topic_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+
     // Track consecutive failures for leech detection
     let (consecutive_fails, leech_count): (i64, i64) = conn
         .query_row(
@@ -206,9 +223,10 @@ pub fn update_spaced_repetition(
                     let calculated = (n as f64 * ease).round() as i64;
                     let quality_bonus = if quality == 5 { 1.1 } else { 1.0 };
                     let same_day_factor = if is_same_day { SAME_DAY_REVIEW_FACTOR } else { 1.0 };
+                    let sleep_bonus = if has_sleep_gap && !is_same_day { SLEEP_CONSOLIDATION_BONUS } else { 1.0 };
                     let spacing = spacing_bonus(conn, topic_id);
                     let interleave = interleaving_bonus(conn);
-                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * spacing * interleave)
+                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * sleep_bonus * spacing * interleave)
                         .round()
                         .max(n as f64) as i64 // Never shrink interval on success
                 }
@@ -2481,5 +2499,43 @@ mod momentum_tests {
         }
         let m = learning_momentum(&conn, 1);
         assert!((m).abs() < 1.0, "Stable scores should have near-zero momentum, got {}", m);
+    }
+}
+
+#[cfg(test)]
+mod sleep_tests {
+    use super::*;
+    use crate::db;
+
+    #[test]
+    fn test_sleep_consolidation_bonus_applied() {
+        let conn = db::init_memory_db().unwrap();
+        // Review a topic "yesterday" — next review today should get sleep bonus
+        conn.execute(
+            "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days, last_reviewed)
+             VALUES (1, 100.0, 5, 5, 2.5, 10, datetime('now', '-1 day'))", []
+        ).unwrap();
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval_with_sleep: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+
+        // Compare with same-day review (no sleep bonus)
+        conn.execute(
+            "UPDATE user_progress SET ease_factor = 2.5, interval_days = 10, last_reviewed = datetime('now')
+             WHERE topic_id = 1", []
+        ).unwrap();
+        update_spaced_repetition(&conn, 1, 4).unwrap();
+        let interval_same_day: i64 = conn.query_row(
+            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+            [], |r| r.get(0)
+        ).unwrap();
+
+        // Sleep gap review should produce equal or longer interval
+        // (same-day gets the SAME_DAY_REVIEW_FACTOR reduction, sleep gets the bonus)
+        assert!(interval_with_sleep >= interval_same_day,
+            "Sleep consolidation should give longer interval ({}) than same-day ({})",
+            interval_with_sleep, interval_same_day);
     }
 }

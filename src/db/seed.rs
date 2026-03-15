@@ -67,6 +67,9 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_cloze_questions(conn)?;
     seed_ecology(conn)?;
     seed_abstract_algebra(conn)?;
+    seed_molecular_biology(conn)?;
+    seed_set_theory(conn)?;
+    seed_analogy_questions(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -748,7 +751,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 50); // 48 previous + Ecology + Abstract Algebra
+        assert_eq!(count, 52); // 50 previous + Molecular Biology + Set Theory
     }
 
     #[test]
@@ -758,7 +761,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 50);
+        assert_eq!(count, 52);
     }
 
     #[test]
@@ -6522,5 +6525,227 @@ fn seed_abstract_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
+    Ok(())
+}
+
+fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute("INSERT INTO subjects (name, description) VALUES ('Molecular Biology', 'The study of biological molecules — DNA, RNA, proteins, and the machinery of life at the molecular level.')", [])?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Molecular Biology'", [], |r| r.get(0))?;
+
+    let topics = [
+        ("DNA Structure & Replication", "beginner", 1),
+        ("Transcription", "beginner", 2),
+        ("Translation & Protein Synthesis", "intermediate", 3),
+        ("Gene Regulation", "intermediate", 4),
+        ("Mutations & Repair", "intermediate", 5),
+        ("Epigenetics", "advanced", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let dna_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'DNA Structure & Replication' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let transcription_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Transcription' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let translation_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Translation & Protein Synthesis' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let regulation_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Gene Regulation' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let mutations_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Mutations & Repair' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let epigenetics_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Epigenetics' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (dna_id, "The Double Helix", "DNA is a double-stranded helix made of nucleotides. Each nucleotide has a sugar (deoxyribose), phosphate group, and nitrogenous base (A, T, G, C). Adenine pairs with thymine (2 hydrogen bonds), guanine pairs with cytosine (3 hydrogen bonds). The strands run antiparallel (5'→3' and 3'→5'). Replication is semiconservative — each new double helix has one old strand and one new strand.", 1),
+        (transcription_id, "From DNA to mRNA", "Transcription copies a gene's DNA sequence into messenger RNA. RNA polymerase binds to the promoter, unwinds DNA, and synthesizes mRNA in the 5'→3' direction using the template strand. In eukaryotes, the pre-mRNA is processed: a 5' cap and 3' poly-A tail are added, and introns are spliced out by spliceosomes, leaving only exons.", 1),
+        (translation_id, "Ribosomes & the Genetic Code", "Translation converts mRNA into protein at ribosomes. Transfer RNAs (tRNAs) carry amino acids and match codons via anticodons. The ribosome has A (aminoacyl), P (peptidyl), and E (exit) sites. Translation starts at AUG (methionine) and ends at a stop codon (UAA, UAG, UGA). The genetic code is degenerate — multiple codons can code for the same amino acid.", 1),
+        (regulation_id, "Controlling Gene Expression", "Gene regulation determines when and how much protein is produced. Prokaryotes use operons (e.g., lac operon: repressor blocks transcription unless lactose is present). Eukaryotes regulate at multiple levels: chromatin remodeling, transcription factors binding enhancers/silencers, mRNA processing, mRNA stability, and post-translational modification.", 1),
+        (mutations_id, "Types of Mutations", "Mutations are changes in DNA sequence. Point mutations include silent (no amino acid change), missense (different amino acid), and nonsense (premature stop codon). Frameshift mutations (insertions/deletions not divisible by 3) alter the reading frame. DNA repair mechanisms include proofreading by DNA polymerase, mismatch repair, and nucleotide excision repair.", 1),
+        (epigenetics_id, "Beyond the DNA Sequence", "Epigenetics studies heritable changes in gene expression without altering DNA sequence. Key mechanisms: DNA methylation (adding methyl groups to cytosine, usually silencing genes), histone modification (acetylation opens chromatin, methylation can activate or silence), and non-coding RNAs (like microRNAs that degrade mRNA). Environmental factors can alter epigenetic marks.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute("INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)", rusqlite::params![tid, title, content, order])?;
+    }
+
+    // Explanations
+    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (dna_id, "Base Pairing", "A always pairs with T (2 H-bonds), G always pairs with C (3 H-bonds). This complementarity enables accurate replication.", Some("Like a zipper where each tooth only fits one specific partner"), Some("Why does G-C pairing make DNA more thermally stable?")),
+        (transcription_id, "mRNA Processing", "Eukaryotic pre-mRNA undergoes capping, polyadenylation, and splicing before export from the nucleus.", Some("Like editing a rough draft: add a cover (cap), a signature (poly-A), and cut out the irrelevant paragraphs (introns)"), Some("What is alternative splicing and why does it matter?")),
+        (translation_id, "The Genetic Code", "64 codons map to 20 amino acids plus stop signals. The code is universal (shared across almost all life) and degenerate (multiple codons per amino acid).", Some("A dictionary where several different words can mean the same thing"), Some("Why is the genetic code called 'degenerate' rather than 'redundant'?")),
+        (regulation_id, "Lac Operon", "A classic prokaryotic regulatory system. When lactose is absent, a repressor protein blocks transcription. When lactose is present, it binds the repressor, changing its shape so it releases from DNA, allowing transcription.", Some("A security guard (repressor) blocks the door until someone with the right badge (lactose) shows up"), Some("What role does cAMP play in lac operon regulation?")),
+        (mutations_id, "Frameshift Mutations", "Insertions or deletions of nucleotides not divisible by 3 shift the entire reading frame downstream, usually producing a nonfunctional protein.", Some("Removing one letter from a sentence: THE BIG CAT ATE → THB IGC ATA TE — everything after changes"), Some("Why are frameshifts typically more damaging than point mutations?")),
+        (epigenetics_id, "DNA Methylation", "Adding a methyl group (-CH₃) to cytosine in CpG islands silences gene expression. This is a key mechanism in X-inactivation and genomic imprinting.", Some("Putting a padlock on a book — the text inside hasn't changed, but nobody can read it"), Some("Can epigenetic changes be reversed? How?")),
+    ];
+    for (tid, concept, explanation, analogy, followup) in &explanations {
+        conn.execute("INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![tid, concept, explanation, analogy, followup])?;
+    }
+
+    // Quiz questions
+    let quizzes: Vec<QuizRowHint> = vec![
+        (dna_id, "What type of bond holds complementary DNA bases together?", "multiple_choice", "Hydrogen bonds", Some("Covalent bonds"), Some("Ionic bonds"), Some("Peptide bonds"), None, "These are relatively weak bonds that allow strand separation during replication", "Hydrogen bonds hold A-T (2 bonds) and G-C (3 bonds) pairs together. The phosphodiester bonds in the backbone are covalent."),
+        (dna_id, "DNA replication is described as semiconservative. What does this mean?", "multiple_choice", "Each new double helix has one old and one new strand", Some("Both strands are entirely new"), Some("The original molecule is preserved intact"), Some("Only the leading strand is conserved"), None, "Think about what 'semi' means", "Meselson and Stahl proved that each daughter DNA molecule retains one parental strand and synthesizes one new complementary strand."),
+        (dna_id, "Which base pairs with adenine in DNA?", "fill_in_blank", "Thymine", None, None, None, None, "A pairs with T via 2 hydrogen bonds", "Adenine (a purine) pairs with thymine (a pyrimidine) through 2 hydrogen bonds. In RNA, adenine pairs with uracil instead."),
+        (transcription_id, "Which enzyme catalyzes transcription?", "fill_in_blank", "RNA polymerase", None, None, None, None, "This enzyme reads DNA and builds RNA", "RNA polymerase binds to the promoter region, unwinds DNA, and synthesizes mRNA in the 5' to 3' direction using ribonucleoside triphosphates."),
+        (transcription_id, "In eukaryotes, which parts of pre-mRNA are removed during splicing?", "multiple_choice", "Introns", Some("Exons"), Some("Promoters"), Some("Codons"), None, "Think: introns are 'in' the way and need to come out", "Introns (intervening sequences) are removed by spliceosomes. Exons (expressed sequences) are joined together to form the mature mRNA."),
+        (transcription_id, "True or false: mRNA is synthesized in the 3' to 5' direction.", "true_false", "false", None, None, None, None, "Think about which end gets the cap", "mRNA is synthesized in the 5' to 3' direction. The template DNA strand is read 3' to 5'."),
+        (translation_id, "What is the start codon and which amino acid does it code for?", "fill_in_blank", "AUG, methionine", None, None, None, None, "This codon signals the beginning of translation", "AUG codes for methionine and signals the ribosome to begin translation. In prokaryotes, the first amino acid is formyl-methionine."),
+        (translation_id, "Which ribosomal site holds the growing polypeptide chain?", "multiple_choice", "P site (peptidyl)", Some("A site (aminoacyl)"), Some("E site (exit)"), Some("S site (start)"), None, "Think: 'P' for peptide chain", "The P site holds the tRNA carrying the growing polypeptide. The A site accepts incoming aminoacyl-tRNAs. The E site is where empty tRNAs exit."),
+        (translation_id, "Put these translation steps in order:", "ordering", "mRNA binds ribosome,Start codon recognized,tRNA brings amino acid to A site,Peptide bond forms,Ribosome translocates", None, None, None, None, "Follow the flow from initiation to elongation", "Translation proceeds through initiation (mRNA binds, start codon found), elongation (tRNA delivery, peptide bond formation, translocation), and termination (stop codon reached)."),
+        (regulation_id, "In the lac operon, what molecule acts as the inducer?", "multiple_choice", "Allolactose", Some("Glucose"), Some("Tryptophan"), Some("cAMP"), None, "It's derived from the sugar the operon is named after", "Allolactose (an isomer of lactose) binds the lac repressor, causing a conformational change that releases it from the operator, allowing transcription."),
+        (regulation_id, "Which of the following are levels of eukaryotic gene regulation?", "select_all", "Chromatin remodeling,Transcription,mRNA processing,Translation", Some("Chromatin remodeling"), Some("Transcription"), Some("mRNA processing"), Some("Translation"), "Eukaryotes regulate at many stages", "Eukaryotic gene expression is regulated at chromatin, transcriptional, post-transcriptional (splicing), translational, and post-translational levels."),
+        (mutations_id, "A mutation that changes a codon to a stop codon is called a:", "multiple_choice", "Nonsense mutation", Some("Missense mutation"), Some("Silent mutation"), Some("Frameshift mutation"), None, "This type of mutation makes 'no sense' — it stops translation early", "Nonsense mutations create premature stop codons, truncating the protein. Missense mutations change one amino acid. Silent mutations don't change the protein."),
+        (mutations_id, "Which DNA repair mechanism removes thymine dimers caused by UV light?", "multiple_choice", "Nucleotide excision repair", Some("Mismatch repair"), Some("Base excision repair"), Some("Homologous recombination"), None, "This mechanism cuts out a whole section of damaged nucleotides", "Nucleotide excision repair recognizes bulky distortions like thymine dimers, excises a ~30 nucleotide segment, and fills the gap using the complementary strand."),
+        (epigenetics_id, "Which histone modification is generally associated with active gene transcription?", "multiple_choice", "Acetylation", Some("Methylation of H3K9"), Some("Deacetylation"), Some("Ubiquitination"), None, "This modification loosens chromatin structure", "Histone acetylation neutralizes positive charges on lysine residues, loosening the histone-DNA interaction and making DNA more accessible to transcription machinery."),
+        (epigenetics_id, "DNA methylation typically occurs at which dinucleotide sequence?", "fill_in_blank", "CpG", None, None, None, None, "Think: which two bases are connected by a phosphodiester bond?", "DNA methylation occurs primarily at CpG dinucleotides (cytosine followed by guanine). Clusters of CpGs are called CpG islands and are often found near gene promoters."),
+    ];
+
+    for (tid, q, qtype, correct, oa, ob, oc, _od, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            rusqlite::params![tid, q, qtype, correct, oa, ob, oc, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_topics = [
+        (dna_id, "Master DNA structure, base pairing, and semiconservative replication"),
+        (transcription_id, "Understand how genes are transcribed into mRNA"),
+        (translation_id, "Learn how ribosomes translate mRNA into proteins"),
+        (regulation_id, "Explore how cells control gene expression"),
+        (mutations_id, "Study mutation types and DNA repair mechanisms"),
+        (epigenetics_id, "Discover heritable changes beyond the DNA sequence"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('molecular biology journey', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
+    conn.execute("INSERT INTO subjects (name, description) VALUES ('Set Theory', 'The mathematical study of collections of objects — the foundation of modern mathematics.')", [])?;
+    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Set Theory'", [], |r| r.get(0))?;
+
+    let topics = [
+        ("Sets & Notation", "beginner", 1),
+        ("Set Operations", "beginner", 2),
+        ("Relations & Functions", "intermediate", 3),
+        ("Cardinality & Countability", "intermediate", 4),
+        ("Axiom of Choice & Zorn's Lemma", "advanced", 5),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![subj_id, name, diff, order],
+        )?;
+    }
+
+    let notation_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Sets & Notation' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let operations_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Set Operations' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let relations_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Relations & Functions' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let cardinality_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Cardinality & Countability' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let axiom_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Axiom of Choice & Zorn''s Lemma' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+
+    // Lessons
+    let lessons: Vec<(i64, &str, &str, i64)> = vec![
+        (notation_id, "What Is a Set?", "A set is a well-defined collection of distinct objects called elements or members. We write a ∈ A to mean 'a is an element of A'. Sets can be described by listing elements {1, 2, 3} or by set-builder notation {x | x > 0}. The empty set ∅ contains no elements. Two sets are equal if and only if they have exactly the same elements (Axiom of Extensionality).", 1),
+        (operations_id, "Combining Sets", "Union (A ∪ B): all elements in A or B or both. Intersection (A ∩ B): elements in both A and B. Difference (A \\ B): elements in A but not B. Complement (Aᶜ): elements not in A (relative to a universal set U). Symmetric difference (A △ B): elements in exactly one of A or B. De Morgan's laws: (A ∪ B)ᶜ = Aᶜ ∩ Bᶜ and (A ∩ B)ᶜ = Aᶜ ∪ Bᶜ.", 1),
+        (relations_id, "Relations and Functions", "A relation R from A to B is a subset of A × B (the Cartesian product). A function f: A → B is a relation where each element of A maps to exactly one element of B. Injective (one-to-one): different inputs give different outputs. Surjective (onto): every element of B is mapped to. Bijective: both injective and surjective — establishes a one-to-one correspondence.", 1),
+        (cardinality_id, "Counting the Infinite", "Two sets have the same cardinality if there exists a bijection between them. Countably infinite sets (|S| = ℵ₀) can be put in bijection with ℕ — examples: ℤ, ℚ. Cantor's diagonal argument proves ℝ is uncountable (|ℝ| = 2^ℵ₀ > ℵ₀). The power set P(A) always has strictly greater cardinality than A (Cantor's theorem).", 1),
+        (axiom_id, "The Axiom of Choice", "The Axiom of Choice (AC) states that given any collection of non-empty sets, there exists a function that picks one element from each. Equivalent statements: Zorn's Lemma (every partially ordered set where every chain has an upper bound contains a maximal element) and the Well-Ordering Theorem (every set can be well-ordered). AC is independent of ZF set theory.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute("INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)", rusqlite::params![tid, title, content, order])?;
+    }
+
+    // Explanations
+    let explanations: Vec<(i64, &str, &str, Option<&str>, Option<&str>)> = vec![
+        (notation_id, "Set-Builder Notation", "Set-builder notation defines a set by a property: {x ∈ S | P(x)} reads 'the set of all x in S such that P(x) is true'.", Some("Like a filter: take all items from a collection and keep only those matching your criteria"), Some("Why can't we define the 'set of all sets'?")),
+        (operations_id, "De Morgan's Laws", "The complement of a union is the intersection of complements: (A ∪ B)ᶜ = Aᶜ ∩ Bᶜ. The complement of an intersection is the union of complements: (A ∩ B)ᶜ = Aᶜ ∪ Bᶜ.", Some("If you're NOT (tall OR strong), you must be (NOT tall AND NOT strong)"), Some("How do De Morgan's laws extend to arbitrary unions and intersections?")),
+        (cardinality_id, "Cantor's Diagonal Argument", "Proves ℝ is uncountable. Assume you could list all real numbers in [0,1]. Construct a new number by changing the nth digit of the nth number. This new number differs from every listed number, contradicting the assumption.", Some("Like trying to make a guest list for a party where the guests keep creating new identities"), Some("Can you apply the diagonal argument to prove the power set of ℕ is uncountable?")),
+    ];
+    for (tid, concept, explanation, analogy, followup) in &explanations {
+        conn.execute("INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)", rusqlite::params![tid, concept, explanation, analogy, followup])?;
+    }
+
+    // Quiz questions
+    let quizzes: Vec<QuizRowHint> = vec![
+        (notation_id, "What symbol denotes the empty set?", "fill_in_blank", "∅", None, None, None, None, "It looks like a zero with a line through it", "The empty set ∅ (or {}) is the unique set containing no elements. It is a subset of every set."),
+        (notation_id, "True or false: {1, 2, 3} = {3, 1, 2}", "true_false", "true", None, None, None, None, "Sets are defined by their elements, not order", "Sets are unordered collections. Two sets are equal if they contain exactly the same elements, regardless of order or repetition."),
+        (notation_id, "If A = {1, 2, 3, 4, 5}, how many elements does the power set P(A) have?", "fill_in_blank", "32", None, None, None, None, "The power set has 2^n elements", "The power set P(A) is the set of all subsets of A. If |A| = n, then |P(A)| = 2^n. Here 2^5 = 32."),
+        (operations_id, "If A = {1,2,3} and B = {2,3,4}, what is A ∩ B?", "fill_in_blank", "{2,3}", None, None, None, None, "Intersection means elements in BOTH sets", "A ∩ B = {x | x ∈ A and x ∈ B} = {2, 3}. These are the elements common to both sets."),
+        (operations_id, "By De Morgan's law, (A ∪ B)ᶜ equals:", "multiple_choice", "Aᶜ ∩ Bᶜ", Some("Aᶜ ∪ Bᶜ"), Some("A ∩ B"), Some("(A ∩ B)ᶜ"), None, "The complement of a union becomes an intersection of complements", "De Morgan's first law: (A ∪ B)ᶜ = Aᶜ ∩ Bᶜ. Not being in A-or-B means not in A AND not in B."),
+        (operations_id, "What is the symmetric difference A △ B?", "multiple_choice", "Elements in exactly one of A or B", Some("Elements in both A and B"), Some("All elements of A"), Some("Elements in neither A nor B"), None, "Symmetric difference is like XOR", "A △ B = (A \\ B) ∪ (B \\ A) = (A ∪ B) \\ (A ∩ B). It contains elements that are in one set but not both."),
+        (relations_id, "A function that is both injective and surjective is called:", "fill_in_blank", "bijective", None, None, None, None, "It establishes a perfect one-to-one correspondence", "A bijection (bijective function) maps each element of the domain to a unique element of the codomain, with every codomain element covered. It has an inverse function."),
+        (relations_id, "True or false: every surjective function is also injective.", "true_false", "false", None, None, None, None, "Can two inputs map to the same output while still covering all outputs?", "A surjection maps onto every element of the codomain but may send multiple inputs to the same output. Example: f(x) = x² from ℝ to [0,∞) is surjective but not injective."),
+        (cardinality_id, "Which of these sets is uncountable?", "multiple_choice", "The real numbers ℝ", Some("The integers ℤ"), Some("The rationals ℚ"), Some("The natural numbers ℕ"), None, "Cantor proved this with his famous diagonal argument", "ℝ is uncountable — there is no bijection between ℕ and ℝ. Cantor's diagonal argument shows that any attempted listing of real numbers must miss at least one."),
+        (cardinality_id, "Cantor's theorem states that for any set A:", "multiple_choice", "|P(A)| > |A|", Some("|P(A)| = |A|"), Some("|P(A)| < |A|"), Some("|P(A)| = 2|A|"), None, "The power set is always strictly larger", "Cantor's theorem proves that the power set (set of all subsets) always has strictly greater cardinality than the original set, even for infinite sets."),
+        (axiom_id, "Which statement is equivalent to the Axiom of Choice?", "multiple_choice", "Zorn's Lemma", Some("Cantor's theorem"), Some("De Morgan's laws"), Some("The Pigeonhole Principle"), None, "It involves maximal elements in partially ordered sets", "Zorn's Lemma, the Well-Ordering Theorem, and the Axiom of Choice are all logically equivalent in ZF set theory. Each can be derived from any of the others."),
+        (axiom_id, "True or false: the Axiom of Choice can be proved from the other ZF axioms.", "true_false", "false", None, None, None, None, "Gödel and Cohen showed something important about its independence", "The Axiom of Choice is independent of ZF: Gödel showed ZFC is consistent (if ZF is), and Cohen showed ZF + ¬AC is also consistent. It can be neither proved nor disproved from ZF alone."),
+    ];
+
+    for (tid, q, qtype, correct, oa, ob, oc, _od, hint, expl) in &quizzes {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+            rusqlite::params![tid, q, qtype, correct, oa, ob, oc, hint, expl],
+        )?;
+    }
+
+    // Analogy quiz questions (new quiz type)
+    let analogies: Vec<(i64, &str, &str, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        (notation_id, "∈ is to 'element of' as ⊆ is to ___", "subset of", Some("superset of"), Some("equal to"), Some("complement of"), "Both symbols describe a relationship between an object and a set", "∈ means membership (element in set), ⊆ means subset (set contained in set). Both describe containment relationships at different levels."),
+        (operations_id, "Union is to OR as Intersection is to ___", "AND", Some("NOT"), Some("XOR"), Some("NOR"), "Think about logical operations", "Union (∪) corresponds to logical OR (in either), intersection (∩) corresponds to logical AND (in both). This connection is formalized in Boolean algebra."),
+    ];
+    for (tid, q, correct, oa, ob, oc, hint, expl) in &analogies {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1, ?2, 'analogy', ?3, ?4, ?5, ?6, ?7, ?8)",
+            rusqlite::params![tid, q, correct, oa, ob, oc, hint, expl],
+        )?;
+    }
+
+    // Learning path
+    let path_topics = [
+        (notation_id, "Learn set notation, membership, and the empty set"),
+        (operations_id, "Master union, intersection, complement, and De Morgan's laws"),
+        (relations_id, "Understand relations, functions, and bijectivity"),
+        (cardinality_id, "Explore countable vs uncountable infinity"),
+        (axiom_id, "Study the Axiom of Choice and its equivalents"),
+    ];
+    for (i, (tid, desc)) in path_topics.iter().enumerate() {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('set theory journey', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_analogy_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
+    // Add analogy questions across existing subjects for variety
+    let analogies: Vec<(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
+        ("Arithmetic", "Addition is to subtraction as multiplication is to ___", "division", Some("addition"), Some("exponentiation"), Some("logarithm"), "Think inverse operations", "Division is the inverse of multiplication, just as subtraction is the inverse of addition. Each pair undoes the other."),
+        ("Photosynthesis", "Chloroplast is to photosynthesis as mitochondria is to ___", "cellular respiration", Some("photosynthesis"), Some("fermentation"), Some("osmosis"), "Where does each process occur?", "Chloroplasts perform photosynthesis (light → chemical energy). Mitochondria perform cellular respiration (chemical energy → ATP). Each organelle is the site of its signature process."),
+        ("Sentence Structure", "Noun is to person/place/thing as verb is to ___", "action", Some("description"), Some("modifier"), Some("conjunction"), "What does each part of speech represent?", "Nouns name entities (person, place, thing). Verbs express actions or states of being. Both are fundamental parts of speech with complementary roles."),
+        ("Ancient Civilizations", "Athens is to democracy as Rome is to ___", "republic", Some("monarchy"), Some("oligarchy"), Some("theocracy"), "What form of government was each city famous for?", "Athens pioneered direct democracy. Rome developed the republic (representative government). Both were foundational political systems of the ancient world."),
+        ("Search Algorithms", "Linear search is to O(n) as binary search is to ___", "O(log n)", Some("O(n)"), Some("O(n²)"), Some("O(1)"), "Binary search halves the search space each step", "Linear search checks every element: O(n). Binary search halves the sorted array each step: O(log n). The analogy maps algorithm to its time complexity."),
+    ];
+
+    for (topic_name, q, correct, oa, ob, oc, hint, expl) in &analogies {
+        let topic_id: Option<i64> = conn.query_row(
+            "SELECT id FROM topics WHERE name = ?1",
+            [topic_name],
+            |r| r.get(0),
+        ).ok();
+        if let Some(tid) = topic_id {
+            conn.execute(
+                "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1, ?2, 'analogy', ?3, ?4, ?5, ?6, ?7, ?8)",
+                rusqlite::params![tid, q, correct, oa, ob, oc, hint, expl],
+            )?;
+        }
+    }
     Ok(())
 }

@@ -189,6 +189,12 @@ enum Commands {
         #[arg(short, long, default_value = "10")]
         count: usize,
     },
+    /// Show review priorities ranked by urgency and forgetting risk
+    Priorities {
+        /// Number of topics to show
+        #[arg(short, long, default_value = "15")]
+        limit: usize,
+    },
     /// Generate a personalized study plan based on your progress
     StudyPlan {
         /// Number of days to plan for
@@ -246,6 +252,7 @@ fn main() {
         Commands::Trend { days } => commands::trend::run(&conn, days),
         Commands::Retention => commands::retention::run(&conn),
         Commands::Cram { count } => commands::cram::run(&conn, count),
+        Commands::Priorities { limit } => commands::priorities::run(&conn, limit),
         Commands::StudyPlan { days } => commands::study_plan::run(&conn, days),
     };
 

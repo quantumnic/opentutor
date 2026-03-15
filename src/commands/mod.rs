@@ -21,6 +21,7 @@ pub mod mastery;
 pub mod mistakes;
 pub mod mix;
 pub mod path;
+pub mod priorities;
 pub mod progress;
 pub mod quiz;
 pub mod recommend;

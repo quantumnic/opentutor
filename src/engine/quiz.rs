@@ -364,6 +364,36 @@ pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResul
         return check_categorize_scored(&correct_lower, &answer_lower);
     }
 
+    // Analogy: treat like fill-in-blank with option letters allowed
+    if question.question_type == "analogy" {
+        if answer_lower == correct_lower {
+            return AnswerResult::full();
+        }
+        if fuzzy_match(&answer_lower, &correct_lower) {
+            return AnswerResult::full();
+        }
+        // Check by option letter
+        if let Some(idx) = match answer_lower.as_str() {
+            "a" => Some(0), "b" => Some(1), "c" => Some(2), "d" => Some(3), _ => None,
+        } {
+            if let Some(opt) = question.options.get(idx) {
+                if opt.trim().to_lowercase() == correct_lower {
+                    return AnswerResult::full();
+                }
+            }
+        }
+        // Near miss for longer answers
+        let max_len = answer_lower.len().max(correct_lower.len());
+        if max_len > 4 {
+            let dist = levenshtein(&answer_lower, &correct_lower);
+            let allowed_near = (max_len / 3).clamp(2, 4);
+            if dist <= allowed_near {
+                return AnswerResult::near_miss();
+            }
+        }
+        return AnswerResult::wrong();
+    }
+
     // Fill-in-blank: near-miss detection
     if question.question_type == "fill_in_blank" {
         if fuzzy_match(&answer_lower, &correct_lower) {
@@ -513,6 +543,14 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     // For categorize questions, check via scored version
     if question.question_type == "categorize" {
         return check_categorize_scored(&correct, &answer).correct;
+    }
+
+    // For analogy questions: accept exact text, fuzzy match, or option letter
+    if question.question_type == "analogy"
+        && (answer == correct || fuzzy_match(&answer, &correct))
+    {
+        return true;
+        // Otherwise fall through to option-letter check below
     }
 
     if answer == correct {
@@ -1502,5 +1540,150 @@ mod tests {
         };
         assert!(check_answer(&q, "A:x;B:y"));
         assert!(!check_answer(&q, "A:y;B:x"));
+    }
+}
+
+#[cfg(test)]
+mod analogy_tests {
+    use super::*;
+    use crate::db;
+
+    #[test]
+    fn test_analogy_exact_match() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "A is to B as C is to ___".into(),
+            question_type: "analogy".into(),
+            difficulty: "medium".into(),
+            correct_answer: "division".into(),
+            options: vec!["addition".into(), "division".into(), "subtraction".into()],
+            hint: None,
+            explanation: "Inverse operations.".into(),
+        };
+        assert!(check_answer(&q, "division"));
+        assert!(check_answer(&q, "Division"));
+        assert!(!check_answer(&q, "addition"));
+    }
+
+    #[test]
+    fn test_analogy_by_letter() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "A is to B as C is to ___".into(),
+            question_type: "analogy".into(),
+            difficulty: "medium".into(),
+            correct_answer: "division".into(),
+            options: vec!["addition".into(), "division".into(), "subtraction".into()],
+            hint: None,
+            explanation: "Inverse operations.".into(),
+        };
+        assert!(check_answer(&q, "b")); // division is at index 1
+    }
+
+    #[test]
+    fn test_analogy_scored_full_credit() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "A:B :: C:___".into(),
+            question_type: "analogy".into(),
+            difficulty: "medium".into(),
+            correct_answer: "cellular respiration".into(),
+            options: vec!["photosynthesis".into(), "cellular respiration".into(), "osmosis".into()],
+            hint: None,
+            explanation: "Organelle functions.".into(),
+        };
+        let result = check_answer_scored(&q, "cellular respiration");
+        assert!(result.correct);
+        assert!((result.credit - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_analogy_scored_near_miss() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "A:B :: C:___".into(),
+            question_type: "analogy".into(),
+            difficulty: "medium".into(),
+            correct_answer: "cellular respiration".into(),
+            options: vec!["photosynthesis".into(), "cellular respiration".into(), "osmosis".into()],
+            hint: None,
+            explanation: "Organelle functions.".into(),
+        };
+        let result = check_answer_scored(&q, "celular respiration");
+        // Should get full credit via fuzzy match (1 edit in long string)
+        assert!(result.credit >= 0.5, "Near-miss analogy should get partial credit, got {}", result.credit);
+    }
+
+    #[test]
+    fn test_analogy_scored_wrong() {
+        let q = QuizQuestion {
+            id: 1, topic_id: 1,
+            question: "A:B :: C:___".into(),
+            question_type: "analogy".into(),
+            difficulty: "medium".into(),
+            correct_answer: "division".into(),
+            options: vec!["addition".into(), "division".into(), "subtraction".into()],
+            hint: None,
+            explanation: "Inverse operations.".into(),
+        };
+        let result = check_answer_scored(&q, "addition");
+        assert!(!result.correct);
+        assert!((result.credit - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_molecular_biology_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let mb_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Molecular Biology'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(mb_id.is_some(), "Molecular Biology subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([mb_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 6, "Molecular Biology should have 6 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_set_theory_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let st_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Set Theory'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(st_id.is_some(), "Set Theory subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([st_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 5, "Set Theory should have 5 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_analogy_questions_seeded() {
+        let conn = db::init_memory_db().unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'analogy'",
+            [], |r| r.get(0),
+        ).unwrap();
+        assert!(count >= 6, "Should have at least 6 analogy questions, got {}", count);
     }
 }

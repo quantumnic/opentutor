@@ -67,6 +67,13 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
             "cloze" => {
                 println!("     {}", "(Fill in ALL blanks — separate answers with semicolons)".dimmed());
             }
+            "analogy" => {
+                println!("     {}", "(Complete the analogy — type the answer or letter)".dimmed());
+                for (j, opt) in q.options.iter().enumerate() {
+                    let letter = (b'a' + j as u8) as char;
+                    println!("     {} {}", format!("{})", letter).dimmed(), opt);
+                }
+            }
             "matching" => {
                 println!("     {}", "(Match each item on the left with the correct item on the right)".dimmed());
                 // Parse correct_answer pairs (e.g. "Dog=Mammal;Snake=Reptile") and display
