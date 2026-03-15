@@ -70,6 +70,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_molecular_biology(conn)?;
     seed_set_theory(conn)?;
     seed_analogy_questions(conn)?;
+    seed_paleontology(conn)?;
+    seed_marine_biology(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -751,7 +753,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 52); // 50 previous + Molecular Biology + Set Theory
+        assert_eq!(count, 54); // 52 previous + Paleontology + Marine Biology
     }
 
     #[test]
@@ -761,7 +763,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 52);
+        assert_eq!(count, 54);
     }
 
     #[test]
@@ -6747,5 +6749,223 @@ fn seed_analogy_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
             )?;
         }
     }
+    Ok(())
+}
+
+fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Paleontology'", [], |r| r.get(0)
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Paleontology', 'The study of ancient life through fossils — dinosaurs, mass extinctions, and the history of life on Earth.')",
+        [],
+    )?;
+    let sub_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Paleontology'", [], |r| r.get(0)
+    )?;
+
+    let topics = [
+        ("Fossils & Fossilization", "beginner", 1),
+        ("Dinosaurs", "beginner", 2),
+        ("Mass Extinctions", "intermediate", 3),
+        ("Geologic Time Scale", "beginner", 4),
+        ("Early Life & Cambrian Explosion", "intermediate", 5),
+        ("Human Evolution", "advanced", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sub_id, name, diff, order],
+        )?;
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (1, "What Are Fossils?", "Fossils are preserved remains or traces of organisms from the past. They form through mineralization, where minerals replace organic material over millions of years. Types include body fossils (bones, shells), trace fossils (footprints, burrows), and chemical fossils (organic molecules).", 1),
+        (2, "The Age of Dinosaurs", "Dinosaurs dominated Earth for over 160 million years during the Mesozoic Era (252-66 MYA). They were divided into two groups: Saurischia (lizard-hipped, including theropods and sauropods) and Ornithischia (bird-hipped, including triceratops and stegosaurus). Birds are living dinosaurs, descended from small theropod dinosaurs.", 1),
+        (3, "The Big Five Extinctions", "Earth has experienced five major mass extinctions. The most famous is the K-Pg extinction (66 MYA) that wiped out non-avian dinosaurs. The largest was the Permian-Triassic extinction (252 MYA), eliminating ~96% of marine species. Each extinction reshaped life's trajectory.", 1),
+        (4, "Reading the Rock Record", "The geologic time scale divides Earth's 4.6-billion-year history into eons, eras, periods, and epochs. Key boundaries often correspond to mass extinctions. Relative dating uses stratigraphy (older layers below), while absolute dating uses radioactive isotopes.", 1),
+        (5, "Life's Explosive Beginning", "The Cambrian Explosion (~541 MYA) saw the rapid appearance of most major animal phyla in ~20 million years. Key fossils from the Burgess Shale (Canada) and Chengjiang (China) reveal strange creatures like Anomalocaris and Hallucigenia.", 1),
+        (6, "From Ape to Human", "Human evolution spans ~7 million years. Key milestones: bipedalism (Australopithecus, ~4 MYA), tool use (Homo habilis, ~2.5 MYA), fire control (Homo erectus, ~1 MYA), and symbolic thought (Homo sapiens, ~300,000 years ago). We share a common ancestor with chimpanzees.", 1),
+    ];
+    for (idx, title, content, order) in &lessons {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (1, "Fossilization Process", "When an organism dies and is quickly buried, minerals in groundwater gradually replace the original material, turning it to stone.", Some("Like a 3D printer slowly replacing plastic with metal, atom by atom"), Some("Why are soft-bodied organisms rarely fossilized?")),
+        (2, "Theropod Dinosaurs", "Theropods were bipedal, mostly carnivorous dinosaurs including T. rex, Velociraptor, and the ancestors of modern birds.", Some("Think of birds as tiny surviving dinosaurs wearing feather coats"), Some("What evidence links birds to theropod dinosaurs?")),
+        (3, "K-Pg Extinction", "An asteroid impact 66 million years ago triggered global wildfires, a nuclear winter effect, and acid rain, killing ~75% of all species.", Some("Imagine turning off the sun for months"), Some("What survived the K-Pg extinction and why?")),
+    ];
+    for (idx, concept, explanation, analogy, follow_up) in &explanations {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (1, "What is the most common type of fossilization?", "multiple_choice", "Mineralization", Some("Carbonization"), Some("Freezing"), Some("Amber preservation"), None, "Think about what replaces bone over millions of years", "Mineralization (permineralization) is the most common process, where minerals fill pores and replace original material."),
+        (1, "Trace fossils include:", "multiple_choice", "Footprints and burrows", Some("Bones and teeth"), Some("Shells and exoskeletons"), Some("Amber insects"), None, "These show behavior, not body parts", "Trace fossils preserve evidence of activity (tracks, burrows, coprolites) rather than the organism itself."),
+        (2, "Birds are descendants of which dinosaur group?", "multiple_choice", "Theropods", Some("Sauropods"), Some("Ornithischians"), Some("Pterosaurs"), None, "Think about bipedal carnivores", "Birds evolved from small feathered theropod dinosaurs. Key evidence includes the fossil Archaeopteryx."),
+        (2, "The Mesozoic Era is also known as the:", "multiple_choice", "Age of Reptiles", Some("Age of Mammals"), Some("Age of Fish"), Some("Age of Insects"), None, "Dinosaurs were the dominant land animals", "The Mesozoic (252-66 MYA) is called the Age of Reptiles because dinosaurs dominated all major ecosystems."),
+        (3, "Which mass extinction was the largest?", "multiple_choice", "Permian-Triassic", Some("K-Pg (Cretaceous-Paleogene)"), Some("Ordovician-Silurian"), Some("Triassic-Jurassic"), None, "It happened about 252 million years ago", "The Permian-Triassic extinction killed ~96% of marine species — the Great Dying."),
+        (3, "What caused the K-Pg mass extinction?", "multiple_choice", "Asteroid impact", Some("Volcanic eruption only"), Some("Ice age"), Some("Sea level drop"), None, "A large space rock hit the Yucatan Peninsula", "A ~10 km asteroid struck Chicxulub, Mexico, causing global devastation."),
+        (4, "The largest division of geologic time is:", "multiple_choice", "Eon", Some("Era"), Some("Period"), Some("Epoch"), None, "Think of the hierarchy from biggest to smallest", "Eons are the largest: Hadean, Archean, Proterozoic, Phanerozoic."),
+        (5, "The Cambrian Explosion occurred approximately ___ million years ago.", "fill_in_blank", "541", None, None, None, None, "It marks the start of the Phanerozoic eon", "The Cambrian Explosion began ~541 MYA with rapid diversification of complex animal life."),
+        (6, "Homo sapiens first appeared approximately ___ thousand years ago.", "fill_in_blank", "300", None, None, None, None, "Think hundreds of thousands, not millions", "Anatomically modern Homo sapiens appeared ~300,000 years ago in Africa."),
+        (6, "True or false: Humans evolved directly from chimpanzees.", "true_false", "false", None, None, None, None, "Think about common ancestors", "Humans and chimpanzees share a common ancestor from ~7 million years ago. We are cousins, not descendants."),
+    ];
+    for (idx, q, qtype, correct, oa, ob, oc, _od, hint, expl) in &quizzes {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            rusqlite::params![tid, q, qtype, correct, oa, ob, oc, hint, expl],
+        )?;
+    }
+
+    let path_steps = [
+        (1, "Learn how fossils form and the types of fossils"),
+        (4, "Understand the geologic time scale"),
+        (5, "Explore the Cambrian Explosion and early life"),
+        (2, "Study dinosaurs and the Mesozoic Era"),
+        (3, "Understand mass extinctions and their causes"),
+        (6, "Explore human evolution"),
+    ];
+    for (i, (sort, desc)) in path_steps.iter().enumerate() {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('paleontology journey', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn.query_row(
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Marine Biology'", [], |r| r.get(0)
+    ).unwrap_or(false);
+    if exists { return Ok(()); }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Marine Biology', 'The study of ocean life — from microscopic plankton to blue whales, coral reefs to deep-sea vents.')",
+        [],
+    )?;
+    let sub_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Marine Biology'", [], |r| r.get(0)
+    )?;
+
+    let topics = [
+        ("Ocean Zones", "beginner", 1),
+        ("Coral Reefs", "beginner", 2),
+        ("Marine Mammals", "beginner", 3),
+        ("Deep Sea Ecosystems", "intermediate", 4),
+        ("Plankton & Marine Food Webs", "intermediate", 5),
+        ("Ocean Conservation", "intermediate", 6),
+    ];
+    for (name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sub_id, name, diff, order],
+        )?;
+    }
+
+    let lessons: Vec<LessonRow> = vec![
+        (1, "Layers of the Ocean", "The ocean is divided into zones by depth: Epipelagic (sunlight, 0-200m), Mesopelagic (twilight, 200-1000m), Bathypelagic (midnight, 1000-4000m), Abyssopelagic (abyss, 4000-6000m), and Hadopelagic (trenches, 6000m+).", 1),
+        (2, "Coral Reef Ecosystems", "Coral reefs are built by tiny polyps that secrete calcium carbonate skeletons. They host ~25% of all marine species despite covering <1% of the ocean floor. Coral depends on symbiotic algae (zooxanthellae) for nutrition.", 1),
+        (3, "Whales, Dolphins & Seals", "Marine mammals breathe air but are adapted for ocean life. Blue whales are the largest animals ever (up to 30m). Echolocation allows toothed whales to navigate and hunt in dark waters.", 1),
+        (4, "Life in the Abyss", "Hydrothermal vents support entire ecosystems through chemosynthesis. Giant tube worms (Riftia) can grow 2m tall near vents. The deep sea contains more biomass than all tropical rainforests combined.", 1),
+        (5, "The Ocean's Invisible Forest", "Phytoplankton produce ~50% of Earth's oxygen. They form the base of marine food webs: phytoplankton to zooplankton to small fish to larger predators.", 1),
+        (6, "Protecting Our Oceans", "Major threats: overfishing, plastic pollution (~8M tons/year), ocean acidification, and habitat destruction. Marine Protected Areas cover ~8% of the ocean.", 1),
+    ];
+    for (idx, title, content, order) in &lessons {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (1, "Photic Zone", "The sunlight zone extends to ~200m depth where photosynthesis occurs, supporting most ocean life.", Some("Like the ground floor of a skyscraper — all the life is here"), Some("Why can't photosynthesis occur below 200m?")),
+        (2, "Coral Bleaching", "When water temperatures rise, corals expel their symbiotic algae, turning white and losing their food source.", Some("Like evicting your cook — you'll starve without them"), Some("Can bleached coral recover?")),
+        (4, "Chemosynthesis", "Unlike photosynthesis, chemosynthesis uses chemical reactions from vents to produce food. This proved life doesn't require sunlight.", Some("Instead of solar panels, these bacteria run on chemical batteries"), Some("Could chemosynthesis support life on other planets?")),
+    ];
+    for (idx, concept, explanation, analogy, follow_up) in &explanations {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let quizzes: Vec<QuizRowHint> = vec![
+        (1, "The sunlight zone extends to approximately:", "multiple_choice", "200 meters", Some("500 meters"), Some("1000 meters"), Some("50 meters"), None, "This is where photosynthesis can occur", "The epipelagic zone extends to ~200m, where enough light penetrates for photosynthesis."),
+        (1, "The deepest ocean zone is the:", "multiple_choice", "Hadopelagic", Some("Abyssopelagic"), Some("Bathypelagic"), Some("Mesopelagic"), None, "Named after Hades, god of the underworld", "The hadopelagic zone (6000m+) includes the Mariana Trench (nearly 11,000m deep)."),
+        (2, "Coral reefs host approximately what percentage of marine species?", "multiple_choice", "25%", Some("5%"), Some("50%"), Some("75%"), None, "Think about one quarter", "Coral reefs support ~25% of marine biodiversity despite covering less than 1% of the ocean floor."),
+        (2, "Coral bleaching is caused by:", "multiple_choice", "Rising water temperatures", Some("Excessive sunlight"), Some("Low salinity"), Some("Overfishing"), None, "Think about climate change", "Elevated temperatures cause corals to expel their symbiotic zooxanthellae algae."),
+        (3, "Blue whales can grow up to ___ meters long.", "fill_in_blank", "30", None, None, None, None, "About the length of three school buses", "Blue whales reach ~30m, making them the largest animals ever to have lived."),
+        (3, "True or false: All marine mammals are born underwater.", "true_false", "false", None, None, None, None, "Think about seals and sea lions", "Pinnipeds give birth on land. Only cetaceans and sirenians give birth in water."),
+        (4, "Hydrothermal vent ecosystems are powered by:", "multiple_choice", "Chemosynthesis", Some("Photosynthesis"), Some("Geothermal heat alone"), Some("Organic debris"), None, "Bacteria use chemical energy, not light", "Chemosynthetic bacteria convert hydrogen sulfide into energy at vent food webs."),
+        (5, "Phytoplankton produce approximately what percentage of Earth's oxygen?", "multiple_choice", "50%", Some("10%"), Some("25%"), Some("75%"), None, "About half!", "Phytoplankton produce roughly 50% of Earth's oxygen through photosynthesis."),
+        (5, "The correct marine food chain order is:", "multiple_choice", "Phytoplankton, Zooplankton, Small fish, Large predators", Some("Zooplankton, Phytoplankton, Small fish, Large predators"), Some("Small fish, Zooplankton, Phytoplankton, Large predators"), Some("Phytoplankton, Small fish, Zooplankton, Large predators"), None, "Start with the producers", "Energy flows from producers (phytoplankton) through primary consumers to tertiary consumers."),
+        (6, "Approximately how many tons of plastic enter the ocean each year?", "multiple_choice", "8 million", Some("1 million"), Some("100 million"), Some("500 thousand"), None, "Think of millions", "An estimated 8 million metric tons of plastic enter the ocean annually."),
+    ];
+    for (idx, q, qtype, correct, oa, ob, oc, _od, hint, expl) in &quizzes {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, idx], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
+            rusqlite::params![tid, q, qtype, correct, oa, ob, oc, hint, expl],
+        )?;
+    }
+
+    let path_steps = [
+        (1, "Understand ocean zones and how depth affects life"),
+        (5, "Learn about plankton and marine food webs"),
+        (2, "Explore coral reef ecosystems"),
+        (3, "Study marine mammals and their adaptations"),
+        (4, "Discover deep sea ecosystems and chemosynthesis"),
+        (6, "Understand ocean conservation challenges"),
+    ];
+    for (i, (sort, desc)) in path_steps.iter().enumerate() {
+        let tid: i64 = conn.query_row(
+            "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
+            rusqlite::params![sub_id, sort], |r| r.get(0)
+        )?;
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('ocean explorer', ?1, ?2, ?3)",
+            rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
     Ok(())
 }

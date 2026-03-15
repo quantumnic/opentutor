@@ -36,4 +36,5 @@ pub mod subjects;
 pub mod summary;
 pub mod trend;
 pub mod velocity;
+pub mod recap;
 pub mod weak;

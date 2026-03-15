@@ -40,6 +40,12 @@ const FATIGUE_DECAY_PER_REVIEW: f64 = 0.05;
 /// small interval multiplier. Research shows memory consolidation during
 /// sleep strengthens traces reviewed the previous day (Walker, 2017).
 const SLEEP_CONSOLIDATION_BONUS: f64 = 1.08;
+/// Contextual strengthening: bonus when reviewing multiple topics from the
+/// same subject in one session. Interleaved practice within a domain creates
+/// stronger associative networks (Rohrer & Taylor, 2007).
+const CONTEXT_STRENGTHENING_BONUS: f64 = 1.06;
+/// Window (in seconds) for counting sibling-topic reviews in the same session.
+const CONTEXT_WINDOW_SECONDS: i64 = 3600;
 
 /// Returns a difficulty multiplier for initial intervals based on topic difficulty.
 /// Harder topics get shorter initial intervals (multiplier < 1.0) to reinforce
@@ -226,7 +232,8 @@ pub fn update_spaced_repetition(
                     let sleep_bonus = if has_sleep_gap && !is_same_day { SLEEP_CONSOLIDATION_BONUS } else { 1.0 };
                     let spacing = spacing_bonus(conn, topic_id);
                     let interleave = interleaving_bonus(conn);
-                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * sleep_bonus * spacing * interleave)
+                    let context_bonus = context_strengthening(conn, topic_id);
+                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * sleep_bonus * spacing * interleave * context_bonus)
                         .round()
                         .max(n as f64) as i64 // Never shrink interval on success
                 }
@@ -751,6 +758,32 @@ pub fn interleaving_bonus(conn: &Connection) -> f64 {
         2 => 1.05,
         3 => 1.10,
         _ => 1.15,
+    }
+}
+
+/// Contextual strengthening bonus: rewards reviewing multiple topics from the
+/// same subject within a session window. This builds associative networks
+/// between related concepts, improving long-term retention.
+pub fn context_strengthening(conn: &Connection, topic_id: i64) -> f64 {
+    let sibling_count: i64 = conn
+        .query_row(
+            "SELECT COUNT(DISTINCT sl.topic_id)
+             FROM session_log sl
+             JOIN topics t ON t.id = sl.topic_id
+             JOIN topics t2 ON t2.subject_id = t.subject_id
+             WHERE t2.id = ?1
+             AND sl.topic_id != ?1
+             AND sl.activity_type IN ('review', 'quiz')
+             AND sl.timestamp >= datetime('now', ?2)",
+            rusqlite::params![topic_id, format!("-{} seconds", CONTEXT_WINDOW_SECONDS)],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
+
+    if sibling_count >= 2 {
+        CONTEXT_STRENGTHENING_BONUS
+    } else {
+        1.0
     }
 }
 
@@ -2537,5 +2570,54 @@ mod sleep_tests {
         assert!(interval_with_sleep >= interval_same_day,
             "Sleep consolidation should give longer interval ({}) than same-day ({})",
             interval_with_sleep, interval_same_day);
+    }
+
+    #[test]
+    fn test_context_strengthening_no_siblings() {
+        let conn = db::init_memory_db().unwrap();
+        // No sibling reviews → bonus should be 1.0
+        let bonus = context_strengthening(&conn, 1);
+        assert!((bonus - 1.0).abs() < f64::EPSILON,
+            "No sibling reviews should give no bonus, got {}", bonus);
+    }
+
+    #[test]
+    fn test_context_strengthening_with_siblings() {
+        let conn = db::init_memory_db().unwrap();
+        // Get subject_id for topic 1
+        let subject_id: i64 = conn.query_row(
+            "SELECT subject_id FROM topics WHERE id = 1", [], |r: &rusqlite::Row| r.get(0)
+        ).unwrap();
+        // Add two more topics in same subject
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (id, subject_id, name, difficulty, sort_order) VALUES (9990, ?1, 'Sibling A', 'beginner', 90)",
+            [subject_id],
+        ).unwrap();
+        conn.execute(
+            "INSERT OR IGNORE INTO topics (id, subject_id, name, difficulty, sort_order) VALUES (9991, ?1, 'Sibling B', 'beginner', 91)",
+            [subject_id],
+        ).unwrap();
+        // Log reviews for siblings
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, score, timestamp) VALUES (9990, 'review', 80.0, datetime('now', '-60 seconds'))",
+            [],
+        ).unwrap();
+        conn.execute(
+            "INSERT INTO session_log (topic_id, activity_type, score, timestamp) VALUES (9991, 'review', 85.0, datetime('now', '-30 seconds'))",
+            [],
+        ).unwrap();
+        let bonus = context_strengthening(&conn, 1);
+        assert!((bonus - CONTEXT_STRENGTHENING_BONUS).abs() < f64::EPSILON,
+            "Two sibling reviews should give context bonus {}, got {}", CONTEXT_STRENGTHENING_BONUS, bonus);
+    }
+
+    #[test]
+    fn test_recap_query_runs() {
+        let conn = db::init_memory_db().unwrap();
+        let count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM session_log WHERE timestamp >= datetime('now', '-7 days')",
+            [], |r: &rusqlite::Row| r.get(0)
+        ).unwrap();
+        assert_eq!(count, 0, "Fresh DB should have no session log entries");
     }
 }

@@ -195,6 +195,12 @@ enum Commands {
         #[arg(short, long, default_value = "15")]
         limit: usize,
     },
+    /// Recap recent learning — what you studied, highlights, and areas to revisit
+    Recap {
+        /// Number of days to look back
+        #[arg(short, long, default_value = "7")]
+        days: usize,
+    },
     /// Generate a personalized study plan based on your progress
     StudyPlan {
         /// Number of days to plan for
@@ -253,6 +259,7 @@ fn main() {
         Commands::Retention => commands::retention::run(&conn),
         Commands::Cram { count } => commands::cram::run(&conn, count),
         Commands::Priorities { limit } => commands::priorities::run(&conn, limit),
+        Commands::Recap { days } => commands::recap::run(&conn, days),
         Commands::StudyPlan { days } => commands::study_plan::run(&conn, days),
     };
 
