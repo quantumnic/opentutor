@@ -58,6 +58,8 @@ fn seed_all(conn: &Connection) -> Result<(), rusqlite::Error> {
     seed_electrical_engineering(conn)?;
     seed_robotics_ai(conn)?;
     seed_number_theory(conn)?;
+    seed_formal_languages(conn)?;
+    seed_philosophy_of_mind(conn)?;
     assign_quiz_difficulties(conn)?;
     Ok(())
 }
@@ -739,7 +741,7 @@ mod tests {
         schema::create_tables(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 42); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra + Electrical Engineering
+        assert_eq!(count, 44); // 17 original + Chemistry + Biology + Sociology + Linguistics + Statistics & Data + Ethics + World Literature + Anthropology + Nutrition Science + Calculus + Programming + Earth Science + Data Science + Music Theory + Civics & Government + Media Literacy + World Languages + Cybersecurity + Linear Algebra + Electrical Engineering
     }
 
     #[test]
@@ -749,7 +751,7 @@ mod tests {
         seed_if_empty(&conn).unwrap();
         seed_if_empty(&conn).unwrap();
         let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 42);
+        assert_eq!(count, 44);
     }
 
     #[test]
@@ -5548,6 +5550,242 @@ pub fn seed_number_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Number Theory Journey', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_formal_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Formal Languages'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Formal Languages', 'Automata theory, grammars, and computability — the mathematical foundations of computer science.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Formal Languages'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        (subj_id, "Finite Automata", "beginner", 1),
+        (subj_id, "Regular Expressions", "beginner", 2),
+        (subj_id, "Context-Free Grammars", "intermediate", 3),
+        (subj_id, "Turing Machines", "advanced", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let fa_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Finite Automata'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let re_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Regular Expressions'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let cfg_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Context-Free Grammars'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let tm_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Turing Machines'",
+        [subj_id], |r| r.get(0),
+    )?;
+
+    // Lessons
+    let lessons: Vec<LessonRow> = vec![
+        (fa_id, "Deterministic Finite Automata (DFA)", "A DFA is the simplest model of computation — a machine with a finite number of states that reads input one symbol at a time.\n\nFormally, a DFA is a 5-tuple (Q, Σ, δ, q₀, F):\n- Q: finite set of states\n- Σ: input alphabet (finite set of symbols)\n- δ: transition function (Q × Σ → Q)\n- q₀: start state (q₀ ∈ Q)\n- F: set of accept states (F ⊆ Q)\n\nThe DFA starts in q₀, reads each input symbol, follows δ to the next state, and accepts if it ends in a state in F.\n\nExample: A DFA that accepts binary strings ending in '1':\n- States: {q0, q1}, Start: q0, Accept: {q1}\n- δ(q0, 0)=q0, δ(q0, 1)=q1, δ(q1, 0)=q0, δ(q1, 1)=q1\n\nKey property: DFAs are deterministic — for every state and symbol, there is exactly one transition.", 1),
+        (fa_id, "Nondeterministic Finite Automata (NFA)", "An NFA is like a DFA but can be in multiple states at once.\n\nDifferences from DFA:\n- δ maps to a SET of states (Q × Σ → P(Q))\n- Can have ε-transitions (move without reading input)\n- Can have multiple transitions for the same symbol\n\nAn NFA accepts if ANY possible path leads to an accept state.\n\nKey theorem (Rabin-Scott, 1959): Every NFA can be converted to an equivalent DFA using the **subset construction**. The DFA may have up to 2ⁿ states for an NFA with n states.\n\nThis means NFAs and DFAs recognize exactly the same class of languages: the **regular languages**.\n\nWhy use NFAs? They're often much simpler to design. The exponential blowup in conversion is worst-case; in practice, many states are unreachable.", 2),
+        (re_id, "Regular Expression Syntax", "Regular expressions describe patterns in strings using a concise algebraic notation.\n\nBasic operations:\n- Concatenation: ab means 'a followed by b'\n- Union: a|b means 'a or b'\n- Kleene star: a* means 'zero or more a's'\n\nExtended operations:\n- a+ = one or more a's (= aa*)\n- a? = zero or one a\n- [abc] = character class (a or b or c)\n- . = any single character\n\nExamples:\n- (0|1)*1 matches binary strings ending in 1\n- a*b*c* matches strings of a's then b's then c's\n- (ab)* matches ε, ab, abab, ababab, ...\n\nKleene's Theorem: A language is regular ↔ it can be described by a regular expression ↔ it is recognized by a DFA/NFA.", 1),
+        (re_id, "Regular Languages & the Pumping Lemma", "Not every language is regular. The **Pumping Lemma** is used to prove a language is NOT regular.\n\nPumping Lemma: For any regular language L, there exists a pumping length p such that any string s in L with |s| ≥ p can be split into s = xyz where:\n1. |y| > 0 (y is non-empty)\n2. |xy| ≤ p\n3. For all i ≥ 0, xy^i z ∈ L (pumping y any number of times stays in L)\n\nExample: L = {aⁿbⁿ | n ≥ 0} is NOT regular.\nProof: Assume regular with pumping length p. Take s = aᵖbᵖ.\nThen y = aᵏ for some k > 0 (since |xy| ≤ p and first p chars are a's).\nPumping: xy²z = aᵖ⁺ᵏbᵖ, but p+k ≠ p, so not in L. Contradiction.\n\nLanguages that need 'counting' or 'matching' are typically not regular.", 2),
+        (cfg_id, "Context-Free Grammars", "A CFG generates strings by repeatedly replacing variables with combinations of variables and terminals.\n\nFormally: G = (V, Σ, R, S)\n- V: variables (non-terminals)\n- Σ: terminals (alphabet symbols)\n- R: production rules (V → (V ∪ Σ)*)\n- S: start variable\n\nExample: Grammar for aⁿbⁿ:\n  S → aSb | ε\n  Derivation: S → aSb → aaSbb → aabb\n\nCFGs are strictly more powerful than regular expressions. They can describe:\n- Matched parentheses: S → (S) | SS | ε\n- Palindromes: S → aSa | bSb | a | b | ε\n- Most programming language syntax\n\nParse trees visualize how a string is derived from the grammar. Ambiguous grammars can produce multiple parse trees for the same string.", 1),
+        (cfg_id, "Pushdown Automata", "A Pushdown Automaton (PDA) is an NFA with a stack — giving it memory to handle context-free languages.\n\nKey idea: the stack lets the PDA 'remember' things that finite automata cannot, like how many a's it has seen.\n\nExample PDA for {aⁿbⁿ}:\n1. Push an 'A' onto the stack for each 'a' read\n2. Pop an 'A' for each 'b' read\n3. Accept if stack is empty at end of input\n\nTheorem: A language is context-free ↔ some PDA recognizes it.\n\nDeterministic PDAs (DPDA) are strictly weaker than nondeterministic PDAs. This is unlike finite automata, where DFA = NFA in power.\n\nContext-free languages are closed under union, concatenation, and star, but NOT under intersection or complement.", 2),
+        (tm_id, "The Turing Machine", "A Turing Machine is the most powerful model of computation — anything computable can be computed by a TM.\n\nComponents:\n- An infinite tape divided into cells (each holds a symbol)\n- A head that reads/writes symbols and moves left or right\n- A finite set of states with a transition function\n- δ: Q × Γ → Q × Γ × {L, R}\n\nThe Church-Turing Thesis: Any function that can be computed by an algorithm can be computed by a Turing Machine. This is a thesis, not a theorem — it cannot be formally proven.\n\nTMs can simulate any computer, any programming language, any algorithm. They define the boundary of what is computable.\n\nThe Universal Turing Machine (UTM) takes a description of another TM as input and simulates it — essentially the first 'programmable computer' concept (Turing, 1936).", 1),
+        (tm_id, "Undecidability & the Halting Problem", "Some problems are fundamentally unsolvable — no algorithm can ever solve them.\n\nThe Halting Problem: Given a program P and input I, does P halt (finish) on I?\n\nTuring proved this is undecidable (1936):\nAssume a halting decider H(P, I) exists.\nConstruct D(P) = if H(P, P) says 'halts', then loop forever; else halt.\nWhat does D(D) do?\n- If H says D(D) halts → D loops. Contradiction.\n- If H says D(D) loops → D halts. Contradiction.\nTherefore H cannot exist.\n\nConsequences:\n- No compiler can detect all infinite loops\n- No antivirus can detect all malware\n- Rice's Theorem: ANY non-trivial property of programs is undecidable\n\nThis connects to Gödel's Incompleteness Theorems: some true mathematical statements cannot be proven.", 2),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    // Explanations
+    let explanations: Vec<ExplanationRow> = vec![
+        (fa_id, "finite automata", "A finite automaton is a simple machine with a fixed number of states that processes input one symbol at a time.", Some("A DFA is like a vending machine — it has a fixed number of states (idle, coin inserted, item selected), reads inputs (coins, button presses), and transitions between states. It has no memory beyond which state it's currently in."), Some("Can a DFA count how many 1s are in a binary string? What about checking if the count is even?")),
+        (re_id, "regular expressions", "Regular expressions are patterns that describe sets of strings using a compact algebraic notation.", Some("A regex is like a bouncer at a club with a checklist — it looks at each string and decides 'you match, come in' or 'you don't match, go away.' The pattern describes the rules."), Some("Can you write a regex for email addresses? Why might that be tricky?")),
+        (cfg_id, "context-free grammars", "A context-free grammar is a set of recursive rewriting rules used to generate patterns of strings.", Some("A CFG is like a recipe with sub-recipes — 'make a sentence' becomes 'make a noun phrase + make a verb phrase', which recursively breaks down further until you reach actual words."), Some("Why can't regular expressions handle matched parentheses but CFGs can?")),
+        (tm_id, "Turing machines", "A Turing Machine is a theoretical device with an infinite tape, a read/write head, and a finite control — the most general model of computation.", Some("A Turing Machine is like a person with a pencil, an infinitely long roll of paper, and a rulebook. They read a symbol, look up what to do in the rulebook, write a new symbol, move left or right, and repeat. Despite being so simple, this can compute anything any modern computer can!"), Some("If Turing Machines can compute anything computable, why do we build different kinds of computers?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    // Quiz questions
+    let questions: Vec<QuizRow> = vec![
+        (fa_id, "A DFA has exactly ___ transition(s) for each state-symbol pair.", "fill_in_blank", "one", None, None, None, None, Some("Deterministic means no ambiguity"), "In a DFA, the transition function is total: exactly one transition for every (state, symbol) combination."),
+        (fa_id, "Which theorem states that NFAs and DFAs are equivalent in power?", "multiple_choice", "Rabin-Scott theorem", Some("Rabin-Scott theorem"), Some("Pumping lemma"), Some("Church-Turing thesis"), Some("Rice's theorem"), Some("It involves subset construction"), "The Rabin-Scott theorem (1959) proves every NFA can be converted to an equivalent DFA via subset construction."),
+        (fa_id, "True or false: An NFA can be in multiple states simultaneously.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Non-determinism allows branching"), "True. An NFA can follow multiple transitions at once, effectively being in a set of states."),
+        (fa_id, "The subset construction can produce a DFA with at most ___ states from an NFA with n states.", "fill_in_blank", "2^n", None, None, None, None, Some("Each DFA state is a subset of NFA states"), "The subset construction creates DFA states that are subsets of NFA states, giving at most 2^n possible states."),
+        (re_id, "The Kleene star (a*) matches ___ or more occurrences.", "fill_in_blank", "zero", None, None, None, None, Some("It includes the empty string"), "a* matches zero or more occurrences of a, including the empty string ε."),
+        (re_id, "Which operation is NOT a basic regular expression operation?", "multiple_choice", "Intersection", Some("Concatenation"), Some("Union"), Some("Kleene star"), Some("Intersection"), Some("There are exactly three basic operations"), "The three basic regex operations are concatenation, union (|), and Kleene star (*). Intersection is not a basic operation."),
+        (re_id, "True or false: Regular expressions and DFAs recognize the same class of languages.", "true_false", "true", Some("true"), Some("false"), None, None, Some("Kleene's theorem"), "True. Kleene's theorem establishes that regular expressions and finite automata describe exactly the regular languages."),
+        (re_id, "The language {aⁿbⁿ | n ≥ 0} is ___.", "multiple_choice", "Not regular", Some("Regular"), Some("Not regular"), Some("Undecidable"), Some("Random"), Some("Can a finite automaton count?"), "This language requires matching counts of a's and b's, which finite automata cannot do. The Pumping Lemma proves it."),
+        (cfg_id, "In a context-free grammar, production rules replace ___.", "multiple_choice", "A single variable", Some("A pair of variables"), Some("A single variable"), Some("A terminal symbol"), Some("The entire string"), Some("Context-FREE means the left side is just one variable"), "In a CFG, each production rule has a single variable on the left side, which can be replaced regardless of context."),
+        (cfg_id, "The computational model equivalent to CFGs is the ___.", "fill_in_blank", "pushdown automaton", None, None, None, None, Some("It's an NFA with a stack"), "Pushdown automata (PDAs) recognize exactly the context-free languages, just as DFAs recognize regular languages."),
+        (cfg_id, "True or false: Context-free languages are closed under intersection.", "true_false", "false", Some("true"), Some("false"), None, None, Some("This differs from regular languages"), "False. Unlike regular languages, context-free languages are NOT closed under intersection or complement."),
+        (cfg_id, "A grammar that produces multiple parse trees for the same string is called ___.", "fill_in_blank", "ambiguous", None, None, None, None, Some("Think about the word for 'unclear' or 'having multiple meanings'"), "An ambiguous grammar can derive the same string in multiple ways, producing different parse trees."),
+        (tm_id, "The Church-Turing Thesis states that anything computable can be computed by a ___.", "fill_in_blank", "Turing Machine", None, None, None, None, Some("Named after Alan Turing"), "The Church-Turing Thesis posits that Turing Machines capture the intuitive notion of computability."),
+        (tm_id, "Who proved the Halting Problem is undecidable?", "multiple_choice", "Alan Turing", Some("Kurt Gödel"), Some("Alan Turing"), Some("Alonzo Church"), Some("John von Neumann"), Some("1936, same year as the Turing Machine paper"), "Alan Turing proved the Halting Problem undecidable in 1936 using a diagonalization argument."),
+        (tm_id, "True or false: A universal Turing Machine can simulate any other Turing Machine.", "true_false", "true", Some("true"), Some("false"), None, None, Some("It's the theoretical ancestor of programmable computers"), "True. A UTM takes a description of any TM and its input, then simulates that TM — making it a general-purpose computer."),
+        (tm_id, "Rice's Theorem says that any ___ property of programs is undecidable.", "fill_in_blank", "non-trivial", None, None, None, None, Some("Trivial = true for all or false for all"), "Rice's Theorem: any non-trivial semantic property of the language recognized by a Turing Machine is undecidable."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    // Learning paths
+    let paths = [
+        ("automata theory", 1, fa_id, "Finite automata — the simplest computational models"),
+        ("automata theory", 2, re_id, "Regular expressions and regular languages"),
+        ("automata theory", 3, cfg_id, "Context-free grammars and pushdown automata"),
+        ("automata theory", 4, tm_id, "Turing machines, computability, and the limits of computation"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
+        )?;
+    }
+
+    Ok(())
+}
+
+pub fn seed_philosophy_of_mind(conn: &Connection) -> Result<(), rusqlite::Error> {
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Philosophy of Mind'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
+
+    conn.execute(
+        "INSERT INTO subjects (name, description) VALUES ('Philosophy of Mind', 'Consciousness, AI, free will, and the nature of thought — where philosophy meets cognitive science.')",
+        [],
+    )?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Philosophy of Mind'", [], |r| r.get(0),
+    )?;
+
+    let topics = [
+        (subj_id, "The Mind-Body Problem", "beginner", 1),
+        (subj_id, "Consciousness", "intermediate", 2),
+        (subj_id, "Artificial Intelligence & Minds", "intermediate", 3),
+        (subj_id, "Free Will", "advanced", 4),
+    ];
+    for (sid, name, diff, order) in &topics {
+        conn.execute(
+            "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![sid, name, diff, order],
+        )?;
+    }
+
+    let mb_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'The Mind-Body Problem'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let con_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Consciousness'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let ai_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Artificial Intelligence & Minds'",
+        [subj_id], |r| r.get(0),
+    )?;
+    let fw_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Free Will'",
+        [subj_id], |r| r.get(0),
+    )?;
+
+    let lessons: Vec<LessonRow> = vec![
+        (mb_id, "Dualism vs Physicalism", "The mind-body problem asks: what is the relationship between mental states (thoughts, feelings) and physical states (brain activity)?\n\n**Dualism** (Descartes): Mind and body are fundamentally different substances.\n- Substance dualism: mind is non-physical\n- Interaction problem: how does a non-physical mind cause physical actions?\n- Descartes proposed the pineal gland as the interface (now discredited)\n\n**Physicalism** (Materialism): Everything is physical, including the mind.\n- Identity theory: mental states ARE brain states (pain = C-fiber firing)\n- Functionalism: mental states are defined by their functional role, not their physical substrate\n- Eliminativism: 'beliefs' and 'desires' are folk psychology that neuroscience will replace\n\nModern neuroscience generally supports physicalism, but explaining subjective experience remains a challenge.", 1),
+        (con_id, "The Hard Problem of Consciousness", "David Chalmers (1995) distinguished the 'easy' and 'hard' problems of consciousness.\n\n**Easy problems** (hard in practice, but conceptually clear):\n- How does the brain integrate information?\n- How can we discriminate stimuli and react?\n- How does attention work?\n\n**The Hard Problem:** Why is there subjective experience at all? Why does seeing red FEEL like something? This is the problem of **qualia** — the qualitative, subjective character of experience.\n\nThought experiments:\n- **Mary's Room:** Mary knows everything about color science but has never seen color. When she sees red for the first time, does she learn something new?\n- **Philosophical Zombies:** Could there be a being physically identical to you but with no inner experience?\n\nThese challenges suggest that explaining consciousness may require fundamentally new ideas.", 1),
+        (ai_id, "Can Machines Think?", "Alan Turing (1950) proposed the **Turing Test**: if a machine can fool a human into thinking it's human through conversation, it exhibits intelligent behavior.\n\n**The Chinese Room** (John Searle, 1980):\nImagine a person in a room following rules to manipulate Chinese symbols — producing correct responses without understanding Chinese. Searle argues that computers similarly manipulate symbols without genuine understanding.\n\n**Strong AI:** Machines can have genuine minds and consciousness.\n**Weak AI:** Machines can simulate intelligent behavior without truly understanding.\n\nModern large language models can pass versions of the Turing Test, but the question of whether they 'understand' or merely process patterns remains deeply debated. The answer depends on your theory of mind — a functionalist might say yes, a dualist no.", 1),
+        (fw_id, "Determinism & Free Will", "If the universe follows physical laws, are our choices truly free?\n\n**Hard Determinism:** Every event (including your decisions) is caused by prior events. Free will is an illusion.\n\n**Libertarianism** (philosophical, not political): We have genuine free will. Quantum indeterminacy or agent causation provides the gap.\n- Problem: randomness isn't the same as free choice.\n\n**Compatibilism** (most popular among philosophers): Free will is compatible with determinism. You act freely when you act according to your own desires without external coercion, even if those desires are determined.\n- Frankfurt cases: You can be morally responsible even if you couldn't have done otherwise.\n\n**Neuroscience angle:** Libet's experiments (1983) showed brain activity (readiness potential) precedes conscious awareness of decisions by ~350ms. But the interpretation is hotly debated.", 1),
+    ];
+    for (tid, title, content, order) in &lessons {
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
+    }
+
+    let explanations: Vec<ExplanationRow> = vec![
+        (mb_id, "mind-body problem", "The mind-body problem asks how mental states (thoughts, feelings) relate to physical states (brain activity).", Some("Imagine you're watching a movie on your phone. The movie is the 'mind' — the story, emotions, images. The phone's circuits are the 'body.' The mind-body problem asks: is the movie just what the circuits do, or is it something extra?"), Some("If scientists could perfectly copy every atom in your brain, would the copy have your consciousness?")),
+        (con_id, "consciousness", "Consciousness is the subjective experience of being aware — the 'what it's like' of seeing, thinking, and feeling.", Some("Consciousness is like the difference between a security camera and your eyes. The camera records images, but nobody is 'home' watching. Your eyes are connected to someone who experiences seeing. What makes that difference?"), Some("Do you think a sufficiently advanced AI could be conscious? What would count as evidence?")),
+        (ai_id, "Chinese Room", "Searle's Chinese Room argues that symbol manipulation alone doesn't produce understanding — syntax isn't semantics.", Some("A calculator can do arithmetic faster than you, but does it 'understand' numbers? The Chinese Room argument says: even if a machine produces perfect outputs, that doesn't mean it understands the way you do."), Some("Is there a meaningful difference between perfectly simulating understanding and actually understanding?")),
+        (fw_id, "free will", "Free will is the ability to have chosen differently — the idea that you are the genuine author of your actions.", Some("Imagine a river flowing downhill. It follows physics perfectly. But we don't say the river 'chose' its path. Are you like the river — following brain chemistry — or is there something more to your choices?"), Some("If you found out the universe is deterministic, would that change how you think about blame and praise?")),
+    ];
+    for (tid, concept, explanation, analogy, follow_up) in &explanations {
+        conn.execute(
+            "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
+            rusqlite::params![tid, concept, explanation, analogy, follow_up],
+        )?;
+    }
+
+    let questions: Vec<QuizRow> = vec![
+        (mb_id, "Descartes' view that mind and body are separate substances is called ___.", "fill_in_blank", "dualism", None, None, None, None, Some("Two kinds of stuff"), "Descartes proposed substance dualism: the mind is a non-physical substance distinct from the physical body."),
+        (mb_id, "Which theory says mental states ARE brain states?", "multiple_choice", "Identity theory", Some("Dualism"), Some("Functionalism"), Some("Identity theory"), Some("Behaviorism"), Some("Mental states are identical to neural states"), "Identity theory (or type physicalism) holds that every mental state is identical to a specific brain state."),
+        (mb_id, "True or false: Functionalism says mental states depend on what they're made of.", "true_false", "false", Some("true"), Some("false"), None, None, Some("Function over substance"), "False. Functionalism says mental states are defined by their causal role (function), not their physical makeup."),
+        (con_id, "The 'Hard Problem of Consciousness' was named by ___.", "fill_in_blank", "David Chalmers", None, None, None, None, Some("An Australian philosopher, in 1995"), "David Chalmers coined the term in 1995, distinguishing it from the 'easy problems' of cognitive science."),
+        (con_id, "In Mary's Room, what does Mary learn when she first sees red?", "multiple_choice", "What red looks like (qualia)", Some("The wavelength of red light"), Some("What red looks like (qualia)"), Some("How the eye detects red"), Some("Nothing new"), Some("She already knew all the physical facts"), "Mary gains knowledge of qualia — the subjective experience of seeing red — which she couldn't get from physical facts alone."),
+        (ai_id, "The Turing Test evaluates whether a machine can ___.", "fill_in_blank", "fool a human into thinking it is human", None, None, None, None, Some("Proposed by Alan Turing in 1950"), "The Turing Test measures whether a machine's conversation is indistinguishable from a human's."),
+        (ai_id, "Searle's Chinese Room argument targets which claim about AI?", "multiple_choice", "Strong AI", Some("Weak AI"), Some("Strong AI"), Some("Machine learning"), Some("Neural networks"), Some("The claim that machines can genuinely understand"), "The Chinese Room argues against Strong AI — the claim that a computer running a program could have genuine understanding."),
+        (fw_id, "The philosophical position that free will and determinism are compatible is called ___.", "fill_in_blank", "compatibilism", None, None, None, None, Some("They are 'compatible'"), "Compatibilism holds that free will can exist even in a deterministic universe, as long as actions flow from one's own desires."),
+        (fw_id, "True or false: Libet's experiments showed conscious decisions precede brain activity.", "true_false", "false", Some("true"), Some("false"), None, None, Some("The readiness potential comes BEFORE awareness"), "False. Libet found brain activity (readiness potential) precedes conscious awareness of the decision by ~350ms."),
+        (fw_id, "Hard determinism claims that free will is ___.", "multiple_choice", "An illusion", Some("Compatible with determinism"), Some("An illusion"), Some("Caused by quantum effects"), Some("Only available to humans"), Some("If everything is caused, choices aren't free"), "Hard determinism holds that since all events are causally determined, genuine free will cannot exist."),
+    ];
+    for (tid, q, qtype, correct, a, b, c, d, hint, expl) in &questions {
+        conn.execute(
+            "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10)",
+            rusqlite::params![tid, q, qtype, correct, *a, *b, *c, *d, hint, expl],
+        )?;
+    }
+
+    let paths = [
+        ("philosophy of mind", 1, mb_id, "The mind-body problem — dualism, physicalism, functionalism"),
+        ("philosophy of mind", 2, con_id, "Consciousness and the hard problem"),
+        ("philosophy of mind", 3, ai_id, "Can machines think? Turing Test and Chinese Room"),
+        ("philosophy of mind", 4, fw_id, "Free will, determinism, and compatibilism"),
+    ];
+    for (goal, order, tid, desc) in &paths {
+        conn.execute(
+            "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES (?1,?2,?3,?4)",
+            rusqlite::params![goal, order, tid, desc],
         )?;
     }
 

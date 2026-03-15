@@ -70,6 +70,23 @@ fn topic_difficulty_factor(conn: &Connection, topic_id: i64) -> f64 {
     }
 }
 
+/// Retrieval practice bonus: harder question types earn a small quality boost.
+/// Fill-in-blank and ordering require active recall (generation effect),
+/// which produces stronger memory traces than recognition-based formats
+/// like multiple choice (Karpicke & Roediger, 2008).
+#[allow(dead_code)]
+pub fn retrieval_practice_bonus(quality: u8, question_type: &str) -> u8 {
+    if !(3..5).contains(&quality) {
+        return quality; // No bonus on failure or already max
+    }
+    let bonus: u8 = match question_type {
+        "fill_in_blank" => 1,  // Active recall: hardest
+        "ordering" => 1,      // Requires full sequence knowledge
+        _ => 0,               // multiple_choice, true_false: recognition-based
+    };
+    (quality + bonus).min(5)
+}
+
 /// Calculate fatigue-adjusted quality based on how many reviews done today.
 /// After FATIGUE_THRESHOLD reviews, each additional review slightly reduces
 /// the effective quality score, modeling cognitive fatigue. This encourages
@@ -1320,6 +1337,29 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         let remaining = remaining_reviews_today(&conn);
         assert_eq!(remaining, DEFAULT_DAILY_REVIEW_CAP);
+    }
+
+    #[test]
+    fn test_retrieval_practice_bonus_fill_in_blank() {
+        // Fill-in-blank correct (quality 3-4) should get +1 bonus
+        assert_eq!(retrieval_practice_bonus(3, "fill_in_blank"), 4);
+        assert_eq!(retrieval_practice_bonus(4, "fill_in_blank"), 5);
+        // Already max or failing: no bonus
+        assert_eq!(retrieval_practice_bonus(5, "fill_in_blank"), 5);
+        assert_eq!(retrieval_practice_bonus(2, "fill_in_blank"), 2);
+    }
+
+    #[test]
+    fn test_retrieval_practice_bonus_multiple_choice() {
+        // Multiple choice: no bonus
+        assert_eq!(retrieval_practice_bonus(4, "multiple_choice"), 4);
+        assert_eq!(retrieval_practice_bonus(3, "multiple_choice"), 3);
+    }
+
+    #[test]
+    fn test_retrieval_practice_bonus_ordering() {
+        assert_eq!(retrieval_practice_bonus(3, "ordering"), 4);
+        assert_eq!(retrieval_practice_bonus(4, "ordering"), 5);
     }
 
     #[test]

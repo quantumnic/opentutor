@@ -315,6 +315,11 @@ pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResul
         return check_matching_scored(&correct_lower, &answer_lower);
     }
 
+    // Select-all: partial credit for correct selections
+    if question.question_type == "select_all" {
+        return check_select_all_scored(&correct_lower, &answer_lower);
+    }
+
     // Fill-in-blank: near-miss detection
     if question.question_type == "fill_in_blank" {
         if fuzzy_match(&answer_lower, &correct_lower) {
@@ -450,6 +455,12 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
         return check_matching_answer(&correct, &answer);
     }
 
+    // For select_all questions, the correct_answer is a comma-separated list of
+    // correct options. The user must select all correct ones (order doesn't matter).
+    if question.question_type == "select_all" {
+        return check_select_all_answer(&correct, &answer);
+    }
+
     if answer == correct {
         return true;
     }
@@ -552,6 +563,65 @@ fn check_ordering_answer(correct: &str, answer: &str) -> bool {
     }
 
     false
+}
+
+/// Check select_all answers: correct_answer and user answer are both
+/// comma-separated lists of items. Order doesn't matter.
+#[allow(dead_code)]
+fn check_select_all_answer(correct: &str, answer: &str) -> bool {
+    let mut correct_items: Vec<String> = correct
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let mut answer_items: Vec<String> = answer
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    correct_items.sort();
+    answer_items.sort();
+    correct_items == answer_items
+}
+
+/// Partial credit for select_all: fraction of correct items selected,
+/// with penalty for wrong selections.
+fn check_select_all_scored(correct: &str, answer: &str) -> AnswerResult {
+    let correct_items: std::collections::HashSet<String> = correct
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+    let answer_items: std::collections::HashSet<String> = answer
+        .split(',')
+        .map(|s| s.trim().to_lowercase())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    if correct_items.is_empty() {
+        return AnswerResult::wrong();
+    }
+
+    if correct_items == answer_items {
+        return AnswerResult::full();
+    }
+
+    let hits = correct_items.intersection(&answer_items).count();
+    let false_positives = answer_items.difference(&correct_items).count();
+
+    // Score: correct selections minus penalty for wrong ones
+    let raw_score = hits as f64 / correct_items.len() as f64;
+    let penalty = false_positives as f64 * 0.25; // each wrong pick costs 25%
+    let final_score = (raw_score - penalty).max(0.0);
+
+    if final_score >= 0.99 {
+        AnswerResult::full()
+    } else if final_score > 0.0 {
+        AnswerResult::half_right(final_score * 0.75)
+    } else {
+        AnswerResult::wrong()
+    }
 }
 
 #[cfg(test)]
@@ -1025,6 +1095,89 @@ mod tests {
         // Close numeric value
         let result = check_answer_scored(&q, "3.15");
         assert!(result.credit >= 0.5, "Close numeric answer should get partial credit");
+    }
+
+    #[test]
+    fn test_select_all_exact_match() {
+        assert!(check_select_all_answer("a, b, c", "a, b, c"));
+        assert!(check_select_all_answer("a, b, c", "c, a, b")); // order irrelevant
+        assert!(!check_select_all_answer("a, b, c", "a, b"));   // missing one
+        assert!(!check_select_all_answer("a, b", "a, b, c"));   // extra one
+    }
+
+    #[test]
+    fn test_select_all_scored_full() {
+        let result = check_select_all_scored("a, b, c", "b, c, a");
+        assert!(result.correct);
+        assert!((result.credit - 1.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_select_all_scored_partial() {
+        let result = check_select_all_scored("a, b, c", "a, b");
+        assert!(!result.correct);
+        assert!(result.credit > 0.0, "Partial selection should get partial credit");
+    }
+
+    #[test]
+    fn test_select_all_scored_with_false_positives() {
+        let result = check_select_all_scored("a, b", "a, b, x");
+        // 2/2 correct but 1 false positive (penalty 0.25)
+        assert!(!result.correct);
+        assert!(result.credit > 0.0, "Should still get some credit");
+    }
+
+    #[test]
+    fn test_select_all_scored_all_wrong() {
+        let result = check_select_all_scored("a, b", "x, y");
+        assert!(!result.correct);
+        assert!((result.credit - 0.0).abs() < f64::EPSILON);
+    }
+
+    #[test]
+    fn test_formal_languages_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let fl_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Formal Languages'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(fl_id.is_some(), "Formal Languages subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([fl_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 4, "Formal Languages should have 4 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
+    }
+
+    #[test]
+    fn test_philosophy_of_mind_quiz_loads() {
+        let conn = db::init_memory_db().unwrap();
+        let pm_id: Option<i64> = conn.query_row(
+            "SELECT id FROM subjects WHERE name = 'Philosophy of Mind'",
+            [], |r| r.get(0),
+        ).ok();
+        assert!(pm_id.is_some(), "Philosophy of Mind subject should exist");
+        let mut stmt = conn.prepare(
+            "SELECT id, name FROM topics WHERE subject_id = ?1",
+        ).unwrap();
+        let topics: Vec<(i64, String)> = stmt
+            .query_map([pm_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
+            .unwrap()
+            .filter_map(|r| r.ok())
+            .collect();
+        assert_eq!(topics.len(), 4, "Philosophy of Mind should have 4 topics");
+        for (tid, name) in &topics {
+            let qs = get_questions(&conn, *tid, 10).unwrap();
+            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+        }
     }
 
     #[test]

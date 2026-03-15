@@ -37,6 +37,8 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
     }
 
     let mut correct_count = 0;
+    let mut streak = 0;      // Consecutive correct answers in this quiz
+    let mut best_streak = 0; // Best streak in this quiz
     let total = questions.len();
 
     for (i, q) in questions.iter().enumerate() {
@@ -53,6 +55,13 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
                 println!("     {}", "(Put these in the correct order)".dimmed());
                 for (j, opt) in q.options.iter().enumerate() {
                     println!("     {} {}", format!("{}.", j + 1).dimmed(), opt);
+                }
+            }
+            "select_all" => {
+                println!("     {}", "(Select ALL that apply — separate with commas)".dimmed());
+                for (j, opt) in q.options.iter().enumerate() {
+                    let letter = (b'a' + j as u8) as char;
+                    println!("     {} {}", format!("{})", letter).dimmed(), opt);
                 }
             }
             "matching" => {
@@ -83,7 +92,20 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
 
         // Track as correct for demo/non-interactive mode
         correct_count += 1;
+        streak += 1;
+        if streak > best_streak {
+            best_streak = streak;
+        }
         adaptive::update_progress(conn, topic_id, true)?;
+
+        // Streak encouragement messages
+        if streak == 3 {
+            println!("    {} {}", "🔥".bold(), "3 in a row! You're on fire!".bright_yellow());
+        } else if streak == 5 {
+            println!("    {} {}", "⚡".bold(), "5 streak! Unstoppable!".bright_yellow().bold());
+        } else if streak >= 7 && streak % 2 == 1 {
+            println!("    {} {}", "🏆".bold(), format!("{} streak! Legendary!", streak).bright_yellow().bold());
+        }
 
         println!();
         display::print_divider();
@@ -106,6 +128,9 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
 
     display::print_header("Quiz Results");
     display::print_progress_bar(&topic_name, correct_count as f64, total as f64);
+    if best_streak >= 3 {
+        println!("  {} Best streak: {} in a row!", "🔥".bold(), best_streak.to_string().bright_yellow().bold());
+    }
     println!();
 
     if score >= 80.0 {
@@ -212,5 +237,17 @@ mod tests {
     fn test_quiz_number_theory_topic() {
         let conn = db::init_memory_db().unwrap();
         run(&conn, "Prime Numbers", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_formal_languages_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Finite Automata", 3, None, false).unwrap();
+    }
+
+    #[test]
+    fn test_quiz_philosophy_of_mind_topic() {
+        let conn = db::init_memory_db().unwrap();
+        run(&conn, "Consciousness", 3, None, false).unwrap();
     }
 }
