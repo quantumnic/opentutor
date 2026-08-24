@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::{adaptive, spaced};
+use colored::*;
+use rusqlite::Connection;
 
 /// Show flashcards (concept → explanation) for a topic or subject.
 /// Great for quick memorization sessions.
@@ -43,7 +43,11 @@ pub fn run(conn: &Connection, topic: &str, count: usize) -> Result<(), Box<dyn s
         let mut quiz_stmt = conn.prepare(
             "SELECT question, correct_answer, explanation FROM quiz_questions WHERE topic_id = ?1 ORDER BY RANDOM() LIMIT ?2",
         )?;
-        let remaining = if count > explanations.len() { count - explanations.len() } else { 0 };
+        let remaining = if count > explanations.len() {
+            count - explanations.len()
+        } else {
+            0
+        };
         let quiz_cards: Vec<(String, String, String)> = quiz_stmt
             .query_map(rusqlite::params![topic_id, remaining], |r| {
                 Ok((r.get(0)?, r.get(1)?, r.get(2)?))

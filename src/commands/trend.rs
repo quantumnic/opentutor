@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Show performance trends over recent sessions grouped by day.
 pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -23,13 +23,7 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
     let offset = format!("-{} days", days_i);
     let rows: Vec<(String, i64, f64, i64, i64)> = stmt
         .query_map([&offset], |r| {
-            Ok((
-                r.get(0)?,
-                r.get(1)?,
-                r.get(2)?,
-                r.get(3)?,
-                r.get(4)?,
-            ))
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -122,14 +116,8 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
 
     println!();
     display::print_section("Summary");
-    println!(
-        "    Total sessions: {}",
-        total_sessions.to_string().bold()
-    );
-    println!(
-        "    Overall average: {:.1}%",
-        overall_avg
-    );
+    println!("    Total sessions: {}", total_sessions.to_string().bold());
+    println!("    Overall average: {:.1}%", overall_avg);
 
     // Momentum indicator
     if rows.len() >= 3 {
@@ -150,10 +138,7 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
                 diff
             );
         } else {
-            println!(
-                "    Momentum: {} Steady",
-                "✅".to_string().bold()
-            );
+            println!("    Momentum: {} Steady", "✅".to_string().bold());
         }
     }
 
@@ -176,11 +161,14 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
 
     println!();
     display::print_section("SRS Health");
-    println!("    Reviews due: {}", if due_count > 0 {
-        due_count.to_string().bright_yellow().to_string()
-    } else {
-        "0 ✨".green().to_string()
-    });
+    println!(
+        "    Reviews due: {}",
+        if due_count > 0 {
+            due_count.to_string().bright_yellow().to_string()
+        } else {
+            "0 ✨".green().to_string()
+        }
+    );
     println!("    Average ease factor: {:.2}", avg_ease);
 
     // Show per-topic momentum for active topics
@@ -210,7 +198,8 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
             .collect();
 
         if !momentum_entries.is_empty() {
-            momentum_entries.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+            momentum_entries
+                .sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
             println!();
             display::print_section("Topic Momentum");
             for (name, m) in &momentum_entries {

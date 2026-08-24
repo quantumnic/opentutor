@@ -1,8 +1,8 @@
+use crate::commands::achievements;
+use crate::display;
+use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
-use crate::commands::achievements;
-use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
 pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Error>> {
     // Get topics due for review
@@ -38,7 +38,9 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         let retention_b = spaced::estimate_retention(conn, b.0);
         let score_a = urgency_a + (1.0 - retention_a) * 2.0;
         let score_b = urgency_b + (1.0 - retention_b) * 2.0;
-        score_b.partial_cmp(&score_a).unwrap_or(std::cmp::Ordering::Equal)
+        score_b
+            .partial_cmp(&score_a)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     // Sibling burying: interleave subjects so the same subject doesn't
@@ -62,10 +64,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         );
 
         if let Ok((topic, subject, date)) = next {
-            display::print_info(&format!(
-                "Next review: {} ({}) on {}",
-                topic, subject, date
-            ));
+            display::print_info(&format!("Next review: {} ({}) on {}", topic, subject, date));
         } else {
             display::print_info(
                 "Start learning to build your review schedule: opentutor learn <subject>",
@@ -109,13 +108,16 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
             "Needs work 🔨".bright_red()
         };
 
-        display::print_section(&format!(
-            "{} ({}) — {}",
-            topic_name, subject_name, strength
-        ));
+        display::print_section(&format!("{} ({}) — {}", topic_name, subject_name, strength));
         let retention = spaced::estimate_retention(conn, *topic_id);
         let ret_pct = (retention * 100.0) as u32;
-        let ret_color = if ret_pct >= 80 { "🟢" } else if ret_pct >= 50 { "🟡" } else { "🔴" };
+        let ret_color = if ret_pct >= 80 {
+            "🟢"
+        } else if ret_pct >= 50 {
+            "🟡"
+        } else {
+            "🔴"
+        };
         let _ = ret; // retrievability from FSRS curve
         println!(
             "    Ease: {:.1} | Interval: {} days | Retention: {} {}% | Half-life: {:.0} days\n",
@@ -210,11 +212,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
 
     // Summary
     display::print_header("Review Session Summary");
-    display::print_progress_bar(
-        "Total",
-        total_correct as f64,
-        total_questions as f64,
-    );
+    display::print_progress_bar("Total", total_correct as f64, total_questions as f64);
     println!(
         "\n  Topics reviewed: {}  |  Questions: {}",
         due_topics.len().to_string().bold(),
@@ -222,7 +220,8 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     );
 
     // Subject breakdown
-    let mut subject_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    let mut subject_counts: std::collections::HashMap<String, usize> =
+        std::collections::HashMap::new();
     for (_, _, subj, _, _, _) in &due_topics {
         *subject_counts.entry(subj.clone()).or_insert(0) += 1;
     }
@@ -235,21 +234,32 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         }
         let bonus = spaced::interleaving_bonus(conn);
         if bonus > 1.0 {
-            println!("\n  {} Interleaving bonus active: {:.0}% retention boost from mixing subjects!",
-                "🔀".bold(), (bonus - 1.0) * 100.0);
+            println!(
+                "\n  {} Interleaving bonus active: {:.0}% retention boost from mixing subjects!",
+                "🔀".bold(),
+                (bonus - 1.0) * 100.0
+            );
         }
     }
 
     // Average retention after review
     let avg_ret = spaced::average_retention(conn);
     if avg_ret > 0.0 {
-        println!("\n  {} Overall retention: {:.0}%", "🧠".bold(), avg_ret * 100.0);
+        println!(
+            "\n  {} Overall retention: {:.0}%",
+            "🧠".bold(),
+            avg_ret * 100.0
+        );
     }
 
     // Remaining due count
     let still_due = spaced::count_due_topics(conn).unwrap_or(0);
     if still_due > 0 {
-        println!("  {} {} more topics still due for review", "📋".bold(), still_due.to_string().bright_yellow());
+        println!(
+            "  {} {} more topics still due for review",
+            "📋".bold(),
+            still_due.to_string().bright_yellow()
+        );
     }
 
     println!();
@@ -258,7 +268,11 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     // Check achievements
     if let Ok(newly) = achievements::check_achievements(conn) {
         for name in &newly {
-            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+            println!(
+                "  🏆 {} {}",
+                "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(),
+                name.bold().bright_yellow()
+            );
         }
     }
 
@@ -335,7 +349,10 @@ mod tests {
             if w[0].2 == w[1].2 {
                 // Only ok if there's no alternative left
                 // In this case with 2 Math + 2 Science, we should always interleave
-                panic!("Adjacent topics have same subject: {} and {}", w[0].1, w[1].1);
+                panic!(
+                    "Adjacent topics have same subject: {} and {}",
+                    w[0].1, w[1].1
+                );
             }
         }
     }

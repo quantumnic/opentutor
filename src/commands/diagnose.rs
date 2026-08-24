@@ -1,7 +1,11 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
+
+/// (topic_id, topic_name, subject_name, ease_factor, interval_days,
+///  attempts, correct, consecutive_fails, leech_count)
+type DiagnoseRow = (i64, String, String, f64, i64, i64, i64, i64, i64);
 
 /// Knowledge gap analysis: identifies weak areas and recommends focused study.
 pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -30,12 +34,18 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
         diagnosis: String,
     }
 
-    let rows: Vec<(i64, String, String, f64, i64, i64, i64, i64, i64)> = stmt
+    let rows: Vec<DiagnoseRow> = stmt
         .query_map([], |r| {
             Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?,
-                r.get(3)?, r.get(4)?, r.get(5)?,
-                r.get(6)?, r.get(7)?, r.get(8)?,
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
             ))
         })?
         .filter_map(|r| r.ok())
@@ -48,18 +58,33 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
 
     let mut gaps: Vec<GapEntry> = Vec::new();
 
-    for (topic_id, topic_name, subject_name, ease, interval, attempts, correct, consec_fails, leech_count) in &rows {
+    for (
+        topic_id,
+        topic_name,
+        subject_name,
+        ease,
+        interval,
+        attempts,
+        correct,
+        consec_fails,
+        leech_count,
+    ) in &rows
+    {
         let retention = spaced::estimate_retention(conn, *topic_id);
         let momentum = spaced::learning_momentum(conn, *topic_id);
-        let accuracy = if *attempts > 0 { *correct as f64 / *attempts as f64 * 100.0 } else { 0.0 };
+        let accuracy = if *attempts > 0 {
+            *correct as f64 / *attempts as f64 * 100.0
+        } else {
+            0.0
+        };
         let is_leech = *leech_count > 0;
 
         // Retrieval strength: composite metric
         // Low retention + low ease + negative momentum + low accuracy = weak
-        let retention_score = retention * 40.0;  // 0-40 points
-        let ease_score = ((*ease - 1.3) / (3.0 - 1.3)).clamp(0.0, 1.0) * 20.0;  // 0-20 points
-        let momentum_score = ((momentum + 10.0) / 20.0).clamp(0.0, 1.0) * 20.0;  // 0-20 points
-        let accuracy_score = accuracy / 100.0 * 20.0;  // 0-20 points
+        let retention_score = retention * 40.0; // 0-40 points
+        let ease_score = ((*ease - 1.3) / (3.0 - 1.3)).clamp(0.0, 1.0) * 20.0; // 0-20 points
+        let momentum_score = ((momentum + 10.0) / 20.0).clamp(0.0, 1.0) * 20.0; // 0-20 points
+        let accuracy_score = accuracy / 100.0 * 20.0; // 0-20 points
 
         let retrieval_strength = retention_score + ease_score + momentum_score + accuracy_score;
 
@@ -95,29 +120,50 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
     }
 
     if gaps.is_empty() {
-        println!("  {} No significant knowledge gaps detected!", "✨".bright_green());
+        println!(
+            "  {} No significant knowledge gaps detected!",
+            "✨".bright_green()
+        );
         println!("  Your study habits are on track. Keep it up!\n");
         return Ok(());
     }
 
     // Sort by retrieval strength (weakest first)
-    gaps.sort_by(|a, b| a.retrieval_strength.partial_cmp(&b.retrieval_strength).unwrap_or(std::cmp::Ordering::Equal));
+    gaps.sort_by(|a, b| {
+        a.retrieval_strength
+            .partial_cmp(&b.retrieval_strength)
+            .unwrap_or(std::cmp::Ordering::Equal)
+    });
     gaps.truncate(limit);
 
-    println!("  Found {} knowledge gaps to address:\n", gaps.len().to_string().bold().bright_yellow());
+    println!(
+        "  Found {} knowledge gaps to address:\n",
+        gaps.len().to_string().bold().bright_yellow()
+    );
 
     for (i, gap) in gaps.iter().enumerate() {
         let strength_bar = format_strength_bar(gap.retrieval_strength);
-        println!("  {}. {} ({})",
+        println!(
+            "  {}. {} ({})",
             format!("{}", i + 1).bold().bright_cyan(),
             gap.topic_name.bold(),
             gap.subject_name.dimmed(),
         );
-        println!("     Strength: {} {:.0}/100", strength_bar, gap.retrieval_strength);
-        println!("     Retention: {:.0}% | Accuracy: {:.0}% | Momentum: {:.1}",
-            gap.retention * 100.0, gap.accuracy, gap.momentum);
+        println!(
+            "     Strength: {} {:.0}/100",
+            strength_bar, gap.retrieval_strength
+        );
+        println!(
+            "     Retention: {:.0}% | Accuracy: {:.0}% | Momentum: {:.1}",
+            gap.retention * 100.0,
+            gap.accuracy,
+            gap.momentum
+        );
         if gap.is_leech {
-            println!("     {} Leech topic — try a different study approach", "⚠".bright_red());
+            println!(
+                "     {} Leech topic — try a different study approach",
+                "⚠".bright_red()
+            );
         }
         println!("     {}", gap.diagnosis);
         println!();
@@ -130,8 +176,11 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
     let declining_count = gaps.iter().filter(|g| g.momentum < -5.0).count();
 
     if leech_count > 0 {
-        println!("  {} {} leech topic(s) — try explaining these concepts in your own words",
-            "📌".bright_red(), leech_count);
+        println!(
+            "  {} {} leech topic(s) — try explaining these concepts in your own words",
+            "📌".bright_red(),
+            leech_count
+        );
         println!("     or approach from a different angle (analogies, visual aids).\n");
     }
     if fading_count > 0 {
@@ -140,8 +189,11 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
         println!("     Use 'opentutor cram' for intensive refresher.\n");
     }
     if declining_count > 0 {
-        println!("  {} {} topic(s) with declining momentum — recent scores are dropping.",
-            "📉".bright_yellow(), declining_count);
+        println!(
+            "  {} {} topic(s) with declining momentum — recent scores are dropping.",
+            "📉".bright_yellow(),
+            declining_count
+        );
         println!("     Revisit the lesson material before quizzing again.\n");
     }
 
@@ -167,7 +219,13 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
 fn format_strength_bar(strength: f64) -> String {
     let filled = (strength / 10.0).round() as usize;
     let empty = 10usize.saturating_sub(filled);
-    let color = if strength < 30.0 { "red" } else if strength < 60.0 { "yellow" } else { "green" };
+    let color = if strength < 30.0 {
+        "red"
+    } else if strength < 60.0 {
+        "yellow"
+    } else {
+        "green"
+    };
     let bar = format!("[{}{}]", "█".repeat(filled), "░".repeat(empty));
     match color {
         "red" => bar.bright_red().to_string(),

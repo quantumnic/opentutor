@@ -2,9 +2,41 @@ use rusqlite::Connection;
 
 type LessonRow<'a> = (i64, &'a str, &'a str, i64);
 type ExplanationRow<'a> = (i64, &'a str, &'a str, Option<&'a str>, Option<&'a str>);
-type QuizRow<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str);
-type QuizRowHint<'a> = (i64, &'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str, &'a str);
-type QuizRowNoTopic<'a> = (&'a str, &'a str, &'a str, Option<&'a str>, Option<&'a str>, Option<&'a str>, Option<&'a str>, &'a str, &'a str);
+type QuizRow<'a> = (
+    i64,
+    &'a str,
+    &'a str,
+    &'a str,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    &'a str,
+);
+type QuizRowHint<'a> = (
+    i64,
+    &'a str,
+    &'a str,
+    &'a str,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    &'a str,
+    &'a str,
+);
+type QuizRowNoTopic<'a> = (
+    &'a str,
+    &'a str,
+    &'a str,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    Option<&'a str>,
+    &'a str,
+    &'a str,
+);
 
 pub fn seed_if_empty(conn: &Connection) -> Result<(), rusqlite::Error> {
     let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))?;
@@ -102,7 +134,10 @@ fn seed_subjects(conn: &Connection) -> Result<(), rusqlite::Error> {
         ("Linguistics", "The scientific study of language — its structure, meaning, sounds, and evolution across cultures."),
     ];
     for (name, desc) in &subjects {
-        conn.execute("INSERT INTO subjects (name, description) VALUES (?1, ?2)", [name, desc])?;
+        conn.execute(
+            "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
+            [name, desc],
+        )?;
     }
     Ok(())
 }
@@ -682,60 +717,305 @@ fn seed_quiz_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
     let paths = [
-        ("algebra", 1, 1, "Master basic arithmetic — addition, subtraction, multiplication, division"),
+        (
+            "algebra",
+            1,
+            1,
+            "Master basic arithmetic — addition, subtraction, multiplication, division",
+        ),
         ("algebra", 2, 2, "Understand fractions — parts of a whole"),
         ("algebra", 3, 3, "Learn percentages — fractions of 100"),
         ("algebra", 4, 4, "Begin algebra — variables and equations"),
-        ("cells", 1, 6, "Understand photosynthesis — how cells produce energy"),
-        ("cells", 2, 9, "Learn states of matter — foundation for chemistry"),
+        (
+            "cells",
+            1,
+            6,
+            "Understand photosynthesis — how cells produce energy",
+        ),
+        (
+            "cells",
+            2,
+            9,
+            "Learn states of matter — foundation for chemistry",
+        ),
         ("cells", 3, 7, "Study cell division — how organisms grow"),
-        ("healthy living", 1, 15, "Start with hygiene — disease prevention"),
-        ("healthy living", 2, 16, "Learn nutrition — fuel your body right"),
-        ("healthy living", 3, 17, "Basic first aid — be prepared for emergencies"),
-        ("programming", 1, 18, "Understand binary — how computers represent data"),
-        ("programming", 2, 19, "Learn algorithms — step-by-step problem solving"),
-        ("programming", 3, 20, "Programming concepts — variables, loops, functions"),
-        ("programming", 4, 21, "Computer hardware — understand what runs your code"),
-        ("world geography", 1, 22, "Continents & oceans — the big picture"),
-        ("world geography", 2, 23, "Weather & climate — understanding our atmosphere"),
-        ("world geography", 3, 24, "Maps & navigation — finding your way"),
-        ("world geography", 4, 25, "Natural resources — what Earth provides"),
-        ("music fundamentals", 1, 26, "Notes & scales — the alphabet of music"),
-        ("music fundamentals", 2, 27, "Rhythm — the heartbeat of music"),
-        ("music fundamentals", 3, 28, "Instruments — the voices of music"),
-        ("music fundamentals", 4, 29, "Music history — where it all came from"),
-        ("visual arts", 1, 30, "Color theory — understanding how colors work"),
-        ("visual arts", 2, 31, "Elements of art — the building blocks"),
-        ("visual arts", 3, 33, "Composition — arranging elements effectively"),
-        ("visual arts", 4, 32, "Art history — learning from the masters"),
-        ("critical thinking", 1, 34, "Logic & reasoning — the foundation of clear thinking"),
-        ("critical thinking", 2, 35, "Ethics & morality — right, wrong, and everything between"),
-        ("critical thinking", 3, 36, "Famous philosophers — standing on the shoulders of giants"),
-        ("critical thinking", 4, 37, "Thought experiments — stretch your mind"),
-        ("economics basics", 1, 38, "Supply & demand — how prices work"),
-        ("economics basics", 2, 39, "Money & banking — the financial system"),
-        ("economics basics", 3, 40, "Trade & globalization — the connected world"),
-        ("economics basics", 4, 41, "Economic systems — how societies organize"),
-        ("understanding people", 1, 42, "Introduction to psychology — the science of mind"),
-        ("understanding people", 2, 43, "Memory & learning — how we acquire knowledge"),
-        ("understanding people", 3, 44, "Emotions & motivation — what drives us"),
-        ("understanding people", 4, 45, "Social psychology — how others shape us"),
-        ("planet earth", 1, 46, "Ecosystems & biomes — the web of life"),
+        (
+            "healthy living",
+            1,
+            15,
+            "Start with hygiene — disease prevention",
+        ),
+        (
+            "healthy living",
+            2,
+            16,
+            "Learn nutrition — fuel your body right",
+        ),
+        (
+            "healthy living",
+            3,
+            17,
+            "Basic first aid — be prepared for emergencies",
+        ),
+        (
+            "programming",
+            1,
+            18,
+            "Understand binary — how computers represent data",
+        ),
+        (
+            "programming",
+            2,
+            19,
+            "Learn algorithms — step-by-step problem solving",
+        ),
+        (
+            "programming",
+            3,
+            20,
+            "Programming concepts — variables, loops, functions",
+        ),
+        (
+            "programming",
+            4,
+            21,
+            "Computer hardware — understand what runs your code",
+        ),
+        (
+            "world geography",
+            1,
+            22,
+            "Continents & oceans — the big picture",
+        ),
+        (
+            "world geography",
+            2,
+            23,
+            "Weather & climate — understanding our atmosphere",
+        ),
+        (
+            "world geography",
+            3,
+            24,
+            "Maps & navigation — finding your way",
+        ),
+        (
+            "world geography",
+            4,
+            25,
+            "Natural resources — what Earth provides",
+        ),
+        (
+            "music fundamentals",
+            1,
+            26,
+            "Notes & scales — the alphabet of music",
+        ),
+        (
+            "music fundamentals",
+            2,
+            27,
+            "Rhythm — the heartbeat of music",
+        ),
+        (
+            "music fundamentals",
+            3,
+            28,
+            "Instruments — the voices of music",
+        ),
+        (
+            "music fundamentals",
+            4,
+            29,
+            "Music history — where it all came from",
+        ),
+        (
+            "visual arts",
+            1,
+            30,
+            "Color theory — understanding how colors work",
+        ),
+        (
+            "visual arts",
+            2,
+            31,
+            "Elements of art — the building blocks",
+        ),
+        (
+            "visual arts",
+            3,
+            33,
+            "Composition — arranging elements effectively",
+        ),
+        (
+            "visual arts",
+            4,
+            32,
+            "Art history — learning from the masters",
+        ),
+        (
+            "critical thinking",
+            1,
+            34,
+            "Logic & reasoning — the foundation of clear thinking",
+        ),
+        (
+            "critical thinking",
+            2,
+            35,
+            "Ethics & morality — right, wrong, and everything between",
+        ),
+        (
+            "critical thinking",
+            3,
+            36,
+            "Famous philosophers — standing on the shoulders of giants",
+        ),
+        (
+            "critical thinking",
+            4,
+            37,
+            "Thought experiments — stretch your mind",
+        ),
+        (
+            "economics basics",
+            1,
+            38,
+            "Supply & demand — how prices work",
+        ),
+        (
+            "economics basics",
+            2,
+            39,
+            "Money & banking — the financial system",
+        ),
+        (
+            "economics basics",
+            3,
+            40,
+            "Trade & globalization — the connected world",
+        ),
+        (
+            "economics basics",
+            4,
+            41,
+            "Economic systems — how societies organize",
+        ),
+        (
+            "understanding people",
+            1,
+            42,
+            "Introduction to psychology — the science of mind",
+        ),
+        (
+            "understanding people",
+            2,
+            43,
+            "Memory & learning — how we acquire knowledge",
+        ),
+        (
+            "understanding people",
+            3,
+            44,
+            "Emotions & motivation — what drives us",
+        ),
+        (
+            "understanding people",
+            4,
+            45,
+            "Social psychology — how others shape us",
+        ),
+        (
+            "planet earth",
+            1,
+            46,
+            "Ecosystems & biomes — the web of life",
+        ),
         ("planet earth", 2, 47, "Climate change — our warming world"),
-        ("planet earth", 3, 48, "Pollution & waste — the cost of progress"),
-        ("planet earth", 4, 49, "Conservation & sustainability — protecting our future"),
-        ("creative writing", 1, 50, "Story structure — the skeleton of every narrative"),
-        ("creative writing", 2, 51, "Character development — breathing life into people on the page"),
-        ("creative writing", 3, 52, "Dialogue & voice — making characters speak and finding your style"),
-        ("creative writing", 4, 53, "Poetry fundamentals — the art of compressed language"),
-        ("space and astronomy", 1, 54, "The solar system — our cosmic neighborhood"),
-        ("space and astronomy", 2, 55, "Stars — the life and death of suns"),
-        ("space and astronomy", 3, 56, "Galaxies — island universes of stars"),
-        ("space and astronomy", 4, 57, "Space exploration — humanity's journey beyond Earth"),
-        ("physics fundamentals", 1, 58, "Electricity & magnetism — charges, currents, and fields"),
-        ("physics fundamentals", 2, 60, "Waves & sound — how energy travels through space and matter"),
-        ("physics fundamentals", 3, 59, "Thermodynamics — heat, energy, and entropy"),
-        ("physics fundamentals", 4, 61, "Nuclear physics — atoms, radioactivity, and E=mc²"),
+        (
+            "planet earth",
+            3,
+            48,
+            "Pollution & waste — the cost of progress",
+        ),
+        (
+            "planet earth",
+            4,
+            49,
+            "Conservation & sustainability — protecting our future",
+        ),
+        (
+            "creative writing",
+            1,
+            50,
+            "Story structure — the skeleton of every narrative",
+        ),
+        (
+            "creative writing",
+            2,
+            51,
+            "Character development — breathing life into people on the page",
+        ),
+        (
+            "creative writing",
+            3,
+            52,
+            "Dialogue & voice — making characters speak and finding your style",
+        ),
+        (
+            "creative writing",
+            4,
+            53,
+            "Poetry fundamentals — the art of compressed language",
+        ),
+        (
+            "space and astronomy",
+            1,
+            54,
+            "The solar system — our cosmic neighborhood",
+        ),
+        (
+            "space and astronomy",
+            2,
+            55,
+            "Stars — the life and death of suns",
+        ),
+        (
+            "space and astronomy",
+            3,
+            56,
+            "Galaxies — island universes of stars",
+        ),
+        (
+            "space and astronomy",
+            4,
+            57,
+            "Space exploration — humanity's journey beyond Earth",
+        ),
+        (
+            "physics fundamentals",
+            1,
+            58,
+            "Electricity & magnetism — charges, currents, and fields",
+        ),
+        (
+            "physics fundamentals",
+            2,
+            60,
+            "Waves & sound — how energy travels through space and matter",
+        ),
+        (
+            "physics fundamentals",
+            3,
+            59,
+            "Thermodynamics — heat, energy, and entropy",
+        ),
+        (
+            "physics fundamentals",
+            4,
+            61,
+            "Nuclear physics — atoms, radioactivity, and E=mc²",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -744,285 +1024,6 @@ fn seed_learning_paths(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
     Ok(())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::db::schema;
-    use rusqlite::Connection;
-
-    #[test]
-    fn test_seed_populates_data() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 58); // 56 previous + Cryptography + Information Theory
-    }
-
-    #[test]
-    fn test_seed_idempotent() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0)).unwrap();
-        assert_eq!(count, 58);
-    }
-
-    #[test]
-    fn test_all_topics_have_lessons() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let orphans: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t WHERE NOT EXISTS (SELECT 1 FROM lessons WHERE topic_id = t.id)",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(orphans, 0, "All topics should have at least one lesson");
-    }
-
-    #[test]
-    fn test_all_topics_have_quiz_questions() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let orphans: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t WHERE NOT EXISTS (SELECT 1 FROM quiz_questions WHERE topic_id = t.id)",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(orphans, 0, "All topics should have at least one quiz question");
-    }
-
-    #[test]
-    fn test_quiz_questions_exist() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let count: i64 = conn.query_row("SELECT COUNT(*) FROM quiz_questions", [], |r| r.get(0)).unwrap();
-        assert!(count >= 40, "Should have at least 40 quiz questions, got {}", count);
-    }
-
-    #[test]
-    fn test_fill_in_blank_questions_exist() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'fill_in_blank'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(count >= 5, "Should have at least 5 fill-in-the-blank questions, got {}", count);
-    }
-
-    #[test]
-    fn test_music_and_art_subjects_exist() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let music: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Music'", [], |r| r.get(0)
-        ).unwrap();
-        let art: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Art'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(music, 1);
-        assert_eq!(art, 1);
-    }
-
-    #[test]
-    fn test_philosophy_and_economics_subjects_exist() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let philosophy: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Philosophy'", [], |r| r.get(0)
-        ).unwrap();
-        let economics: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Economics'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(philosophy, 1);
-        assert_eq!(economics, 1);
-    }
-
-    #[test]
-    fn test_new_subjects_have_topics() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let phil_topics: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Philosophy'",
-            [], |r| r.get(0)
-        ).unwrap();
-        let econ_topics: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Economics'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(phil_topics, 4);
-        assert_eq!(econ_topics, 4);
-    }
-
-    #[test]
-    fn test_learning_paths_include_new_subjects() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let ct: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'critical thinking'",
-            [], |r| r.get(0)
-        ).unwrap();
-        let econ: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'economics basics'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(ct, 4);
-        assert_eq!(econ, 4);
-    }
-
-    #[test]
-    fn test_psychology_and_envscience_subjects_exist() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let psych: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Psychology'", [], |r| r.get(0)
-        ).unwrap();
-        let env: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Environmental Science'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(psych, 1);
-        assert_eq!(env, 1);
-    }
-
-    #[test]
-    fn test_new_subjects_have_complete_content() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        for (name, min_topics, min_lessons) in &[("Psychology", 7, 8), ("Environmental Science", 4, 8)] {
-            let topic_count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
-                [name], |r| r.get(0)
-            ).unwrap();
-            assert!(topic_count >= *min_topics, "{} should have at least {} topics, got {}", name, min_topics, topic_count);
-
-            let lesson_count: i64 = conn.query_row(
-                "SELECT COUNT(*) FROM lessons l JOIN topics t ON t.id = l.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
-                [name], |r| r.get(0)
-            ).unwrap();
-            assert!(lesson_count >= *min_lessons, "{} should have at least {} lessons, got {}", name, min_lessons, lesson_count);
-        }
-    }
-
-    #[test]
-    fn test_creative_writing_subject_exists() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let cw: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Creative Writing'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(cw, 1);
-        let topic_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Creative Writing'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(topic_count, 7);
-    }
-
-    #[test]
-    fn test_learning_paths_include_psychology_and_envscience() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let psych_paths: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'understanding people'",
-            [], |r| r.get(0)
-        ).unwrap();
-        let env_paths: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'planet earth'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(psych_paths, 4);
-        assert_eq!(env_paths, 4);
-    }
-
-    #[test]
-    fn test_chemistry_subject_exists() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let chem: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Chemistry'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(chem, 1);
-        let topic_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Chemistry'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(topic_count, 4);
-        // Verify learning paths
-        let path_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'chemistry basics'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(path_count, 4);
-    }
-
-    #[test]
-    fn test_civics_subject_exists() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let civics: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Civics & Government'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(civics, 1);
-        let topic_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Civics & Government'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(topic_count, 4);
-        let path_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM learning_paths WHERE goal = 'Civics Foundations'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(path_count, 4);
-    }
-
-    #[test]
-    fn test_media_literacy_subject_exists() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let media: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM subjects WHERE name = 'Media Literacy'", [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(media, 1);
-        let topic_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Media Literacy'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(topic_count, 4);
-        let quiz_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions q JOIN topics t ON t.id = q.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Media Literacy'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(quiz_count >= 10, "Media Literacy should have at least 10 quiz questions, got {}", quiz_count);
-    }
-
-    #[test]
-    fn test_extra_geography_content() {
-        let conn = Connection::open_in_memory().unwrap();
-        schema::create_tables(&conn).unwrap();
-        seed_if_empty(&conn).unwrap();
-        let geo_quiz_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions q JOIN topics t ON t.id = q.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Geography'",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(geo_quiz_count >= 10, "Geography should have at least 10 quiz questions after expansion, got {}", geo_quiz_count);
-    }
 }
 
 /// Assign varied difficulty levels to quiz questions that still have the default 'medium'.
@@ -1092,19 +1093,23 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Get topic IDs
     let atoms_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Atoms & Elements'",
-        [chem_id], |r| r.get(0),
+        [chem_id],
+        |r| r.get(0),
     )?;
     let bonds_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chemical Bonds'",
-        [chem_id], |r| r.get(0),
+        [chem_id],
+        |r| r.get(0),
     )?;
     let reactions_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chemical Reactions'",
-        [chem_id], |r| r.get(0),
+        [chem_id],
+        |r| r.get(0),
     )?;
     let ph_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Acids, Bases & pH'",
-        [chem_id], |r| r.get(0),
+        [chem_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -1168,10 +1173,30 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("chemistry basics", 1, atoms_id, "Atoms & elements — the building blocks of all matter"),
-        ("chemistry basics", 2, bonds_id, "Chemical bonds — how atoms connect"),
-        ("chemistry basics", 3, reactions_id, "Chemical reactions — transforming substances"),
-        ("chemistry basics", 4, ph_id, "Acids, bases & pH — the chemistry of solutions"),
+        (
+            "chemistry basics",
+            1,
+            atoms_id,
+            "Atoms & elements — the building blocks of all matter",
+        ),
+        (
+            "chemistry basics",
+            2,
+            bonds_id,
+            "Chemical bonds — how atoms connect",
+        ),
+        (
+            "chemistry basics",
+            3,
+            reactions_id,
+            "Chemical reactions — transforming substances",
+        ),
+        (
+            "chemistry basics",
+            4,
+            ph_id,
+            "Acids, bases & pH — the chemistry of solutions",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -1185,15 +1210,24 @@ pub fn seed_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 pub fn seed_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Biology'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Biology'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap_or(false);
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Biology', 'The science of life — cells, genetics, evolution, and the diversity of living organisms.')",
         [],
     )?;
-    let bio_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Biology'", [], |r| r.get(0))?;
+    let bio_id: i64 =
+        conn.query_row("SELECT id FROM subjects WHERE name = 'Biology'", [], |r| {
+            r.get(0)
+        })?;
 
     let topics = [
         (bio_id, "Cell Biology", "beginner", 1),
@@ -1208,10 +1242,26 @@ pub fn seed_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let cell_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cell Biology'", [bio_id], |r| r.get(0))?;
-    let gen_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Genetics & DNA'", [bio_id], |r| r.get(0))?;
-    let evo_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Evolution & Natural Selection'", [bio_id], |r| r.get(0))?;
-    let body_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Human Body Systems'", [bio_id], |r| r.get(0))?;
+    let cell_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cell Biology'",
+        [bio_id],
+        |r| r.get(0),
+    )?;
+    let gen_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Genetics & DNA'",
+        [bio_id],
+        |r| r.get(0),
+    )?;
+    let evo_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Evolution & Natural Selection'",
+        [bio_id],
+        |r| r.get(0),
+    )?;
+    let body_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Human Body Systems'",
+        [bio_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: &[LessonRow] = &[
@@ -1275,10 +1325,30 @@ pub fn seed_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("biology fundamentals", 1, cell_id, "Cell biology — the building blocks of life"),
-        ("biology fundamentals", 2, gen_id, "Genetics & DNA — the blueprint of inheritance"),
-        ("biology fundamentals", 3, evo_id, "Evolution — how life changes over time"),
-        ("biology fundamentals", 4, body_id, "Human body systems — how your body works"),
+        (
+            "biology fundamentals",
+            1,
+            cell_id,
+            "Cell biology — the building blocks of life",
+        ),
+        (
+            "biology fundamentals",
+            2,
+            gen_id,
+            "Genetics & DNA — the blueprint of inheritance",
+        ),
+        (
+            "biology fundamentals",
+            3,
+            evo_id,
+            "Evolution — how life changes over time",
+        ),
+        (
+            "biology fundamentals",
+            4,
+            body_id,
+            "Human body systems — how your body works",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -1292,15 +1362,25 @@ pub fn seed_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 pub fn seed_sociology(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Sociology'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Sociology'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap_or(false);
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Sociology', 'The study of society — social structures, institutions, inequality, and how groups shape human behavior.')",
         [],
     )?;
-    let soc_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Sociology'", [], |r| r.get(0))?;
+    let soc_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Sociology'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (soc_id, "Social Structures & Institutions", "beginner", 1),
@@ -1315,10 +1395,26 @@ pub fn seed_sociology(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let struct_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Social Structures & Institutions'", [soc_id], |r| r.get(0))?;
-    let culture_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Culture & Socialization'", [soc_id], |r| r.get(0))?;
-    let ineq_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Social Inequality'", [soc_id], |r| r.get(0))?;
-    let move_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Collective Behavior & Movements'", [soc_id], |r| r.get(0))?;
+    let struct_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Social Structures & Institutions'",
+        [soc_id],
+        |r| r.get(0),
+    )?;
+    let culture_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Culture & Socialization'",
+        [soc_id],
+        |r| r.get(0),
+    )?;
+    let ineq_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Social Inequality'",
+        [soc_id],
+        |r| r.get(0),
+    )?;
+    let move_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Collective Behavior & Movements'",
+        [soc_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: &[LessonRow] = &[
@@ -1380,10 +1476,30 @@ pub fn seed_sociology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("sociology fundamentals", 1, struct_id, "Social structures & institutions — how society is organized"),
-        ("sociology fundamentals", 2, culture_id, "Culture & socialization — how we learn to be social"),
-        ("sociology fundamentals", 3, ineq_id, "Social inequality — why resources are unevenly distributed"),
-        ("sociology fundamentals", 4, move_id, "Social movements — how societies change"),
+        (
+            "sociology fundamentals",
+            1,
+            struct_id,
+            "Social structures & institutions — how society is organized",
+        ),
+        (
+            "sociology fundamentals",
+            2,
+            culture_id,
+            "Culture & socialization — how we learn to be social",
+        ),
+        (
+            "sociology fundamentals",
+            3,
+            ineq_id,
+            "Social inequality — why resources are unevenly distributed",
+        ),
+        (
+            "sociology fundamentals",
+            4,
+            move_id,
+            "Social movements — how societies change",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -1401,13 +1517,19 @@ fn seed_linguistics(conn: &Connection) -> Result<(), rusqlite::Error> {
         "SELECT COUNT(*) > 0 FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Linguistics'",
         [], |r| r.get(0),
     ).unwrap_or(false);
-    if has_topics { return Ok(()); }
+    if has_topics {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Linguistics', 'The scientific study of language — its structure, meaning, sounds, and evolution across cultures.')",
         [],
     )?;
-    let ling_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Linguistics'", [], |r| r.get(0))?;
+    let ling_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Linguistics'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (ling_id, "Phonetics & Phonology", "beginner", 1),
@@ -1422,10 +1544,26 @@ fn seed_linguistics(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let phon_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Phonetics & Phonology'", [ling_id], |r| r.get(0))?;
-    let morph_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Morphology & Syntax'", [ling_id], |r| r.get(0))?;
-    let sem_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Semantics & Pragmatics'", [ling_id], |r| r.get(0))?;
-    let fam_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Language Families & Change'", [ling_id], |r| r.get(0))?;
+    let phon_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Phonetics & Phonology'",
+        [ling_id],
+        |r| r.get(0),
+    )?;
+    let morph_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Morphology & Syntax'",
+        [ling_id],
+        |r| r.get(0),
+    )?;
+    let sem_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Semantics & Pragmatics'",
+        [ling_id],
+        |r| r.get(0),
+    )?;
+    let fam_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Language Families & Change'",
+        [ling_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: &[LessonRow] = &[
@@ -1494,10 +1632,30 @@ fn seed_linguistics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("linguistics fundamentals", 1, phon_id, "Phonetics & phonology — the sounds of language"),
-        ("linguistics fundamentals", 2, morph_id, "Morphology & syntax — word and sentence structure"),
-        ("linguistics fundamentals", 3, sem_id, "Semantics & pragmatics — meaning and context"),
-        ("linguistics fundamentals", 4, fam_id, "Language families & change — how languages evolve"),
+        (
+            "linguistics fundamentals",
+            1,
+            phon_id,
+            "Phonetics & phonology — the sounds of language",
+        ),
+        (
+            "linguistics fundamentals",
+            2,
+            morph_id,
+            "Morphology & syntax — word and sentence structure",
+        ),
+        (
+            "linguistics fundamentals",
+            3,
+            sem_id,
+            "Semantics & pragmatics — meaning and context",
+        ),
+        (
+            "linguistics fundamentals",
+            4,
+            fam_id,
+            "Language families & change — how languages evolve",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -1511,22 +1669,35 @@ fn seed_linguistics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_probability(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Add a Probability topic to Mathematics
-    let math_id: i64 = match conn.query_row("SELECT id FROM subjects WHERE name = 'Mathematics'", [], |r| r.get(0)) {
+    let math_id: i64 = match conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Mathematics'",
+        [],
+        |r| r.get(0),
+    ) {
         Ok(id) => id,
         Err(_) => return Ok(()),
     };
 
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM topics WHERE subject_id = ?1 AND name = 'Probability'",
-        [math_id], |r| r.get(0),
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM topics WHERE subject_id = ?1 AND name = 'Probability'",
+            [math_id],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Probability', 'intermediate', 6)",
         [math_id],
     )?;
-    let prob_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Probability'", [math_id], |r| r.get(0))?;
+    let prob_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Probability'",
+        [math_id],
+        |r| r.get(0),
+    )?;
 
     let lessons: &[LessonRow] = &[
         (prob_id, "Introduction to Probability", "Probability measures how likely an event is to occur, on a scale from 0 (impossible) to 1 (certain).\n\nBasic formula: P(event) = favorable outcomes / total outcomes\n\nExample: Rolling a 6 on a fair die → P = 1/6 ≈ 0.167\n\nKey terminology:\n- Experiment: a process with uncertain outcomes (flipping a coin).\n- Sample space (S): all possible outcomes. For a coin: S = {Heads, Tails}.\n- Event: a subset of the sample space (rolling an even number: {2, 4, 6}).\n\nTypes of probability:\n- Theoretical: based on reasoning (fair coin = 50/50).\n- Experimental: based on observed data (flipping a coin 1000 times).\n- Subjective: based on personal judgment ('I think there's a 70% chance of rain').\n\nComplement rule: P(not A) = 1 - P(A)\n- If P(rain) = 0.3, then P(no rain) = 0.7.\n\nProbability of 0 = impossible. Probability of 1 = certain. Most events are somewhere in between.", 1),
@@ -1616,19 +1787,23 @@ fn seed_statistics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let mean_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mean, Median & Mode'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let viz_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Visualization'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let stddev_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Standard Deviation'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let corr_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Correlation & Causation'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -1692,8 +1867,14 @@ fn seed_statistics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_topics = [
-        (mean_id, "Learn measures of central tendency — mean, median, and mode"),
-        (viz_id, "Master data visualization — choosing the right chart"),
+        (
+            mean_id,
+            "Learn measures of central tendency — mean, median, and mode",
+        ),
+        (
+            viz_id,
+            "Master data visualization — choosing the right chart",
+        ),
         (stddev_id, "Understand variability with standard deviation"),
         (corr_id, "Distinguish correlation from causation"),
     ];
@@ -1723,11 +1904,10 @@ pub fn seed_ethics(conn: &Connection) -> Result<(), rusqlite::Error> {
         "INSERT INTO subjects (name, description) VALUES ('Ethics', 'Exploring right and wrong — moral reasoning, dilemmas, and frameworks for making good decisions.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Ethics'",
-        [],
-        |r| r.get(0),
-    )?;
+    let subj_id: i64 =
+        conn.query_row("SELECT id FROM subjects WHERE name = 'Ethics'", [], |r| {
+            r.get(0)
+        })?;
 
     let topics = [
         ("Moral Foundations", "beginner", 1),
@@ -1744,19 +1924,23 @@ pub fn seed_ethics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let moral_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Moral Foundations'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let frameworks_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Ethical Frameworks'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let applied_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Applied Ethics'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let digital_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Digital Ethics'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -1811,9 +1995,15 @@ pub fn seed_ethics(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Learning path
     let path_topics = [
         (moral_id, "Understand the foundations of moral reasoning"),
-        (frameworks_id, "Compare consequentialism, deontology, and virtue ethics"),
+        (
+            frameworks_id,
+            "Compare consequentialism, deontology, and virtue ethics",
+        ),
         (applied_id, "Apply ethical reasoning to classic dilemmas"),
-        (digital_id, "Explore modern ethical challenges in technology"),
+        (
+            digital_id,
+            "Explore modern ethical challenges in technology",
+        ),
     ];
     for (i, (tid, desc)) in path_topics.iter().enumerate() {
         conn.execute(
@@ -1862,19 +2052,23 @@ pub fn seed_world_literature(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let myth_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mythology & Epic Poetry'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let shakespeare_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Shakespeare & Drama'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let novel_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'The Novel'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let poetry_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Poetry & Verse'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -1937,9 +2131,18 @@ pub fn seed_world_literature(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_topics = [
-        (myth_id, "Explore the origins of storytelling through epic poetry"),
-        (poetry_id, "Understand the craft of poetry — meter, rhyme, and imagery"),
-        (shakespeare_id, "Study Shakespeare's plays and dramatic techniques"),
+        (
+            myth_id,
+            "Explore the origins of storytelling through epic poetry",
+        ),
+        (
+            poetry_id,
+            "Understand the craft of poetry — meter, rhyme, and imagery",
+        ),
+        (
+            shakespeare_id,
+            "Study Shakespeare's plays and dramatic techniques",
+        ),
         (novel_id, "Trace the rise of the novel across cultures"),
     ];
     for (i, (tid, desc)) in path_topics.iter().enumerate() {
@@ -1979,7 +2182,8 @@ pub fn seed_trigonometry(conn: &Connection) -> Result<(), rusqlite::Error> {
     )?;
     let trig_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Trigonometry'",
-        [math_id], |r| r.get(0),
+        [math_id],
+        |r| r.get(0),
     )?;
 
     conn.execute(
@@ -2013,11 +2217,66 @@ pub fn seed_trigonometry(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     #[allow(clippy::type_complexity)]
     let questions: Vec<QuizRowHint> = vec![
-        (trig_id, "What is sin(30°)?", "multiple_choice", "0.5", Some("0"), Some("0.5"), Some("1"), Some("√3/2"), "It is one of the key angles to memorize.", "sin(30°) = 1/2 = 0.5"),
-        (trig_id, "SOH-CAH-TOA is a mnemonic for:", "multiple_choice", "Trig ratios", Some("Algebraic identities"), Some("Trig ratios"), Some("Calculus rules"), Some("Geometry theorems"), "It helps you remember sine, cosine, and tangent.", "SOH-CAH-TOA stands for Sin=Opp/Hyp, Cos=Adj/Hyp, Tan=Opp/Adj."),
-        (trig_id, "tan(θ) = sin(θ) / cos(θ)", "true_false", "true", Some("true"), Some("false"), None, None, "Think about the definitions.", "By definition, tan(θ) = opposite/adjacent = (opp/hyp)/(adj/hyp) = sin(θ)/cos(θ)."),
-        (trig_id, "cos(0°) = ___", "fill_in_blank", "1", None, None, None, None, "At 0° the adjacent side equals the hypotenuse.", "cos(0°) = adjacent/hypotenuse = 1/1 = 1."),
-        (trig_id, "What is tan(45°)?", "multiple_choice", "1", Some("0"), Some("0.5"), Some("1"), Some("undefined"), "At 45° the opposite and adjacent sides are equal.", "tan(45°) = opposite/adjacent = 1/1 = 1."),
+        (
+            trig_id,
+            "What is sin(30°)?",
+            "multiple_choice",
+            "0.5",
+            Some("0"),
+            Some("0.5"),
+            Some("1"),
+            Some("√3/2"),
+            "It is one of the key angles to memorize.",
+            "sin(30°) = 1/2 = 0.5",
+        ),
+        (
+            trig_id,
+            "SOH-CAH-TOA is a mnemonic for:",
+            "multiple_choice",
+            "Trig ratios",
+            Some("Algebraic identities"),
+            Some("Trig ratios"),
+            Some("Calculus rules"),
+            Some("Geometry theorems"),
+            "It helps you remember sine, cosine, and tangent.",
+            "SOH-CAH-TOA stands for Sin=Opp/Hyp, Cos=Adj/Hyp, Tan=Opp/Adj.",
+        ),
+        (
+            trig_id,
+            "tan(θ) = sin(θ) / cos(θ)",
+            "true_false",
+            "true",
+            Some("true"),
+            Some("false"),
+            None,
+            None,
+            "Think about the definitions.",
+            "By definition, tan(θ) = opposite/adjacent = (opp/hyp)/(adj/hyp) = sin(θ)/cos(θ).",
+        ),
+        (
+            trig_id,
+            "cos(0°) = ___",
+            "fill_in_blank",
+            "1",
+            None,
+            None,
+            None,
+            None,
+            "At 0° the adjacent side equals the hypotenuse.",
+            "cos(0°) = adjacent/hypotenuse = 1/1 = 1.",
+        ),
+        (
+            trig_id,
+            "What is tan(45°)?",
+            "multiple_choice",
+            "1",
+            Some("0"),
+            Some("0.5"),
+            Some("1"),
+            Some("undefined"),
+            "At 45° the opposite and adjacent sides are equal.",
+            "tan(45°) = opposite/adjacent = 1/1 = 1.",
+        ),
     ];
     for (tid, q, qtype, correct, a, b, c, d, hint, expl) in questions {
         conn.execute(
@@ -2118,10 +2377,30 @@ pub fn seed_political_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 
     // Learning paths
     let paths: Vec<(&str, i64, i64, &str)> = vec![
-        ("political science", 1, gov_sys, "Learn the major types of government and how power is organized"),
-        ("political science", 2, human_r, "Understand fundamental human rights and their legal framework"),
-        ("political science", 3, intl_rel, "Explore how nations interact through diplomacy and organizations"),
-        ("political science", 4, pol_phil, "Dive into the philosophical foundations of politics and justice"),
+        (
+            "political science",
+            1,
+            gov_sys,
+            "Learn the major types of government and how power is organized",
+        ),
+        (
+            "political science",
+            2,
+            human_r,
+            "Understand fundamental human rights and their legal framework",
+        ),
+        (
+            "political science",
+            3,
+            intl_rel,
+            "Explore how nations interact through diplomacy and organizations",
+        ),
+        (
+            "political science",
+            4,
+            pol_phil,
+            "Dive into the philosophical foundations of politics and justice",
+        ),
     ];
     for (goal, step, tid, desc) in &paths {
         conn.execute(
@@ -2135,9 +2414,10 @@ pub fn seed_political_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 
 pub fn seed_renaissance(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Add a new History topic: Renaissance & Reformation
-    let history_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'History'", [], |r| r.get(0),
-    )?;
+    let history_id: i64 =
+        conn.query_row("SELECT id FROM subjects WHERE name = 'History'", [], |r| {
+            r.get(0)
+        })?;
     let ren_id: i64 = conn.query_row(
         "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Renaissance & Reformation', 'intermediate', 4) RETURNING id",
         [history_id], |r| r.get(0),
@@ -2487,15 +2767,25 @@ Recognizing fallacies is essential for critical thinking and evaluating argument
 #[allow(clippy::type_complexity)]
 pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Anthropology'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Anthropology'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap_or(false);
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Anthropology', 'The study of humanity — cultures, societies, biological evolution, and what makes us human across time and place.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Anthropology'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Anthropology'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (subj_id, "Cultural Anthropology", "beginner", 1),
@@ -2510,10 +2800,26 @@ pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let cult_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cultural Anthropology'", [subj_id], |r| r.get(0))?;
-    let bio_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Biological Anthropology'", [subj_id], |r| r.get(0))?;
-    let arch_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Archaeology'", [subj_id], |r| r.get(0))?;
-    let ling_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Linguistic Anthropology'", [subj_id], |r| r.get(0))?;
+    let cult_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cultural Anthropology'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let bio_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Biological Anthropology'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let arch_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Archaeology'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let ling_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Linguistic Anthropology'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -2572,10 +2878,30 @@ pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("anthropology", 1, cult_id, "Cultural anthropology — understand how societies organize life"),
-        ("anthropology", 2, bio_id, "Biological anthropology — human evolution and diversity"),
-        ("anthropology", 3, arch_id, "Archaeology — reconstructing the past through material evidence"),
-        ("anthropology", 4, ling_id, "Linguistic anthropology — how language shapes human experience"),
+        (
+            "anthropology",
+            1,
+            cult_id,
+            "Cultural anthropology — understand how societies organize life",
+        ),
+        (
+            "anthropology",
+            2,
+            bio_id,
+            "Biological anthropology — human evolution and diversity",
+        ),
+        (
+            "anthropology",
+            3,
+            arch_id,
+            "Archaeology — reconstructing the past through material evidence",
+        ),
+        (
+            "anthropology",
+            4,
+            ling_id,
+            "Linguistic anthropology — how language shapes human experience",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -2591,15 +2917,25 @@ pub fn seed_anthropology(conn: &Connection) -> Result<(), rusqlite::Error> {
 #[allow(clippy::type_complexity)]
 pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Nutrition Science'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Nutrition Science'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap_or(false);
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Nutrition Science', 'The science of food and nutrients — how what we eat affects growth, health, disease prevention, and well-being.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Nutrition Science'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Nutrition Science'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (subj_id, "Macronutrients", "beginner", 1),
@@ -2614,10 +2950,26 @@ pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> 
         )?;
     }
 
-    let macro_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Macronutrients'", [subj_id], |r| r.get(0))?;
-    let micro_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Micronutrients'", [subj_id], |r| r.get(0))?;
-    let digest_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Digestion & Metabolism'", [subj_id], |r| r.get(0))?;
-    let diet_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Dietary Patterns & Health'", [subj_id], |r| r.get(0))?;
+    let macro_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Macronutrients'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let micro_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Micronutrients'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let digest_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Digestion & Metabolism'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let diet_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Dietary Patterns & Health'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -2675,10 +3027,30 @@ pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 
     // Learning paths
     let paths = [
-        ("nutrition science", 1, macro_id, "Macronutrients — carbs, proteins, and fats: the building blocks of diet"),
-        ("nutrition science", 2, micro_id, "Micronutrients — vitamins and minerals that keep your body running"),
-        ("nutrition science", 3, digest_id, "Digestion and metabolism — how your body processes food into energy"),
-        ("nutrition science", 4, diet_id, "Dietary patterns — evidence-based approaches to healthy eating"),
+        (
+            "nutrition science",
+            1,
+            macro_id,
+            "Macronutrients — carbs, proteins, and fats: the building blocks of diet",
+        ),
+        (
+            "nutrition science",
+            2,
+            micro_id,
+            "Micronutrients — vitamins and minerals that keep your body running",
+        ),
+        (
+            "nutrition science",
+            3,
+            digest_id,
+            "Digestion and metabolism — how your body processes food into energy",
+        ),
+        (
+            "nutrition science",
+            4,
+            diet_id,
+            "Dietary patterns — evidence-based approaches to healthy eating",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -2694,17 +3066,23 @@ pub fn seed_nutrition_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 #[allow(clippy::type_complexity)]
 pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Add more Language topics
-    let lang_id: i64 = match conn.query_row("SELECT id FROM subjects WHERE name = 'Language'", [], |r| r.get(0)) {
-        Ok(id) => id,
-        Err(_) => return Ok(()),
-    };
+    let lang_id: i64 =
+        match conn.query_row("SELECT id FROM subjects WHERE name = 'Language'", [], |r| {
+            r.get(0)
+        }) {
+            Ok(id) => id,
+            Err(_) => return Ok(()),
+        };
 
     // Check if already expanded
     let topic_ct: i64 = conn.query_row(
         "SELECT COUNT(*) FROM topics WHERE subject_id = ?1",
-        [lang_id], |r| r.get(0),
+        [lang_id],
+        |r| r.get(0),
     )?;
-    if topic_ct >= 4 { return Ok(()); }
+    if topic_ct >= 4 {
+        return Ok(());
+    }
 
     // Add new topics
     conn.execute(
@@ -2716,8 +3094,16 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
         [lang_id],
     )?;
 
-    let vocab_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Vocabulary Building'", [lang_id], |r| r.get(0))?;
-    let essay_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Essay Writing'", [lang_id], |r| r.get(0))?;
+    let vocab_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Vocabulary Building'",
+        [lang_id],
+        |r| r.get(0),
+    )?;
+    let essay_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Essay Writing'",
+        [lang_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -2749,20 +3135,31 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
     }
 
     // Add Health topic: Mental Health
-    let health_id: i64 = match conn.query_row("SELECT id FROM subjects WHERE name = 'Health'", [], |r| r.get(0)) {
-        Ok(id) => id,
-        Err(_) => return Ok(()),
-    };
+    let health_id: i64 =
+        match conn.query_row("SELECT id FROM subjects WHERE name = 'Health'", [], |r| {
+            r.get(0)
+        }) {
+            Ok(id) => id,
+            Err(_) => return Ok(()),
+        };
     let health_topic_ct: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM topics WHERE subject_id = ?1", [health_id], |r| r.get(0),
+        "SELECT COUNT(*) FROM topics WHERE subject_id = ?1",
+        [health_id],
+        |r| r.get(0),
     )?;
-    if health_topic_ct >= 4 { return Ok(()); }
+    if health_topic_ct >= 4 {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Mental Health', 'beginner', 4)",
         [health_id],
     )?;
-    let mental_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mental Health'", [health_id], |r| r.get(0))?;
+    let mental_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mental Health'",
+        [health_id],
+        |r| r.get(0),
+    )?;
 
     let mh_lessons: Vec<(i64, &str, &str, i64)> = vec![
         (mental_id, "Understanding Stress", "Stress is the body's response to challenges or demands. Short-term stress (acute) can be helpful — it sharpens focus. Long-term stress (chronic) harms health: it weakens the immune system, disrupts sleep, and increases risk of heart disease and depression. Healthy coping strategies include exercise, deep breathing, social connection, and adequate sleep.", 1),
@@ -2776,8 +3173,30 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
     }
 
     let mh_quizzes: Vec<QuizRow> = vec![
-        (mental_id, "Chronic stress can weaken the immune system.", "true_false", "true", None, None, None, None, None, "Long-term stress raises cortisol levels, which suppresses immune function over time."),
-        (mental_id, "Which of these is a healthy way to cope with stress?", "multiple_choice", "Exercise", Some("Avoiding all social contact"), Some("Exercise"), Some("Skipping meals"), Some("Staying up all night"), None, "Exercise releases endorphins and reduces stress hormones like cortisol."),
+        (
+            mental_id,
+            "Chronic stress can weaken the immune system.",
+            "true_false",
+            "true",
+            None,
+            None,
+            None,
+            None,
+            None,
+            "Long-term stress raises cortisol levels, which suppresses immune function over time.",
+        ),
+        (
+            mental_id,
+            "Which of these is a healthy way to cope with stress?",
+            "multiple_choice",
+            "Exercise",
+            Some("Avoiding all social contact"),
+            Some("Exercise"),
+            Some("Skipping meals"),
+            Some("Staying up all night"),
+            None,
+            "Exercise releases endorphins and reduces stress hormones like cortisol.",
+        ),
     ];
     for (tid, question, qtype, answer, a, b, c, d, hint, expl) in &mh_quizzes {
         conn.execute(
@@ -2792,7 +3211,9 @@ pub fn seed_expanded_language_health(conn: &Connection) -> Result<(), rusqlite::
 pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Astronomy expanded content — subject_id=15
     let astro_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Astronomy'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Astronomy'",
+        [],
+        |r| r.get(0),
     )?;
 
     // New topics
@@ -2801,7 +3222,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         [astro_id],
     )?;
     let stellar_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Stellar Evolution'", [astro_id], |r| r.get(0)
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Stellar Evolution'",
+        [astro_id],
+        |r| r.get(0),
     )?;
 
     conn.execute(
@@ -2809,7 +3232,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         [astro_id],
     )?;
     let exo_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Exoplanets'", [astro_id], |r| r.get(0)
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Exoplanets'",
+        [astro_id],
+        |r| r.get(0),
     )?;
 
     conn.execute(
@@ -2817,7 +3242,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         [astro_id],
     )?;
     let cosmo_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cosmology'", [astro_id], |r| r.get(0)
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cosmology'",
+        [astro_id],
+        |r| r.get(0),
     )?;
 
     // Stellar Evolution lessons
@@ -2897,16 +3324,19 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
     conn.execute("INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('cosmology', 1, ?1, 'Explore the origin and fate of the universe')", [cosmo_id])?;
 
     // Physics expanded — subject_id=16
-    let physics_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Physics'", [], |r| r.get(0)
-    )?;
+    let physics_id: i64 =
+        conn.query_row("SELECT id FROM subjects WHERE name = 'Physics'", [], |r| {
+            r.get(0)
+        })?;
 
     conn.execute(
         "INSERT OR IGNORE INTO topics (subject_id, name, difficulty, sort_order) VALUES (?1, 'Thermodynamics', 'intermediate', 5)",
         [physics_id],
     )?;
     let thermo_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Thermodynamics'", [physics_id], |r| r.get(0)
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Thermodynamics'",
+        [physics_id],
+        |r| r.get(0),
     )?;
 
     let thermo_lessons: Vec<(i64, &str, &str, i64)> = vec![
@@ -2935,7 +3365,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
 
     // CS Networking topic — subject_id=6
     let cs_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Computer Science'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Computer Science'",
+        [],
+        |r| r.get(0),
     )?;
 
     conn.execute(
@@ -2943,7 +3375,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         [cs_id],
     )?;
     let net_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Networking Basics'", [cs_id], |r| r.get(0)
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Networking Basics'",
+        [cs_id],
+        |r| r.get(0),
     )?;
 
     let net_lessons: Vec<(i64, &str, &str, i64)> = vec![
@@ -2972,7 +3406,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
 
     // Geography expanded quizzes for under-covered topics
     let geo_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Geography'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Geography'",
+        [],
+        |r| r.get(0),
     )?;
 
     conn.execute(
@@ -2980,7 +3416,9 @@ pub fn seed_astronomy_physics_expanded(conn: &Connection) -> Result<(), rusqlite
         [geo_id],
     )?;
     let capitals_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Capitals'", [geo_id], |r| r.get(0)
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Capitals'",
+        [geo_id],
+        |r| r.get(0),
     )?;
 
     let cap_quizzes: Vec<QuizRow> = vec![
@@ -3082,12 +3520,27 @@ fn seed_calculus(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     for (i, (tid, desc)) in [
-        (topic_ids[0], "Master limits and continuity — the foundation of calculus"),
+        (
+            topic_ids[0],
+            "Master limits and continuity — the foundation of calculus",
+        ),
         (topic_ids[1], "Learn derivatives and differentiation rules"),
-        (topic_ids[2], "Apply derivatives to real-world optimization problems"),
-        (topic_ids[3], "Understand integrals and the area under curves"),
-        (topic_ids[4], "Connect it all with the Fundamental Theorem of Calculus"),
-    ].iter().enumerate() {
+        (
+            topic_ids[2],
+            "Apply derivatives to real-world optimization problems",
+        ),
+        (
+            topic_ids[3],
+            "Understand integrals and the area under curves",
+        ),
+        (
+            topic_ids[4],
+            "Connect it all with the Fundamental Theorem of Calculus",
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('calculus', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
@@ -3168,12 +3621,24 @@ fn seed_programming_basics(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     for (i, (tid, desc)) in [
-        (topic_ids[0], "Learn variables and data types — the building blocks"),
+        (
+            topic_ids[0],
+            "Learn variables and data types — the building blocks",
+        ),
         (topic_ids[1], "Master control flow — if-else and loops"),
         (topic_ids[2], "Understand functions and code reuse"),
-        (topic_ids[3], "Explore data structures for organizing information"),
-        (topic_ids[4], "Study algorithms and computational complexity"),
-    ].iter().enumerate() {
+        (
+            topic_ids[3],
+            "Explore data structures for organizing information",
+        ),
+        (
+            topic_ids[4],
+            "Study algorithms and computational complexity",
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('programming', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
@@ -3185,21 +3650,58 @@ fn seed_programming_basics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 /// Add more quiz questions to subjects with sparse coverage.
 fn seed_extra_math_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let algebra_id: Option<i64> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Algebra Basics' LIMIT 1",
-        [], |r| r.get(0),
-    ).ok();
+    let algebra_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Algebra Basics' LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
 
     if let Some(tid) = algebra_id {
         let existing: i64 = conn.query_row(
             "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1",
-            [tid], |r| r.get(0),
+            [tid],
+            |r| r.get(0),
         )?;
         if existing < 5 {
             let extra_quizzes: Vec<QuizRow> = vec![
-                (tid, "Solve: 2x + 6 = 14. What is x?", "multiple_choice", "4", Some("3"), Some("4"), Some("5"), Some("8"), Some("Subtract 6 from both sides first..."), "2x + 6 = 14 → 2x = 8 → x = 4."),
-                (tid, "If y = 3x - 1 and x = 5, then y = ___.", "fill_in_blank", "14", None, None, None, None, Some("Substitute x = 5..."), "y = 3(5) - 1 = 15 - 1 = 14."),
-                (tid, "True or false: The equation x² = 9 has exactly one solution.", "true_false", "false", Some("true"), Some("false"), None, None, None, "x² = 9 has TWO solutions: x = 3 and x = -3. Don't forget the negative root!"),
+                (
+                    tid,
+                    "Solve: 2x + 6 = 14. What is x?",
+                    "multiple_choice",
+                    "4",
+                    Some("3"),
+                    Some("4"),
+                    Some("5"),
+                    Some("8"),
+                    Some("Subtract 6 from both sides first..."),
+                    "2x + 6 = 14 → 2x = 8 → x = 4.",
+                ),
+                (
+                    tid,
+                    "If y = 3x - 1 and x = 5, then y = ___.",
+                    "fill_in_blank",
+                    "14",
+                    None,
+                    None,
+                    None,
+                    None,
+                    Some("Substitute x = 5..."),
+                    "y = 3(5) - 1 = 15 - 1 = 14.",
+                ),
+                (
+                    tid,
+                    "True or false: The equation x² = 9 has exactly one solution.",
+                    "true_false",
+                    "false",
+                    Some("true"),
+                    Some("false"),
+                    None,
+                    None,
+                    None,
+                    "x² = 9 has TWO solutions: x = 3 and x = -3. Don't forget the negative root!",
+                ),
             ];
             for (tid2, question, qtype, answer, a, b, c, d, hint, expl) in &extra_quizzes {
                 conn.execute(
@@ -3210,15 +3712,19 @@ fn seed_extra_math_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
         }
     }
 
-    let geometry_id: Option<i64> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Geometry' LIMIT 1",
-        [], |r| r.get(0),
-    ).ok();
+    let geometry_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Geometry' LIMIT 1",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
 
     if let Some(tid) = geometry_id {
         let existing: i64 = conn.query_row(
             "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1",
-            [tid], |r| r.get(0),
+            [tid],
+            |r| r.get(0),
         )?;
         if existing < 5 {
             let extra_quizzes: Vec<QuizRow> = vec![
@@ -3238,11 +3744,12 @@ fn seed_extra_math_quizzes(conn: &Connection) -> Result<(), rusqlite::Error> {
     Ok(())
 }
 
-
 fn seed_creative_writing(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Expand Creative Writing with additional topics, lessons, and quizzes
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Creative Writing'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Creative Writing'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Add new topics that don't already exist
@@ -3259,13 +3766,19 @@ fn seed_creative_writing(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let world_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Building'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'World Building'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let revision_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Revision & Editing'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Revision & Editing'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let flash_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Flash Fiction'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Flash Fiction'",
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     let lessons: &[LessonRow] = &[
@@ -3317,7 +3830,9 @@ fn seed_earth_science(conn: &Connection) -> Result<(), rusqlite::Error> {
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Earth Science'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Earth Science'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Add new topics
@@ -3334,13 +3849,19 @@ fn seed_earth_science(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let quake_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Earthquakes and Volcanoes'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Earthquakes and Volcanoes'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let ocean_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Oceanography'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Oceanography'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let soil_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Soil Science'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Soil Science'",
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     let lessons: &[LessonRow] = &[
@@ -3395,7 +3916,9 @@ pub fn seed_data_science(conn: &Connection) -> Result<(), rusqlite::Error> {
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Data Science'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Data Science'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -3413,19 +3936,29 @@ pub fn seed_data_science(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let wrangle_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Wrangling'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Wrangling'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let eda_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Exploratory Data Analysis'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Exploratory Data Analysis'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let ml_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Machine Learning Fundamentals'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Machine Learning Fundamentals'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let nn_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Neural Networks'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Neural Networks'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let viz_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Visualization'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Data Visualization'",
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     let lessons: &[LessonRow] = &[
@@ -3482,8 +4015,14 @@ pub fn seed_data_science(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path for Data Science
     let path_topics = [
-        (viz_id, "Start with visualization — learn to see patterns in data"),
-        (wrangle_id, "Master data cleaning — the foundation of all analysis"),
+        (
+            viz_id,
+            "Start with visualization — learn to see patterns in data",
+        ),
+        (
+            wrangle_id,
+            "Master data cleaning — the foundation of all analysis",
+        ),
         (eda_id, "Explore data systematically before modeling"),
         (ml_id, "Learn core machine learning concepts and algorithms"),
         (nn_id, "Dive into neural networks and deep learning"),
@@ -3504,7 +4043,9 @@ pub fn seed_music_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Music Theory'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Music Theory'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -3521,16 +4062,24 @@ pub fn seed_music_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let scales_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Scales and Keys'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Scales and Keys'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let chords_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chords and Harmony'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Chords and Harmony'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let rhythm_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Rhythm and Meter'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Rhythm and Meter'",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let form_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Musical Form'", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Musical Form'",
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     let lessons: &[LessonRow] = &[
@@ -3583,9 +4132,18 @@ pub fn seed_music_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Learning path
     let path_topics = [
         (rhythm_id, "Start with rhythm — the heartbeat of music"),
-        (scales_id, "Learn scales and keys — the melodic building blocks"),
-        (chords_id, "Build chords from scales — the foundation of harmony"),
-        (form_id, "Understand how musical sections are organized into larger structures"),
+        (
+            scales_id,
+            "Learn scales and keys — the melodic building blocks",
+        ),
+        (
+            chords_id,
+            "Build chords from scales — the foundation of harmony",
+        ),
+        (
+            form_id,
+            "Understand how musical sections are organized into larger structures",
+        ),
     ];
     for (i, (tid, desc)) in path_topics.iter().enumerate() {
         conn.execute(
@@ -3601,10 +4159,15 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
     // --- Civics & Government (subject_id = 18) ---
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
-        ["Civics & Government", "Understanding democracy, rights, laws, and how governments work."],
+        [
+            "Civics & Government",
+            "Understanding democracy, rights, laws, and how governments work.",
+        ],
     )?;
     let civics_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Civics & Government'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Civics & Government'",
+        [],
+        |r| r.get(0),
     )?;
 
     let civics_topics = [
@@ -3621,7 +4184,8 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND name = ?2",
-            rusqlite::params![civics_id, name], |r| r.get(0),
+            rusqlite::params![civics_id, name],
+            |r| r.get(0),
         )?;
         civics_topic_ids.push(tid);
     }
@@ -3710,11 +4274,26 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     for (i, (tid, desc)) in [
-        (civics_topic_ids[0], "Start with the foundations of democracy and how voting works"),
-        (civics_topic_ids[1], "Learn how government is structured with branches and checks"),
-        (civics_topic_ids[2], "Explore the rights citizens have and the responsibilities that come with them"),
-        (civics_topic_ids[3], "Understand how nations work together through international organizations"),
-    ].iter().enumerate() {
+        (
+            civics_topic_ids[0],
+            "Start with the foundations of democracy and how voting works",
+        ),
+        (
+            civics_topic_ids[1],
+            "Learn how government is structured with branches and checks",
+        ),
+        (
+            civics_topic_ids[2],
+            "Explore the rights citizens have and the responsibilities that come with them",
+        ),
+        (
+            civics_topic_ids[3],
+            "Understand how nations work together through international organizations",
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Civics Foundations', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
@@ -3724,10 +4303,15 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
     // --- Media Literacy (subject_id = 19) ---
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
-        ["Media Literacy", "Critical thinking about media, information sources, and digital citizenship."],
+        [
+            "Media Literacy",
+            "Critical thinking about media, information sources, and digital citizenship.",
+        ],
     )?;
     let media_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Media Literacy'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Media Literacy'",
+        [],
+        |r| r.get(0),
     )?;
 
     let media_topics = [
@@ -3744,7 +4328,8 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND name = ?2",
-            rusqlite::params![media_id, name], |r| r.get(0),
+            rusqlite::params![media_id, name],
+            |r| r.get(0),
         )?;
         media_topic_ids.push(tid);
     }
@@ -3834,11 +4419,26 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     for (i, (tid, desc)) in [
-        (media_topic_ids[0], "Learn to evaluate whether information sources are trustworthy"),
-        (media_topic_ids[1], "Understand how misinformation spreads and how to spot bias"),
-        (media_topic_ids[2], "Practice responsible behavior online as a digital citizen"),
-        (media_topic_ids[3], "Protect your personal data and understand privacy"),
-    ].iter().enumerate() {
+        (
+            media_topic_ids[0],
+            "Learn to evaluate whether information sources are trustworthy",
+        ),
+        (
+            media_topic_ids[1],
+            "Understand how misinformation spreads and how to spot bias",
+        ),
+        (
+            media_topic_ids[2],
+            "Practice responsible behavior online as a digital citizen",
+        ),
+        (
+            media_topic_ids[3],
+            "Protect your personal data and understand privacy",
+        ),
+    ]
+    .iter()
+    .enumerate()
+    {
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('Media Literacy Essentials', ?1, ?2, ?3)",
             rusqlite::params![i + 1, tid, desc],
@@ -3847,17 +4447,29 @@ pub fn seed_civics_and_media(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // --- Extra Geography content ---
     // Add more quiz questions for Geography topics (Continents & Oceans = topic ~22, Weather & Climate = ~23)
-    let geo_continents_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Continents & Oceans'", [], |r| r.get(0),
-    ).unwrap_or(0);
+    let geo_continents_id: i64 = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Continents & Oceans'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
-    let geo_weather_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Weather & Climate'", [], |r| r.get(0),
-    ).unwrap_or(0);
+    let geo_weather_id: i64 = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Weather & Climate'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
-    let geo_maps_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Maps & Navigation'", [], |r| r.get(0),
-    ).unwrap_or(0);
+    let geo_maps_id: i64 = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Maps & Navigation'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     if geo_continents_id > 0 {
         let extra_geo_quizzes: Vec<QuizRowNoTopic> = vec![
@@ -3942,7 +4554,9 @@ pub fn seed_world_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'World Languages'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'World Languages'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Topics
@@ -3959,10 +4573,26 @@ pub fn seed_world_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let german_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'German Basics'", [], |r| r.get(0))?;
-    let spanish_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Spanish Basics'", [], |r| r.get(0))?;
-    let french_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'French Basics'", [], |r| r.get(0))?;
-    let families_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Language Families'", [], |r| r.get(0))?;
+    let german_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'German Basics'",
+        [],
+        |r| r.get(0),
+    )?;
+    let spanish_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Spanish Basics'",
+        [],
+        |r| r.get(0),
+    )?;
+    let french_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'French Basics'",
+        [],
+        |r| r.get(0),
+    )?;
+    let families_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Language Families'",
+        [],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -4034,7 +4664,9 @@ pub fn seed_world_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 pub fn seed_geography_expanded(conn: &Connection) -> Result<(), rusqlite::Error> {
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Geography'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Geography'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Add more topics
@@ -4050,9 +4682,21 @@ pub fn seed_geography_expanded(conn: &Connection) -> Result<(), rusqlite::Error>
         )?;
     }
 
-    let climate_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Climate Zones'", [], |r| r.get(0))?;
-    let oceans_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Oceans and Seas'", [], |r| r.get(0))?;
-    let tectonics_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Plate Tectonics'", [], |r| r.get(0))?;
+    let climate_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Climate Zones'",
+        [],
+        |r| r.get(0),
+    )?;
+    let oceans_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Oceans and Seas'",
+        [],
+        |r| r.get(0),
+    )?;
+    let tectonics_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Plate Tectonics'",
+        [],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -4097,7 +4741,9 @@ pub fn seed_geography_expanded(conn: &Connection) -> Result<(), rusqlite::Error>
 
 pub fn seed_psychology_expanded(conn: &Connection) -> Result<(), rusqlite::Error> {
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Psychology'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Psychology'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -4112,9 +4758,21 @@ pub fn seed_psychology_expanded(conn: &Connection) -> Result<(), rusqlite::Error
         )?;
     }
 
-    let memory_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Memory and Learning'", [], |r| r.get(0))?;
-    let biases_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Cognitive Biases'", [], |r| r.get(0))?;
-    let dev_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Developmental Psychology'", [], |r| r.get(0))?;
+    let memory_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Memory and Learning'",
+        [],
+        |r| r.get(0),
+    )?;
+    let biases_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Cognitive Biases'",
+        [],
+        |r| r.get(0),
+    )?;
+    let dev_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Developmental Psychology'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let lessons: Vec<LessonRow> = vec![
         (memory_id, "How Memory Works", "Memory has three stages:\n1. Encoding: Converting sensory input into a form the brain can store.\n2. Storage: Maintaining information over time — short-term (seconds to minutes) vs long-term (days to lifetime).\n3. Retrieval: Accessing stored information when needed.\n\nKey concepts:\n- Working memory holds ~4 items at once (updated from Miller's 'magical number 7').\n- Spaced repetition strengthens long-term memory by reviewing at optimal intervals.\n- Sleep is critical for memory consolidation — the brain replays and strengthens memories during sleep.", 1),
@@ -4164,7 +4822,9 @@ fn seed_game_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         ["Game Theory", "Strategic decision-making — analyzing how rational agents interact, compete, and cooperate in games of strategy."],
     )?;
     let subject_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Game Theory'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Game Theory'",
+        [],
+        |r| r.get(0),
     )?;
 
     // --- Topics ---
@@ -4185,27 +4845,33 @@ fn seed_game_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let nash_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Nash Equilibrium'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let prisoner_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Prisoner''s Dilemma'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let dominant_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Dominant Strategies'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let zerosum_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Zero-Sum Games'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let evo_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Evolutionary Game Theory'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let mech_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Mechanism Design'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
 
     // --- Lessons ---
@@ -4359,12 +5025,28 @@ fn seed_game_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // --- Learning Path ---
     let path_steps = [
-        (1, prisoner_id, "Start with the Prisoner's Dilemma — the most intuitive game theory scenario"),
-        (2, dominant_id, "Learn about dominant strategies — the simplest solution concept"),
-        (3, nash_id, "Master Nash Equilibrium — the central concept of game theory"),
+        (
+            1,
+            prisoner_id,
+            "Start with the Prisoner's Dilemma — the most intuitive game theory scenario",
+        ),
+        (
+            2,
+            dominant_id,
+            "Learn about dominant strategies — the simplest solution concept",
+        ),
+        (
+            3,
+            nash_id,
+            "Master Nash Equilibrium — the central concept of game theory",
+        ),
         (4, zerosum_id, "Study zero-sum games and minimax strategies"),
         (5, evo_id, "Explore how game theory applies to evolution"),
-        (6, mech_id, "Advanced: learn to design games with mechanism design"),
+        (
+            6,
+            mech_id,
+            "Advanced: learn to design games with mechanism design",
+        ),
     ];
     for (order, tid, desc) in &path_steps {
         conn.execute(
@@ -4383,7 +5065,9 @@ pub fn seed_architecture(conn: &Connection) -> Result<(), rusqlite::Error> {
         ["Architecture & Design", "The art and science of designing buildings and spaces — from ancient temples to modern skyscrapers."],
     )?;
     let subject_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Architecture & Design'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Architecture & Design'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Topics
@@ -4403,23 +5087,28 @@ pub fn seed_architecture(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let tid_styles: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Architectural Styles'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let tid_structural: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Structural Engineering Basics'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let tid_sustainable: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Sustainable Design'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let tid_interior: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Interior Design Principles'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
     let tid_urban: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Urban Planning'",
-        [subject_id], |r| r.get(0),
+        [subject_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -4493,11 +5182,26 @@ pub fn seed_architecture(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_steps: Vec<(i64, &str)> = vec![
-        (tid_styles, "Learn the major architectural styles from classical to contemporary"),
-        (tid_interior, "Understand how color, light, and space create interior environments"),
-        (tid_structural, "Learn the engineering principles that make buildings stand up"),
-        (tid_sustainable, "Explore green building and renewable energy in architecture"),
-        (tid_urban, "Understand how cities are planned and designed for people"),
+        (
+            tid_styles,
+            "Learn the major architectural styles from classical to contemporary",
+        ),
+        (
+            tid_interior,
+            "Understand how color, light, and space create interior environments",
+        ),
+        (
+            tid_structural,
+            "Learn the engineering principles that make buildings stand up",
+        ),
+        (
+            tid_sustainable,
+            "Explore green building and renewable energy in architecture",
+        ),
+        (
+            tid_urban,
+            "Understand how cities are planned and designed for people",
+        ),
     ];
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
@@ -4513,14 +5217,56 @@ pub fn seed_architecture(conn: &Connection) -> Result<(), rusqlite::Error> {
 pub fn seed_extra_quizzes_round2(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Extra quizzes for Music (Musical Notes & Scales)
     let tid_music: Result<i64, _> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Musical Notes & Scales'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Musical Notes & Scales'",
+        [],
+        |r| r.get(0),
     );
     if let Ok(tid) = tid_music {
         let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
-            ("How many notes are in a chromatic scale?", "multiple_choice", "12", Some("7"), Some("8"), Some("12"), Some("14"), "A chromatic scale includes all 12 semitones within an octave.", "medium"),
-            ("The distance between two adjacent keys on a piano is called a ___.", "fill_in_blank", "semitone", None, None, None, None, "A semitone (or half step) is the smallest interval in Western music.", "easy"),
-            ("A major scale has 7 notes.", "true_false", "true", Some("True"), Some("False"), None, None, "Major scales consist of 7 unique notes plus the octave.", "easy"),
-            ("Which note is the fifth degree of a C major scale?", "multiple_choice", "G", Some("D"), Some("E"), Some("G"), Some("A"), "C-D-E-F-G: G is the fifth note (dominant) of C major.", "medium"),
+            (
+                "How many notes are in a chromatic scale?",
+                "multiple_choice",
+                "12",
+                Some("7"),
+                Some("8"),
+                Some("12"),
+                Some("14"),
+                "A chromatic scale includes all 12 semitones within an octave.",
+                "medium",
+            ),
+            (
+                "The distance between two adjacent keys on a piano is called a ___.",
+                "fill_in_blank",
+                "semitone",
+                None,
+                None,
+                None,
+                None,
+                "A semitone (or half step) is the smallest interval in Western music.",
+                "easy",
+            ),
+            (
+                "A major scale has 7 notes.",
+                "true_false",
+                "true",
+                Some("True"),
+                Some("False"),
+                None,
+                None,
+                "Major scales consist of 7 unique notes plus the octave.",
+                "easy",
+            ),
+            (
+                "Which note is the fifth degree of a C major scale?",
+                "multiple_choice",
+                "G",
+                Some("D"),
+                Some("E"),
+                Some("G"),
+                Some("A"),
+                "C-D-E-F-G: G is the fifth note (dominant) of C major.",
+                "medium",
+            ),
         ];
         for (question, qtype, correct, oa, ob, oc, od, explanation, difficulty) in &quizzes {
             conn.execute(
@@ -4532,7 +5278,9 @@ pub fn seed_extra_quizzes_round2(conn: &Connection) -> Result<(), rusqlite::Erro
 
     // Extra quizzes for Art (Color Theory)
     let tid_art: Result<i64, _> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Color Theory'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Color Theory'",
+        [],
+        |r| r.get(0),
     );
     if let Ok(tid) = tid_art {
         let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
@@ -4551,7 +5299,9 @@ pub fn seed_extra_quizzes_round2(conn: &Connection) -> Result<(), rusqlite::Erro
 
     // Extra quizzes for Environmental Science
     let tid_eco: Result<i64, _> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Ecosystems & Biomes'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Ecosystems & Biomes'",
+        [],
+        |r| r.get(0),
     );
     if let Ok(tid) = tid_eco {
         let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
@@ -4570,7 +5320,9 @@ pub fn seed_extra_quizzes_round2(conn: &Connection) -> Result<(), rusqlite::Erro
 
     // Extra quizzes for Economics (Supply & Demand)
     let tid_econ: Result<i64, _> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Supply & Demand'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Supply & Demand'",
+        [],
+        |r| r.get(0),
     );
     if let Ok(tid) = tid_econ {
         let quizzes: Vec<QuizRowNoTopic<'_>> = vec![
@@ -4595,13 +5347,19 @@ pub fn seed_cybersecurity(conn: &Connection) -> Result<(), rusqlite::Error> {
         "SELECT COUNT(*) > 0 FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Cybersecurity'",
         [], |r| r.get(0),
     ).unwrap_or(false);
-    if has_topics { return Ok(()); }
+    if has_topics {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Cybersecurity', 'Protecting systems, networks, and data from digital attacks — understanding threats, defenses, and security principles.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Cybersecurity'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Cybersecurity'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (subj_id, "Network Security Fundamentals", "beginner", 1),
@@ -4617,11 +5375,31 @@ pub fn seed_cybersecurity(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let net_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Network Security Fundamentals'", [subj_id], |r| r.get(0))?;
-    let crypto_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cryptography Basics'", [subj_id], |r| r.get(0))?;
-    let attack_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Common Attack Vectors'", [subj_id], |r| r.get(0))?;
-    let auth_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Authentication & Access Control'", [subj_id], |r| r.get(0))?;
-    let best_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Security Best Practices'", [subj_id], |r| r.get(0))?;
+    let net_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Network Security Fundamentals'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let crypto_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Cryptography Basics'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let attack_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Common Attack Vectors'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let auth_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Authentication & Access Control'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let best_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Security Best Practices'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: &[LessonRow] = &[
@@ -4702,11 +5480,36 @@ pub fn seed_cybersecurity(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("cybersecurity fundamentals", 1, net_id, "Network security — firewalls, protocols, and the CIA triad"),
-        ("cybersecurity fundamentals", 2, auth_id, "Authentication & access control — proving identity and managing permissions"),
-        ("cybersecurity fundamentals", 3, crypto_id, "Cryptography — encryption, hashing, and digital signatures"),
-        ("cybersecurity fundamentals", 4, attack_id, "Attack vectors — understanding how systems are compromised"),
-        ("cybersecurity fundamentals", 5, best_id, "Security best practices — defense in depth and secure development"),
+        (
+            "cybersecurity fundamentals",
+            1,
+            net_id,
+            "Network security — firewalls, protocols, and the CIA triad",
+        ),
+        (
+            "cybersecurity fundamentals",
+            2,
+            auth_id,
+            "Authentication & access control — proving identity and managing permissions",
+        ),
+        (
+            "cybersecurity fundamentals",
+            3,
+            crypto_id,
+            "Cryptography — encryption, hashing, and digital signatures",
+        ),
+        (
+            "cybersecurity fundamentals",
+            4,
+            attack_id,
+            "Attack vectors — understanding how systems are compromised",
+        ),
+        (
+            "cybersecurity fundamentals",
+            5,
+            best_id,
+            "Security best practices — defense in depth and secure development",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -4723,13 +5526,19 @@ pub fn seed_discrete_mathematics(conn: &Connection) -> Result<(), rusqlite::Erro
         "SELECT COUNT(*) > 0 FROM topics t JOIN subjects s ON t.subject_id = s.id WHERE s.name = 'Discrete Mathematics'",
         [], |r| r.get(0),
     ).unwrap_or(false);
-    if has_topics { return Ok(()); }
+    if has_topics {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT OR IGNORE INTO subjects (name, description) VALUES ('Discrete Mathematics', 'The mathematics of countable structures — sets, graphs, combinatorics, number theory, and proof techniques that underpin computer science.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Discrete Mathematics'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Discrete Mathematics'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (subj_id, "Sets & Logic", "beginner", 1),
@@ -4746,12 +5555,36 @@ pub fn seed_discrete_mathematics(conn: &Connection) -> Result<(), rusqlite::Erro
         )?;
     }
 
-    let sets_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Sets & Logic'", [subj_id], |r| r.get(0))?;
-    let graph_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Graph Theory'", [subj_id], |r| r.get(0))?;
-    let comb_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Combinatorics'", [subj_id], |r| r.get(0))?;
-    let numth_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Number Theory'", [subj_id], |r| r.get(0))?;
-    let proof_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Proof Techniques'", [subj_id], |r| r.get(0))?;
-    let recur_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Recurrence Relations'", [subj_id], |r| r.get(0))?;
+    let sets_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Sets & Logic'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let graph_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Graph Theory'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let comb_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Combinatorics'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let numth_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Number Theory'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let proof_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Proof Techniques'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let recur_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Recurrence Relations'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // --- Lessons ---
     let lessons: &[LessonRow] = &[
@@ -4831,12 +5664,30 @@ pub fn seed_discrete_mathematics(conn: &Connection) -> Result<(), rusqlite::Erro
 
     // --- Learning Path ---
     let path_steps: &[(i64, &str)] = &[
-        (sets_id, "Start with sets and propositional logic — the language of discrete math"),
-        (proof_id, "Learn proof techniques — the tools you'll use everywhere"),
-        (numth_id, "Explore number theory — primes, divisibility, and modular arithmetic"),
-        (comb_id, "Master combinatorics — counting, permutations, and combinations"),
-        (graph_id, "Study graph theory — vertices, edges, trees, and algorithms"),
-        (recur_id, "Advanced: solve recurrence relations and analyze algorithms"),
+        (
+            sets_id,
+            "Start with sets and propositional logic — the language of discrete math",
+        ),
+        (
+            proof_id,
+            "Learn proof techniques — the tools you'll use everywhere",
+        ),
+        (
+            numth_id,
+            "Explore number theory — primes, divisibility, and modular arithmetic",
+        ),
+        (
+            comb_id,
+            "Master combinatorics — counting, permutations, and combinations",
+        ),
+        (
+            graph_id,
+            "Study graph theory — vertices, edges, trees, and algorithms",
+        ),
+        (
+            recur_id,
+            "Advanced: solve recurrence relations and analyze algorithms",
+        ),
     ];
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
@@ -4953,20 +5804,72 @@ fn seed_linear_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Quiz questions — Matrices
     let matrix_qs: &[QuizRowNoTopic] = &[
-        ("What is the size of the product of a 3×2 matrix and a 2×5 matrix?", "fill_in_blank", "3x5", None, None, None, None,
-         "The result has as many rows as the first matrix and as many columns as the second",
-         "(m×n)(n×p) = m×p, so 3×5."),
-        ("True or false: Matrix multiplication is commutative.", "true_false", "false", Some("True"), Some("False"), None, None,
-         "Try multiplying two small matrices in both orders", "In general AB ≠ BA. Matrix multiplication is associative but NOT commutative."),
-        ("What is the identity matrix for 2×2 matrices?", "multiple_choice", "[[1,0],[0,1]]",
-         Some("[[1,1],[1,1]]"), Some("[[1,0],[0,1]]"), Some("[[0,1],[1,0]]"), Some("[[1,0],[0,0]]"),
-         "The identity has 1s on the diagonal", "The 2×2 identity matrix I = [[1,0],[0,1]] satisfies AI = IA = A for any 2×2 matrix A."),
-        ("How many elements does a 4×3 matrix contain?", "fill_in_blank", "12", None, None, None, None,
-         "Count rows × columns", "A 4×3 matrix has 4 rows and 3 columns = 12 elements total."),
-        ("The transpose of a matrix swaps its ___ and ___.", "fill_in_blank", "rows and columns", None, None, None, None,
-         "The (i,j) entry becomes the (j,i) entry", "Transposing a matrix reflects it across the main diagonal, swapping rows and columns."),
-        ("Can you multiply a 2×3 matrix by a 4×2 matrix?", "true_false", "false", Some("True"), Some("False"), None, None,
-         "Check: columns of first must equal rows of second", "No. The first matrix has 3 columns but the second has 4 rows. They must match."),
+        (
+            "What is the size of the product of a 3×2 matrix and a 2×5 matrix?",
+            "fill_in_blank",
+            "3x5",
+            None,
+            None,
+            None,
+            None,
+            "The result has as many rows as the first matrix and as many columns as the second",
+            "(m×n)(n×p) = m×p, so 3×5.",
+        ),
+        (
+            "True or false: Matrix multiplication is commutative.",
+            "true_false",
+            "false",
+            Some("True"),
+            Some("False"),
+            None,
+            None,
+            "Try multiplying two small matrices in both orders",
+            "In general AB ≠ BA. Matrix multiplication is associative but NOT commutative.",
+        ),
+        (
+            "What is the identity matrix for 2×2 matrices?",
+            "multiple_choice",
+            "[[1,0],[0,1]]",
+            Some("[[1,1],[1,1]]"),
+            Some("[[1,0],[0,1]]"),
+            Some("[[0,1],[1,0]]"),
+            Some("[[1,0],[0,0]]"),
+            "The identity has 1s on the diagonal",
+            "The 2×2 identity matrix I = [[1,0],[0,1]] satisfies AI = IA = A for any 2×2 matrix A.",
+        ),
+        (
+            "How many elements does a 4×3 matrix contain?",
+            "fill_in_blank",
+            "12",
+            None,
+            None,
+            None,
+            None,
+            "Count rows × columns",
+            "A 4×3 matrix has 4 rows and 3 columns = 12 elements total.",
+        ),
+        (
+            "The transpose of a matrix swaps its ___ and ___.",
+            "fill_in_blank",
+            "rows and columns",
+            None,
+            None,
+            None,
+            None,
+            "The (i,j) entry becomes the (j,i) entry",
+            "Transposing a matrix reflects it across the main diagonal, swapping rows and columns.",
+        ),
+        (
+            "Can you multiply a 2×3 matrix by a 4×2 matrix?",
+            "true_false",
+            "false",
+            Some("True"),
+            Some("False"),
+            None,
+            None,
+            "Check: columns of first must equal rows of second",
+            "No. The first matrix has 3 columns but the second has 4 rows. They must match.",
+        ),
     ];
 
     for (q, qt, ans, a, b, c, d, hint, expl) in matrix_qs {
@@ -5068,12 +5971,24 @@ fn seed_linear_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_steps: &[(i64, &str)] = &[
-        (vectors_id, "Start with vectors — the fundamental objects of linear algebra"),
+        (
+            vectors_id,
+            "Start with vectors — the fundamental objects of linear algebra",
+        ),
         (matrices_id, "Learn matrices — the computational workhorses"),
-        (systems_id, "Master solving systems of equations with Gaussian elimination"),
-        (determinants_id, "Understand determinants — key to invertibility and volume"),
+        (
+            systems_id,
+            "Master solving systems of equations with Gaussian elimination",
+        ),
+        (
+            determinants_id,
+            "Understand determinants — key to invertibility and volume",
+        ),
         (eigen_id, "Explore eigenvalues — the 'DNA' of a matrix"),
-        (transforms_id, "Advanced: see matrices as geometric transformations"),
+        (
+            transforms_id,
+            "Advanced: see matrices as geometric transformations",
+        ),
     ];
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
@@ -5092,7 +6007,9 @@ pub fn seed_electrical_engineering(conn: &Connection) -> Result<(), rusqlite::Er
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Electrical Engineering'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Electrical Engineering'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Topics
@@ -5112,22 +6029,34 @@ pub fn seed_electrical_engineering(conn: &Connection) -> Result<(), rusqlite::Er
     }
 
     let circuit_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Circuit Fundamentals' AND subject_id = ?1", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Circuit Fundamentals' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let ohm_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Ohm''s Law & Kirchhoff''s Laws' AND subject_id = ?1", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Ohm''s Law & Kirchhoff''s Laws' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let cap_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Capacitors & Inductors' AND subject_id = ?1", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Capacitors & Inductors' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let ac_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'AC Circuit Analysis' AND subject_id = ?1", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'AC Circuit Analysis' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let logic_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Digital Logic Gates' AND subject_id = ?1", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Digital Logic Gates' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
     )?;
     let semi_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Semiconductor Basics' AND subject_id = ?1", [subj_id], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Semiconductor Basics' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -5298,12 +6227,30 @@ pub fn seed_electrical_engineering(conn: &Connection) -> Result<(), rusqlite::Er
 
     // Learning path
     let path_steps: &[(i64, &str)] = &[
-        (circuit_id, "Start with circuit fundamentals — voltage, current, and basic topologies"),
-        (ohm_id, "Master Ohm's Law and Kirchhoff's Laws — the foundation of circuit analysis"),
-        (cap_id, "Learn about energy storage elements — capacitors and inductors"),
-        (ac_id, "Analyze AC circuits — impedance, resonance, and power"),
-        (logic_id, "Enter the digital world — Boolean algebra and logic gates"),
-        (semi_id, "Understand semiconductors — diodes, transistors, and modern electronics"),
+        (
+            circuit_id,
+            "Start with circuit fundamentals — voltage, current, and basic topologies",
+        ),
+        (
+            ohm_id,
+            "Master Ohm's Law and Kirchhoff's Laws — the foundation of circuit analysis",
+        ),
+        (
+            cap_id,
+            "Learn about energy storage elements — capacitors and inductors",
+        ),
+        (
+            ac_id,
+            "Analyze AC circuits — impedance, resonance, and power",
+        ),
+        (
+            logic_id,
+            "Enter the digital world — Boolean algebra and logic gates",
+        ),
+        (
+            semi_id,
+            "Understand semiconductors — diodes, transistors, and modern electronics",
+        ),
     ];
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
@@ -5318,15 +6265,25 @@ pub fn seed_electrical_engineering(conn: &Connection) -> Result<(), rusqlite::Er
 // ── Robotics & AI Subject ────────────────────────────────────────────────
 pub fn seed_robotics_ai(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Robotics & AI'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Robotics & AI'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap_or(false);
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Robotics & AI', 'Intelligent machines — from sensors and actuators to neural networks and reinforcement learning.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Robotics & AI'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Robotics & AI'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         ("Sensors & Perception", "beginner"),
@@ -5345,14 +6302,46 @@ pub fn seed_robotics_ai(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let sensor_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Sensors & Perception' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let actuator_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Actuators & Motion' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let search_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Search Algorithms' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let nn_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Neural Networks' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let rl_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Reinforcement Learning' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let cv_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Computer Vision' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let nlp_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Natural Language Processing' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let kin_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Robot Kinematics' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let sensor_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Sensors & Perception' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let actuator_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Actuators & Motion' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let search_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Search Algorithms' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let nn_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Neural Networks' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let rl_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Reinforcement Learning' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let cv_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Computer Vision' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let nlp_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Natural Language Processing' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let kin_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Robot Kinematics' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: &[LessonRow] = &[
@@ -5432,14 +6421,38 @@ pub fn seed_robotics_ai(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_steps: &[(i64, &str)] = &[
-        (sensor_id, "Start with how robots perceive the world — sensors and sensor fusion"),
-        (actuator_id, "Learn how robots move — motors, servos, and locomotion strategies"),
-        (search_id, "Explore pathfinding — BFS, DFS, and A* for robot navigation"),
-        (cv_id, "Dive into computer vision — image processing and CNNs"),
-        (nn_id, "Understand neural networks — the brain behind intelligent robots"),
-        (rl_id, "Master reinforcement learning — teaching robots through trial and error"),
-        (nlp_id, "Explore natural language processing — enabling robots to understand text"),
-        (kin_id, "Complete your journey with robot kinematics — precise arm control"),
+        (
+            sensor_id,
+            "Start with how robots perceive the world — sensors and sensor fusion",
+        ),
+        (
+            actuator_id,
+            "Learn how robots move — motors, servos, and locomotion strategies",
+        ),
+        (
+            search_id,
+            "Explore pathfinding — BFS, DFS, and A* for robot navigation",
+        ),
+        (
+            cv_id,
+            "Dive into computer vision — image processing and CNNs",
+        ),
+        (
+            nn_id,
+            "Understand neural networks — the brain behind intelligent robots",
+        ),
+        (
+            rl_id,
+            "Master reinforcement learning — teaching robots through trial and error",
+        ),
+        (
+            nlp_id,
+            "Explore natural language processing — enabling robots to understand text",
+        ),
+        (
+            kin_id,
+            "Complete your journey with robot kinematics — precise arm control",
+        ),
     ];
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
@@ -5454,15 +6467,25 @@ pub fn seed_robotics_ai(conn: &Connection) -> Result<(), rusqlite::Error> {
 // ── Number Theory Subject ────────────────────────────────────────────────
 pub fn seed_number_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn
-        .query_row("SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Number Theory'", [], |r| r.get(0))
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Number Theory'",
+            [],
+            |r| r.get(0),
+        )
         .unwrap_or(false);
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Number Theory', 'The queen of mathematics — primes, divisibility, modular arithmetic, and the elegant properties of integers.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Number Theory'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Number Theory'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         ("Divisibility & GCD", "beginner"),
@@ -5479,12 +6502,36 @@ pub fn seed_number_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let div_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Divisibility & GCD' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let prime_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Prime Numbers' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let mod_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Modular Arithmetic' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let dioph_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Diophantine Equations' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let euler_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = ?1 AND subject_id = ?2", rusqlite::params!["Euler's Totient Function", subj_id], |r| r.get(0))?;
-    let crypto_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Cryptographic Applications' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let div_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Divisibility & GCD' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let prime_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Prime Numbers' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let mod_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Modular Arithmetic' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let dioph_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Diophantine Equations' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let euler_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = ?1 AND subject_id = ?2",
+        rusqlite::params!["Euler's Totient Function", subj_id],
+        |r| r.get(0),
+    )?;
+    let crypto_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Cryptographic Applications' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: &[LessonRow] = &[
@@ -5556,12 +6603,27 @@ pub fn seed_number_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_steps: &[(i64, &str)] = &[
-        (div_id, "Start with divisibility rules and the Euclidean algorithm"),
+        (
+            div_id,
+            "Start with divisibility rules and the Euclidean algorithm",
+        ),
         (prime_id, "Explore prime numbers — the atoms of arithmetic"),
-        (mod_id, "Learn modular arithmetic — the clock-like algebra of remainders"),
-        (dioph_id, "Solve Diophantine equations — integer solutions to polynomial equations"),
-        (euler_id, "Master Euler's totient function and its powerful theorem"),
-        (crypto_id, "Apply number theory to cryptography — RSA and Diffie-Hellman"),
+        (
+            mod_id,
+            "Learn modular arithmetic — the clock-like algebra of remainders",
+        ),
+        (
+            dioph_id,
+            "Solve Diophantine equations — integer solutions to polynomial equations",
+        ),
+        (
+            euler_id,
+            "Master Euler's totient function and its powerful theorem",
+        ),
+        (
+            crypto_id,
+            "Apply number theory to cryptography — RSA and Diffie-Hellman",
+        ),
     ];
     for (i, (tid, desc)) in path_steps.iter().enumerate() {
         conn.execute(
@@ -5590,7 +6652,9 @@ pub fn seed_formal_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Formal Languages'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Formal Languages'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -5608,19 +6672,23 @@ pub fn seed_formal_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let fa_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Finite Automata'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let re_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Regular Expressions'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let cfg_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Context-Free Grammars'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let tm_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Turing Machines'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -5683,10 +6751,30 @@ pub fn seed_formal_languages(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let paths = [
-        ("automata theory", 1, fa_id, "Finite automata — the simplest computational models"),
-        ("automata theory", 2, re_id, "Regular expressions and regular languages"),
-        ("automata theory", 3, cfg_id, "Context-free grammars and pushdown automata"),
-        ("automata theory", 4, tm_id, "Turing machines, computability, and the limits of computation"),
+        (
+            "automata theory",
+            1,
+            fa_id,
+            "Finite automata — the simplest computational models",
+        ),
+        (
+            "automata theory",
+            2,
+            re_id,
+            "Regular expressions and regular languages",
+        ),
+        (
+            "automata theory",
+            3,
+            cfg_id,
+            "Context-free grammars and pushdown automata",
+        ),
+        (
+            "automata theory",
+            4,
+            tm_id,
+            "Turing machines, computability, and the limits of computation",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -5715,13 +6803,20 @@ pub fn seed_philosophy_of_mind(conn: &Connection) -> Result<(), rusqlite::Error>
         [],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Philosophy of Mind'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Philosophy of Mind'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
         (subj_id, "The Mind-Body Problem", "beginner", 1),
         (subj_id, "Consciousness", "intermediate", 2),
-        (subj_id, "Artificial Intelligence & Minds", "intermediate", 3),
+        (
+            subj_id,
+            "Artificial Intelligence & Minds",
+            "intermediate",
+            3,
+        ),
         (subj_id, "Free Will", "advanced", 4),
     ];
     for (sid, name, diff, order) in &topics {
@@ -5733,19 +6828,23 @@ pub fn seed_philosophy_of_mind(conn: &Connection) -> Result<(), rusqlite::Error>
 
     let mb_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'The Mind-Body Problem'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let con_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Consciousness'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let ai_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Artificial Intelligence & Minds'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
     let fw_id: i64 = conn.query_row(
         "SELECT id FROM topics WHERE subject_id = ?1 AND name = 'Free Will'",
-        [subj_id], |r| r.get(0),
+        [subj_id],
+        |r| r.get(0),
     )?;
 
     let lessons: Vec<LessonRow> = vec![
@@ -5794,10 +6893,30 @@ pub fn seed_philosophy_of_mind(conn: &Connection) -> Result<(), rusqlite::Error>
     }
 
     let paths = [
-        ("philosophy of mind", 1, mb_id, "The mind-body problem — dualism, physicalism, functionalism"),
-        ("philosophy of mind", 2, con_id, "Consciousness and the hard problem"),
-        ("philosophy of mind", 3, ai_id, "Can machines think? Turing Test and Chinese Room"),
-        ("philosophy of mind", 4, fw_id, "Free will, determinism, and compatibilism"),
+        (
+            "philosophy of mind",
+            1,
+            mb_id,
+            "The mind-body problem — dualism, physicalism, functionalism",
+        ),
+        (
+            "philosophy of mind",
+            2,
+            con_id,
+            "Consciousness and the hard problem",
+        ),
+        (
+            "philosophy of mind",
+            3,
+            ai_id,
+            "Can machines think? Turing Test and Chinese Room",
+        ),
+        (
+            "philosophy of mind",
+            4,
+            fw_id,
+            "Free will, determinism, and compatibilism",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -5812,16 +6931,26 @@ pub fn seed_philosophy_of_mind(conn: &Connection) -> Result<(), rusqlite::Error>
 // ── Organic Chemistry & Graph Theory subjects ──────────────────────────
 
 pub fn seed_organic_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Organic Chemistry'", [], |r| r.get(0),
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Organic Chemistry'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Organic Chemistry', 'The chemistry of carbon compounds — functional groups, reactions, and the molecules of life.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Organic Chemistry'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Organic Chemistry'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         ("Hydrocarbons", "beginner", 1),
@@ -5838,12 +6967,36 @@ pub fn seed_organic_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> 
         )?;
     }
 
-    let hc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Hydrocarbons'", [subj_id], |r| r.get(0))?;
-    let fg_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Functional Groups'", [subj_id], |r| r.get(0))?;
-    let iso_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Isomerism'", [subj_id], |r| r.get(0))?;
-    let rm_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Reaction Mechanisms'", [subj_id], |r| r.get(0))?;
-    let sc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Stereochemistry'", [subj_id], |r| r.get(0))?;
-    let poly_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Polymers'", [subj_id], |r| r.get(0))?;
+    let hc_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Hydrocarbons'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let fg_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Functional Groups'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let iso_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Isomerism'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let rm_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Reaction Mechanisms'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let sc_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Stereochemistry'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let poly_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Polymers'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -5909,12 +7062,42 @@ pub fn seed_organic_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> 
     }
 
     let paths = [
-        ("organic chemistry", 1, hc_id, "Start with hydrocarbons — the carbon backbone"),
-        ("organic chemistry", 2, fg_id, "Learn functional groups that determine reactivity"),
-        ("organic chemistry", 3, iso_id, "Understand isomerism — same formula, different structures"),
-        ("organic chemistry", 4, rm_id, "Master reaction mechanisms — how reactions actually happen"),
-        ("organic chemistry", 5, sc_id, "Explore stereochemistry — 3D molecular arrangement"),
-        ("organic chemistry", 6, poly_id, "Apply knowledge to polymers — giant molecules"),
+        (
+            "organic chemistry",
+            1,
+            hc_id,
+            "Start with hydrocarbons — the carbon backbone",
+        ),
+        (
+            "organic chemistry",
+            2,
+            fg_id,
+            "Learn functional groups that determine reactivity",
+        ),
+        (
+            "organic chemistry",
+            3,
+            iso_id,
+            "Understand isomerism — same formula, different structures",
+        ),
+        (
+            "organic chemistry",
+            4,
+            rm_id,
+            "Master reaction mechanisms — how reactions actually happen",
+        ),
+        (
+            "organic chemistry",
+            5,
+            sc_id,
+            "Explore stereochemistry — 3D molecular arrangement",
+        ),
+        (
+            "organic chemistry",
+            6,
+            poly_id,
+            "Apply knowledge to polymers — giant molecules",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -5927,16 +7110,26 @@ pub fn seed_organic_chemistry(conn: &Connection) -> Result<(), rusqlite::Error> 
 }
 
 pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Graph Theory'", [], |r| r.get(0),
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Graph Theory'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Graph Theory', 'The mathematics of networks — vertices, edges, paths, and the structures that connect everything.')",
         [],
     )?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Graph Theory'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Graph Theory'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         ("Vertices and Edges", "beginner", 1),
@@ -5953,12 +7146,36 @@ pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let ve_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Vertices and Edges'", [subj_id], |r| r.get(0))?;
-    let pc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Paths and Cycles'", [subj_id], |r| r.get(0))?;
-    let tree_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Trees'", [subj_id], |r| r.get(0))?;
-    let gc_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Graph Coloring'", [subj_id], |r| r.get(0))?;
-    let eh_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Eulerian and Hamiltonian Graphs'", [subj_id], |r| r.get(0))?;
-    let pg_id: i64 = conn.query_row("SELECT id FROM topics WHERE subject_id=?1 AND name='Planar Graphs'", [subj_id], |r| r.get(0))?;
+    let ve_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Vertices and Edges'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let pc_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Paths and Cycles'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let tree_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Trees'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let gc_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Graph Coloring'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let eh_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Eulerian and Hamiltonian Graphs'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let pg_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE subject_id=?1 AND name='Planar Graphs'",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     let lessons: Vec<LessonRow> = vec![
         (ve_id, "What is a Graph?", "A graph G = (V, E) consists of a set of vertices (nodes) V and a set of edges E connecting pairs of vertices. Graphs model relationships: social networks, road maps, molecular structures. The degree of a vertex is the number of edges connected to it.", 1),
@@ -6024,12 +7241,37 @@ pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let paths = [
-        ("graph theory", 1, ve_id, "Foundations: vertices, edges, and graph types"),
+        (
+            "graph theory",
+            1,
+            ve_id,
+            "Foundations: vertices, edges, and graph types",
+        ),
         ("graph theory", 2, pc_id, "Paths, cycles, and connectivity"),
-        ("graph theory", 3, tree_id, "Trees — the simplest connected graphs"),
-        ("graph theory", 4, gc_id, "Graph coloring and the chromatic number"),
-        ("graph theory", 5, eh_id, "Euler and Hamiltonian paths — traversal problems"),
-        ("graph theory", 6, pg_id, "Planar graphs, Euler's formula, and Kuratowski"),
+        (
+            "graph theory",
+            3,
+            tree_id,
+            "Trees — the simplest connected graphs",
+        ),
+        (
+            "graph theory",
+            4,
+            gc_id,
+            "Graph coloring and the chromatic number",
+        ),
+        (
+            "graph theory",
+            5,
+            eh_id,
+            "Euler and Hamiltonian paths — traversal problems",
+        ),
+        (
+            "graph theory",
+            6,
+            pg_id,
+            "Planar graphs, Euler's formula, and Kuratowski",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -6044,10 +7286,15 @@ pub fn seed_graph_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
 pub fn seed_thermodynamics(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES (?1, ?2)",
-        ["Thermodynamics", "The science of heat, energy, and work — from engines to entropy."],
+        [
+            "Thermodynamics",
+            "The science of heat, energy, and work — from engines to entropy.",
+        ],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Thermodynamics'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Thermodynamics'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -6064,11 +7311,31 @@ pub fn seed_thermodynamics(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let t1: i64 = conn.query_row("SELECT id FROM topics WHERE name='Zeroth & First Law'", [], |r| r.get(0))?;
-    let t2: i64 = conn.query_row("SELECT id FROM topics WHERE name='Second Law & Entropy'", [], |r| r.get(0))?;
-    let t3: i64 = conn.query_row("SELECT id FROM topics WHERE name='Heat Engines & Carnot Cycle'", [], |r| r.get(0))?;
-    let t4: i64 = conn.query_row("SELECT id FROM topics WHERE name='Thermodynamic Potentials'", [], |r| r.get(0))?;
-    let t5: i64 = conn.query_row("SELECT id FROM topics WHERE name='Phase Transitions'", [], |r| r.get(0))?;
+    let t1: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Zeroth & First Law'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t2: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Second Law & Entropy'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t3: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Heat Engines & Carnot Cycle'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t4: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Thermodynamic Potentials'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t5: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Phase Transitions'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let lessons: Vec<LessonRow> = vec![
         (t1, "Temperature & Thermal Equilibrium", "The zeroth law states that if A is in thermal equilibrium with B, and B with C, then A is in equilibrium with C — establishing temperature as a measurable property.", 1),
@@ -6128,10 +7395,25 @@ pub fn seed_thermodynamics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     let paths = [
         ("thermodynamics", 1, t1, "Start with the fundamental laws"),
-        ("thermodynamics", 2, t2, "Understand entropy and irreversibility"),
+        (
+            "thermodynamics",
+            2,
+            t2,
+            "Understand entropy and irreversibility",
+        ),
         ("thermodynamics", 3, t3, "Apply to heat engines"),
-        ("thermodynamics", 4, t4, "Thermodynamic potentials and free energy"),
-        ("thermodynamics", 5, t5, "Phase transitions and critical phenomena"),
+        (
+            "thermodynamics",
+            4,
+            t4,
+            "Thermodynamic potentials and free energy",
+        ),
+        (
+            "thermodynamics",
+            5,
+            t5,
+            "Phase transitions and critical phenomena",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -6149,7 +7431,9 @@ pub fn seed_cognitive_science(conn: &Connection) -> Result<(), rusqlite::Error> 
         ["Cognitive Science", "The interdisciplinary study of the mind — perception, memory, language, and decision-making."],
     )?;
     let subj_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Cognitive Science'", [], |r| r.get(0),
+        "SELECT id FROM subjects WHERE name = 'Cognitive Science'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -6166,11 +7450,31 @@ pub fn seed_cognitive_science(conn: &Connection) -> Result<(), rusqlite::Error> 
         )?;
     }
 
-    let t1: i64 = conn.query_row("SELECT id FROM topics WHERE name='Perception & Attention'", [], |r| r.get(0))?;
-    let t2: i64 = conn.query_row("SELECT id FROM topics WHERE name='Memory Systems'", [], |r| r.get(0))?;
-    let t3: i64 = conn.query_row("SELECT id FROM topics WHERE name='Language & Cognition'", [], |r| r.get(0))?;
-    let t4: i64 = conn.query_row("SELECT id FROM topics WHERE name='Decision Making & Heuristics'", [], |r| r.get(0))?;
-    let t5: i64 = conn.query_row("SELECT id FROM topics WHERE name='Cognitive Development'", [], |r| r.get(0))?;
+    let t1: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Perception & Attention'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t2: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Memory Systems'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t3: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Language & Cognition'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t4: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Decision Making & Heuristics'",
+        [],
+        |r| r.get(0),
+    )?;
+    let t5: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name='Cognitive Development'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let lessons: Vec<LessonRow> = vec![
         (t1, "Selective Attention", "We cannot process everything — attention acts as a filter. The cocktail party effect shows we can focus on one conversation in a noisy room yet still notice our name.", 1),
@@ -6228,11 +7532,36 @@ pub fn seed_cognitive_science(conn: &Connection) -> Result<(), rusqlite::Error> 
     }
 
     let paths = [
-        ("cognitive science", 1, t1, "How we perceive and attend to the world"),
-        ("cognitive science", 2, t2, "Memory: encoding storage and retrieval"),
-        ("cognitive science", 3, t3, "How language and thought interact"),
-        ("cognitive science", 4, t4, "Decision-making and cognitive biases"),
-        ("cognitive science", 5, t5, "How cognition develops across the lifespan"),
+        (
+            "cognitive science",
+            1,
+            t1,
+            "How we perceive and attend to the world",
+        ),
+        (
+            "cognitive science",
+            2,
+            t2,
+            "Memory: encoding storage and retrieval",
+        ),
+        (
+            "cognitive science",
+            3,
+            t3,
+            "How language and thought interact",
+        ),
+        (
+            "cognitive science",
+            4,
+            t4,
+            "Decision-making and cognitive biases",
+        ),
+        (
+            "cognitive science",
+            5,
+            t5,
+            "How cognition develops across the lifespan",
+        ),
     ];
     for (goal, order, tid, desc) in &paths {
         conn.execute(
@@ -6245,9 +7574,11 @@ pub fn seed_cognitive_science(conn: &Connection) -> Result<(), rusqlite::Error> 
 }
 
 pub fn seed_cloze_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let arith_id: Option<i64> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Arithmetic'", [], |r| r.get(0),
-    ).ok();
+    let arith_id: Option<i64> = conn
+        .query_row("SELECT id FROM topics WHERE name = 'Arithmetic'", [], |r| {
+            r.get(0)
+        })
+        .ok();
 
     if let Some(tid) = arith_id {
         conn.execute(
@@ -6260,9 +7591,11 @@ pub fn seed_cloze_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let cells_id: Option<i64> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Cells'", [], |r| r.get(0),
-    ).ok();
+    let cells_id: Option<i64> = conn
+        .query_row("SELECT id FROM topics WHERE name = 'Cells'", [], |r| {
+            r.get(0)
+        })
+        .ok();
     if let Some(tid) = cells_id {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
@@ -6270,9 +7603,13 @@ pub fn seed_cloze_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let thermo_t1: Option<i64> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Zeroth & First Law'", [], |r| r.get(0),
-    ).ok();
+    let thermo_t1: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Zeroth & First Law'",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
     if let Some(tid) = thermo_t1 {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
@@ -6280,9 +7617,13 @@ pub fn seed_cloze_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let mem_id: Option<i64> = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Memory Systems'", [], |r| r.get(0),
-    ).ok();
+    let mem_id: Option<i64> = conn
+        .query_row(
+            "SELECT id FROM topics WHERE name = 'Memory Systems'",
+            [],
+            |r| r.get(0),
+        )
+        .ok();
     if let Some(tid) = mem_id {
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, hint, explanation, difficulty) VALUES (?1,?2,?3,?4,?5,?5,?6)",
@@ -6309,11 +7650,10 @@ fn seed_ecology(conn: &Connection) -> Result<(), rusqlite::Error> {
         "INSERT INTO subjects (name, description) VALUES ('Ecology', 'The study of ecosystems, populations, and how organisms interact with each other and their environment.')",
         [],
     )?;
-    let eco_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Ecology'",
-        [],
-        |r| r.get(0),
-    )?;
+    let eco_id: i64 =
+        conn.query_row("SELECT id FROM subjects WHERE name = 'Ecology'", [], |r| {
+            r.get(0)
+        })?;
 
     let topics = [
         ("Population Dynamics", "beginner"),
@@ -6330,19 +7670,29 @@ fn seed_ecology(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let pop_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Population Dynamics'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Population Dynamics'",
+        [],
+        |r| r.get(0),
     )?;
     let comm_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Community Ecology'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Community Ecology'",
+        [],
+        |r| r.get(0),
     )?;
     let energy_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Ecosystem Energy Flow'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Ecosystem Energy Flow'",
+        [],
+        |r| r.get(0),
     )?;
     let cycles_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Biogeochemical Cycles'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Biogeochemical Cycles'",
+        [],
+        |r| r.get(0),
     )?;
     let biodiv_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Biodiversity & Conservation'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Biodiversity & Conservation'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -6401,9 +7751,18 @@ fn seed_ecology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning paths
     let path_topics = [
-        (pop_id, "Understand how populations grow and what limits them"),
-        (energy_id, "Follow energy through trophic levels and food webs"),
-        (comm_id, "Explore species interactions and community dynamics"),
+        (
+            pop_id,
+            "Understand how populations grow and what limits them",
+        ),
+        (
+            energy_id,
+            "Follow energy through trophic levels and food webs",
+        ),
+        (
+            comm_id,
+            "Explore species interactions and community dynamics",
+        ),
         (cycles_id, "Trace matter through biogeochemical cycles"),
         (biodiv_id, "Measure and protect biodiversity"),
     ];
@@ -6453,16 +7812,24 @@ fn seed_abstract_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let groups_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Groups & Subgroups'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Groups & Subgroups'",
+        [],
+        |r| r.get(0),
     )?;
     let rings_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Ring Theory'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Ring Theory'",
+        [],
+        |r| r.get(0),
     )?;
     let fields_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Field Extensions'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Field Extensions'",
+        [],
+        |r| r.get(0),
     )?;
     let homo_id: i64 = conn.query_row(
-        "SELECT id FROM topics WHERE name = 'Homomorphisms & Isomorphisms'", [], |r| r.get(0),
+        "SELECT id FROM topics WHERE name = 'Homomorphisms & Isomorphisms'",
+        [],
+        |r| r.get(0),
     )?;
 
     // Lessons
@@ -6520,8 +7887,14 @@ fn seed_abstract_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_topics = [
-        (groups_id, "Master group axioms, subgroups, and cyclic groups"),
-        (homo_id, "Understand structure-preserving maps and isomorphism theorems"),
+        (
+            groups_id,
+            "Master group axioms, subgroups, and cyclic groups",
+        ),
+        (
+            homo_id,
+            "Understand structure-preserving maps and isomorphism theorems",
+        ),
         (rings_id, "Learn ring axioms, ideals, and quotient rings"),
         (fields_id, "Explore fields, extensions, and degree theory"),
     ];
@@ -6537,7 +7910,11 @@ fn seed_abstract_algebra(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute("INSERT INTO subjects (name, description) VALUES ('Molecular Biology', 'The study of biological molecules — DNA, RNA, proteins, and the machinery of life at the molecular level.')", [])?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Molecular Biology'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Molecular Biology'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         ("DNA Structure & Replication", "beginner", 1),
@@ -6554,12 +7931,36 @@ fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let dna_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'DNA Structure & Replication' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let transcription_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Transcription' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let translation_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Translation & Protein Synthesis' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let regulation_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Gene Regulation' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let mutations_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Mutations & Repair' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let epigenetics_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Epigenetics' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let dna_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'DNA Structure & Replication' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let transcription_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Transcription' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let translation_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Translation & Protein Synthesis' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let regulation_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Gene Regulation' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let mutations_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Mutations & Repair' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let epigenetics_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Epigenetics' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -6571,7 +7972,10 @@ fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
         (epigenetics_id, "Beyond the DNA Sequence", "Epigenetics studies heritable changes in gene expression without altering DNA sequence. Key mechanisms: DNA methylation (adding methyl groups to cytosine, usually silencing genes), histone modification (acetylation opens chromatin, methylation can activate or silence), and non-coding RNAs (like microRNAs that degrade mRNA). Environmental factors can alter epigenetic marks.", 1),
     ];
     for (tid, title, content, order) in &lessons {
-        conn.execute("INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)", rusqlite::params![tid, title, content, order])?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
     }
 
     // Explanations
@@ -6615,12 +8019,27 @@ fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_topics = [
-        (dna_id, "Master DNA structure, base pairing, and semiconservative replication"),
-        (transcription_id, "Understand how genes are transcribed into mRNA"),
-        (translation_id, "Learn how ribosomes translate mRNA into proteins"),
+        (
+            dna_id,
+            "Master DNA structure, base pairing, and semiconservative replication",
+        ),
+        (
+            transcription_id,
+            "Understand how genes are transcribed into mRNA",
+        ),
+        (
+            translation_id,
+            "Learn how ribosomes translate mRNA into proteins",
+        ),
         (regulation_id, "Explore how cells control gene expression"),
-        (mutations_id, "Study mutation types and DNA repair mechanisms"),
-        (epigenetics_id, "Discover heritable changes beyond the DNA sequence"),
+        (
+            mutations_id,
+            "Study mutation types and DNA repair mechanisms",
+        ),
+        (
+            epigenetics_id,
+            "Discover heritable changes beyond the DNA sequence",
+        ),
     ];
     for (i, (tid, desc)) in path_topics.iter().enumerate() {
         conn.execute(
@@ -6634,7 +8053,11 @@ fn seed_molecular_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     conn.execute("INSERT INTO subjects (name, description) VALUES ('Set Theory', 'The mathematical study of collections of objects — the foundation of modern mathematics.')", [])?;
-    let subj_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Set Theory'", [], |r| r.get(0))?;
+    let subj_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Set Theory'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         ("Sets & Notation", "beginner", 1),
@@ -6650,11 +8073,31 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         )?;
     }
 
-    let notation_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Sets & Notation' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let operations_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Set Operations' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let relations_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Relations & Functions' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let cardinality_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Cardinality & Countability' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
-    let axiom_id: i64 = conn.query_row("SELECT id FROM topics WHERE name = 'Axiom of Choice & Zorn''s Lemma' AND subject_id = ?1", [subj_id], |r| r.get(0))?;
+    let notation_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Sets & Notation' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let operations_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Set Operations' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let relations_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Relations & Functions' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let cardinality_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Cardinality & Countability' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
+    let axiom_id: i64 = conn.query_row(
+        "SELECT id FROM topics WHERE name = 'Axiom of Choice & Zorn''s Lemma' AND subject_id = ?1",
+        [subj_id],
+        |r| r.get(0),
+    )?;
 
     // Lessons
     let lessons: Vec<LessonRow> = vec![
@@ -6665,7 +8108,10 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
         (axiom_id, "The Axiom of Choice", "The Axiom of Choice (AC) states that given any collection of non-empty sets, there exists a function that picks one element from each. Equivalent statements: Zorn's Lemma (every partially ordered set where every chain has an upper bound contains a maximal element) and the Well-Ordering Theorem (every set can be well-ordered). AC is independent of ZF set theory.", 1),
     ];
     for (tid, title, content, order) in &lessons {
-        conn.execute("INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)", rusqlite::params![tid, title, content, order])?;
+        conn.execute(
+            "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
+            rusqlite::params![tid, title, content, order],
+        )?;
     }
 
     // Explanations
@@ -6702,6 +8148,7 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     // Analogy quiz questions (new quiz type)
+    #[allow(clippy::type_complexity)]
     let analogies: Vec<(i64, &str, &str, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
         (notation_id, "∈ is to 'element of' as ⊆ is to ___", "subset of", Some("superset of"), Some("equal to"), Some("complement of"), "Both symbols describe a relationship between an object and a set", "∈ means membership (element in set), ⊆ means subset (set contained in set). Both describe containment relationships at different levels."),
         (operations_id, "Union is to OR as Intersection is to ___", "AND", Some("NOT"), Some("XOR"), Some("NOR"), "Think about logical operations", "Union (∪) corresponds to logical OR (in either), intersection (∩) corresponds to logical AND (in both). This connection is formalized in Boolean algebra."),
@@ -6715,9 +8162,18 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
 
     // Learning path
     let path_topics = [
-        (notation_id, "Learn set notation, membership, and the empty set"),
-        (operations_id, "Master union, intersection, complement, and De Morgan's laws"),
-        (relations_id, "Understand relations, functions, and bijectivity"),
+        (
+            notation_id,
+            "Learn set notation, membership, and the empty set",
+        ),
+        (
+            operations_id,
+            "Master union, intersection, complement, and De Morgan's laws",
+        ),
+        (
+            relations_id,
+            "Understand relations, functions, and bijectivity",
+        ),
         (cardinality_id, "Explore countable vs uncountable infinity"),
         (axiom_id, "Study the Axiom of Choice and its equivalents"),
     ];
@@ -6733,6 +8189,7 @@ fn seed_set_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_analogy_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
     // Add analogy questions across existing subjects for variety
+    #[allow(clippy::type_complexity)]
     let analogies: Vec<(&str, &str, &str, Option<&str>, Option<&str>, Option<&str>, &str, &str)> = vec![
         ("Arithmetic", "Addition is to subtraction as multiplication is to ___", "division", Some("addition"), Some("exponentiation"), Some("logarithm"), "Think inverse operations", "Division is the inverse of multiplication, just as subtraction is the inverse of addition. Each pair undoes the other."),
         ("Photosynthesis", "Chloroplast is to photosynthesis as mitochondria is to ___", "cellular respiration", Some("photosynthesis"), Some("fermentation"), Some("osmosis"), "Where does each process occur?", "Chloroplasts perform photosynthesis (light → chemical energy). Mitochondria perform cellular respiration (chemical energy → ATP). Each organelle is the site of its signature process."),
@@ -6742,11 +8199,11 @@ fn seed_analogy_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
     ];
 
     for (topic_name, q, correct, oa, ob, oc, hint, expl) in &analogies {
-        let topic_id: Option<i64> = conn.query_row(
-            "SELECT id FROM topics WHERE name = ?1",
-            [topic_name],
-            |r| r.get(0),
-        ).ok();
+        let topic_id: Option<i64> = conn
+            .query_row("SELECT id FROM topics WHERE name = ?1", [topic_name], |r| {
+                r.get(0)
+            })
+            .ok();
         if let Some(tid) = topic_id {
             conn.execute(
                 "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1, ?2, 'analogy', ?3, ?4, ?5, ?6, ?7, ?8)",
@@ -6758,17 +8215,25 @@ fn seed_analogy_questions(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Paleontology'", [], |r| r.get(0)
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Paleontology'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Paleontology', 'The study of ancient life through fossils — dinosaurs, mass extinctions, and the history of life on Earth.')",
         [],
     )?;
     let sub_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Paleontology'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Paleontology'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -6797,7 +8262,8 @@ fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, title, content, order) in &lessons {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
@@ -6813,7 +8279,8 @@ fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, concept, explanation, analogy, follow_up) in &explanations {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -6836,7 +8303,8 @@ fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, q, qtype, correct, oa, ob, oc, _od, hint, expl) in &quizzes {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
@@ -6855,7 +8323,8 @@ fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (i, (sort, desc)) in path_steps.iter().enumerate() {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort], |r| r.get(0)
+            rusqlite::params![sub_id, sort],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('paleontology journey', ?1, ?2, ?3)",
@@ -6867,17 +8336,25 @@ fn seed_paleontology(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Marine Biology'", [], |r| r.get(0)
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Marine Biology'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Marine Biology', 'The study of ocean life — from microscopic plankton to blue whales, coral reefs to deep-sea vents.')",
         [],
     )?;
     let sub_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Marine Biology'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Marine Biology'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -6906,7 +8383,8 @@ fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, title, content, order) in &lessons {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
@@ -6922,7 +8400,8 @@ fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, concept, explanation, analogy, follow_up) in &explanations {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -6945,7 +8424,8 @@ fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, q, qtype, correct, oa, ob, oc, _od, hint, expl) in &quizzes {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, hint, explanation) VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9)",
@@ -6964,7 +8444,8 @@ fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (i, (sort, desc)) in path_steps.iter().enumerate() {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort], |r| r.get(0)
+            rusqlite::params![sub_id, sort],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('ocean explorer', ?1, ?2, ?3)",
@@ -6977,15 +8458,23 @@ fn seed_marine_biology(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Astrophysics'", [], |r| r.get(0)
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Astrophysics'",
+        [],
+        |r| r.get(0),
     )?;
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Astrophysics', 'The physics of stars, galaxies, black holes, and the universe — from stellar nucleosynthesis to cosmic expansion.')",
         [],
     )?;
-    let sub_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Astrophysics'", [], |r| r.get(0))?;
+    let sub_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Astrophysics'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (1, "Stellar Evolution", "beginner"),
@@ -7019,7 +8508,8 @@ fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (sort_topic, title, content, sort_order) in &lessons {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+            rusqlite::params![sub_id, sort_topic],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
@@ -7037,7 +8527,8 @@ fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (sort_topic, concept, explanation, analogy, follow_up) in &explanations {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+            rusqlite::params![sub_id, sort_topic],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -7081,7 +8572,8 @@ fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (sort_topic, question, qtype, answer, oa, ob, oc, od, hint, explanation) in &quizzes {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+            rusqlite::params![sub_id, sort_topic],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
@@ -7102,7 +8594,8 @@ fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (i, (sort, desc)) in path_steps.iter().enumerate() {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort], |r| r.get(0)
+            rusqlite::params![sub_id, sort],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('astrophysics explorer', ?1, ?2, ?3)",
@@ -7115,15 +8608,23 @@ fn seed_astrophysics(conn: &Connection) -> Result<(), rusqlite::Error> {
 
 fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
     let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Neuroscience'", [], |r| r.get(0)
+        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Neuroscience'",
+        [],
+        |r| r.get(0),
     )?;
-    if exists { return Ok(()); }
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Neuroscience', 'The science of the brain and nervous system — from neurons and synapses to consciousness, memory, and behavior.')",
         [],
     )?;
-    let sub_id: i64 = conn.query_row("SELECT id FROM subjects WHERE name = 'Neuroscience'", [], |r| r.get(0))?;
+    let sub_id: i64 = conn.query_row(
+        "SELECT id FROM subjects WHERE name = 'Neuroscience'",
+        [],
+        |r| r.get(0),
+    )?;
 
     let topics = [
         (1, "Neurons & Synapses", "beginner"),
@@ -7157,7 +8658,8 @@ fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (sort_topic, title, content, sort_order) in &lessons {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+            rusqlite::params![sub_id, sort_topic],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
@@ -7175,7 +8677,8 @@ fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (sort_topic, concept, explanation, analogy, follow_up) in &explanations {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+            rusqlite::params![sub_id, sort_topic],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -7217,7 +8720,8 @@ fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (sort_topic, question, qtype, answer, oa, ob, oc, od, hint, explanation) in &quizzes {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort_topic], |r| r.get(0)
+            rusqlite::params![sub_id, sort_topic],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
@@ -7227,17 +8731,27 @@ fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let path_steps: Vec<(i64, &str)> = vec![
-        (1, "Learn how neurons communicate via electrical and chemical signals"),
+        (
+            1,
+            "Learn how neurons communicate via electrical and chemical signals",
+        ),
         (2, "Explore the major brain regions and their functions"),
-        (5, "Understand the neurotransmitter systems that drive behavior"),
-        (3, "Discover how memories form, consolidate, and are retrieved"),
+        (
+            5,
+            "Understand the neurotransmitter systems that drive behavior",
+        ),
+        (
+            3,
+            "Discover how memories form, consolidate, and are retrieved",
+        ),
         (4, "Learn how the brain rewires itself through experience"),
         (6, "Explore the mysteries of consciousness and sleep"),
     ];
     for (i, (sort, desc)) in path_steps.iter().enumerate() {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort], |r| r.get(0)
+            rusqlite::params![sub_id, sort],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('brain explorer', ?1, ?2, ?3)",
@@ -7249,17 +8763,25 @@ fn seed_neuroscience(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Cryptography'", [], |r| r.get(0)
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Cryptography'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Cryptography', 'The science of secure communication — ciphers, encryption, hashing, and the mathematical foundations of digital security.')",
         [],
     )?;
     let sub_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Cryptography'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Cryptography'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -7294,7 +8816,8 @@ pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, title, content, order) in &lessons {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
@@ -7313,7 +8836,8 @@ pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, concept, explanation, analogy, follow_up) in &explanations {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -7358,7 +8882,8 @@ pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
     for (idx, q, qtype, correct, oa, ob, oc, od, hint, expl) in &quizzes {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
@@ -7368,17 +8893,27 @@ pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
     }
 
     let path_steps: Vec<(i64, &str)> = vec![
-        (1, "Start with classical ciphers to understand substitution and transposition"),
+        (
+            1,
+            "Start with classical ciphers to understand substitution and transposition",
+        ),
         (2, "Learn symmetric encryption (AES) and block cipher modes"),
         (4, "Understand hash functions and their applications"),
-        (3, "Explore public key cryptography (RSA, ECC, Diffie-Hellman)"),
+        (
+            3,
+            "Explore public key cryptography (RSA, ECC, Diffie-Hellman)",
+        ),
         (5, "Learn how digital signatures and PKI create trust"),
-        (6, "Study protocols like TLS and advanced concepts like zero-knowledge proofs"),
+        (
+            6,
+            "Study protocols like TLS and advanced concepts like zero-knowledge proofs",
+        ),
     ];
     for (i, (sort, desc)) in path_steps.iter().enumerate() {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort], |r| r.get(0)
+            rusqlite::params![sub_id, sort],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('crypto master', ?1, ?2, ?3)",
@@ -7390,17 +8925,25 @@ pub fn seed_cryptography(conn: &Connection) -> Result<(), rusqlite::Error> {
 }
 
 pub fn seed_information_theory(conn: &Connection) -> Result<(), rusqlite::Error> {
-    let exists: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Information Theory'", [], |r| r.get(0)
-    ).unwrap_or(false);
-    if exists { return Ok(()); }
+    let exists: bool = conn
+        .query_row(
+            "SELECT COUNT(*) > 0 FROM subjects WHERE name = 'Information Theory'",
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(false);
+    if exists {
+        return Ok(());
+    }
 
     conn.execute(
         "INSERT INTO subjects (name, description) VALUES ('Information Theory', 'The mathematics of information — entropy, compression, channel capacity, and the fundamental limits of communication.')",
         [],
     )?;
     let sub_id: i64 = conn.query_row(
-        "SELECT id FROM subjects WHERE name = 'Information Theory'", [], |r| r.get(0)
+        "SELECT id FROM subjects WHERE name = 'Information Theory'",
+        [],
+        |r| r.get(0),
     )?;
 
     let topics = [
@@ -7432,7 +8975,8 @@ pub fn seed_information_theory(conn: &Connection) -> Result<(), rusqlite::Error>
     for (idx, title, content, order) in &lessons {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO lessons (topic_id, title, content, sort_order) VALUES (?1, ?2, ?3, ?4)",
@@ -7450,7 +8994,8 @@ pub fn seed_information_theory(conn: &Connection) -> Result<(), rusqlite::Error>
     for (idx, concept, explanation, analogy, follow_up) in &explanations {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO explanations (topic_id, concept, explanation, analogy, follow_up_question) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -7488,7 +9033,8 @@ pub fn seed_information_theory(conn: &Connection) -> Result<(), rusqlite::Error>
     for (idx, q, qtype, correct, oa, ob, oc, od, hint, expl) in &quizzes {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, idx], |r| r.get(0)
+            rusqlite::params![sub_id, idx],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO quiz_questions (topic_id, question, question_type, correct_answer, option_a, option_b, option_c, option_d, hint, explanation)
@@ -7498,16 +9044,23 @@ pub fn seed_information_theory(conn: &Connection) -> Result<(), rusqlite::Error>
     }
 
     let path_steps: Vec<(i64, &str)> = vec![
-        (1, "Understand entropy and the mathematical definition of information"),
+        (
+            1,
+            "Understand entropy and the mathematical definition of information",
+        ),
         (2, "Learn source coding and compression fundamentals"),
-        (3, "Explore channel capacity and Shannon's noisy channel theorem"),
+        (
+            3,
+            "Explore channel capacity and Shannon's noisy channel theorem",
+        ),
         (4, "Study error detection and correction codes"),
         (5, "Apply compression techniques: lossless and lossy"),
     ];
     for (i, (sort, desc)) in path_steps.iter().enumerate() {
         let tid: i64 = conn.query_row(
             "SELECT id FROM topics WHERE subject_id = ?1 AND sort_order = ?2",
-            rusqlite::params![sub_id, sort], |r| r.get(0)
+            rusqlite::params![sub_id, sort],
+            |r| r.get(0),
         )?;
         conn.execute(
             "INSERT INTO learning_paths (goal, step_order, topic_id, description) VALUES ('information theorist', ?1, ?2, ?3)",
@@ -7527,9 +9080,13 @@ pub fn seed_extra_core_quizzes(conn: &Connection) -> Result<(), rusqlite::Error>
 
     for (tid, name) in &math_topics {
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1", [tid], |r| r.get(0)
+            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1",
+            [tid],
+            |r| r.get(0),
         )?;
-        if count >= 6 { continue; } // Already has enough questions
+        if count >= 6 {
+            continue;
+        } // Already has enough questions
 
         match name.as_str() {
             "Arithmetic" => {
@@ -7547,9 +9104,27 @@ pub fn seed_extra_core_quizzes(conn: &Connection) -> Result<(), rusqlite::Error>
             }
             "Fractions" => {
                 let extras = [
-                    ("What is 3/4 + 1/4?", "fill_in_blank", "1", "3/4 + 1/4 = 4/4 = 1. When denominators match, add numerators.", "Same denominators make this easy."),
-                    ("Which fraction is equivalent to 0.75?", "multiple_choice", "3/4", "0.75 = 75/100 = 3/4. Divide both numerator and denominator by 25.", "Think about what fraction of a dollar is 75 cents."),
-                    ("True or false: 2/3 is greater than 3/4.", "true_false", "false", "2/3 ≈ 0.667 while 3/4 = 0.75. So 3/4 > 2/3.", "Convert both to decimals to compare."),
+                    (
+                        "What is 3/4 + 1/4?",
+                        "fill_in_blank",
+                        "1",
+                        "3/4 + 1/4 = 4/4 = 1. When denominators match, add numerators.",
+                        "Same denominators make this easy.",
+                    ),
+                    (
+                        "Which fraction is equivalent to 0.75?",
+                        "multiple_choice",
+                        "3/4",
+                        "0.75 = 75/100 = 3/4. Divide both numerator and denominator by 25.",
+                        "Think about what fraction of a dollar is 75 cents.",
+                    ),
+                    (
+                        "True or false: 2/3 is greater than 3/4.",
+                        "true_false",
+                        "false",
+                        "2/3 ≈ 0.667 while 3/4 = 0.75. So 3/4 > 2/3.",
+                        "Convert both to decimals to compare.",
+                    ),
                 ];
                 for (q, qt, ans, expl, hint) in &extras {
                     conn.execute(
@@ -7560,8 +9135,20 @@ pub fn seed_extra_core_quizzes(conn: &Connection) -> Result<(), rusqlite::Error>
             }
             "Algebra Basics" => {
                 let extras = [
-                    ("If 2x + 6 = 14, what is x?", "fill_in_blank", "4", "2x + 6 = 14 → 2x = 8 → x = 4. Subtract 6, then divide by 2.", "Isolate x by undoing operations."),
-                    ("The expression x² - 9 factors into:", "multiple_choice", "(x+3)(x-3)", "x² - 9 is a difference of squares: a² - b² = (a+b)(a-b) where a=x, b=3.", "This is a difference of squares."),
+                    (
+                        "If 2x + 6 = 14, what is x?",
+                        "fill_in_blank",
+                        "4",
+                        "2x + 6 = 14 → 2x = 8 → x = 4. Subtract 6, then divide by 2.",
+                        "Isolate x by undoing operations.",
+                    ),
+                    (
+                        "The expression x² - 9 factors into:",
+                        "multiple_choice",
+                        "(x+3)(x-3)",
+                        "x² - 9 is a difference of squares: a² - b² = (a+b)(a-b) where a=x, b=3.",
+                        "This is a difference of squares.",
+                    ),
                 ];
                 for (q, qt, ans, expl, hint) in &extras {
                     conn.execute(
@@ -7581,9 +9168,13 @@ pub fn seed_extra_core_quizzes(conn: &Connection) -> Result<(), rusqlite::Error>
 
     for (tid, name) in &sci_topics {
         let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1", [tid], |r| r.get(0)
+            "SELECT COUNT(*) FROM quiz_questions WHERE topic_id = ?1",
+            [tid],
+            |r| r.get(0),
         )?;
-        if count >= 6 { continue; }
+        if count >= 6 {
+            continue;
+        }
 
         match name.as_str() {
             "Photosynthesis" => {
@@ -7615,4 +9206,383 @@ pub fn seed_extra_core_quizzes(conn: &Connection) -> Result<(), rusqlite::Error>
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::db::schema;
+    use rusqlite::Connection;
+
+    #[test]
+    fn test_seed_populates_data() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 58); // 56 previous + Cryptography + Information Theory
+    }
+
+    #[test]
+    fn test_seed_idempotent() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(count, 58);
+    }
+
+    #[test]
+    fn test_all_topics_have_lessons() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let orphans: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t WHERE NOT EXISTS (SELECT 1 FROM lessons WHERE topic_id = t.id)",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(orphans, 0, "All topics should have at least one lesson");
+    }
+
+    #[test]
+    fn test_all_topics_have_quiz_questions() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let orphans: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t WHERE NOT EXISTS (SELECT 1 FROM quiz_questions WHERE topic_id = t.id)",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(
+            orphans, 0,
+            "All topics should have at least one quiz question"
+        );
+    }
+
+    #[test]
+    fn test_quiz_questions_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM quiz_questions", [], |r| r.get(0))
+            .unwrap();
+        assert!(
+            count >= 40,
+            "Should have at least 40 quiz questions, got {}",
+            count
+        );
+    }
+
+    #[test]
+    fn test_fill_in_blank_questions_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'fill_in_blank'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            count >= 5,
+            "Should have at least 5 fill-in-the-blank questions, got {}",
+            count
+        );
+    }
+
+    #[test]
+    fn test_music_and_art_subjects_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let music: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Music'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let art: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Art'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(music, 1);
+        assert_eq!(art, 1);
+    }
+
+    #[test]
+    fn test_philosophy_and_economics_subjects_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let philosophy: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Philosophy'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let economics: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Economics'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(philosophy, 1);
+        assert_eq!(economics, 1);
+    }
+
+    #[test]
+    fn test_new_subjects_have_topics() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let phil_topics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Philosophy'",
+            [], |r| r.get(0)
+        ).unwrap();
+        let econ_topics: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Economics'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(phil_topics, 4);
+        assert_eq!(econ_topics, 4);
+    }
+
+    #[test]
+    fn test_learning_paths_include_new_subjects() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let ct: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_paths WHERE goal = 'critical thinking'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let econ: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_paths WHERE goal = 'economics basics'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(ct, 4);
+        assert_eq!(econ, 4);
+    }
+
+    #[test]
+    fn test_psychology_and_envscience_subjects_exist() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let psych: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Psychology'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let env: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Environmental Science'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(psych, 1);
+        assert_eq!(env, 1);
+    }
+
+    #[test]
+    fn test_new_subjects_have_complete_content() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        for (name, min_topics, min_lessons) in
+            &[("Psychology", 7, 8), ("Environmental Science", 4, 8)]
+        {
+            let topic_count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
+                [name], |r| r.get(0)
+            ).unwrap();
+            assert!(
+                topic_count >= *min_topics,
+                "{} should have at least {} topics, got {}",
+                name,
+                min_topics,
+                topic_count
+            );
+
+            let lesson_count: i64 = conn.query_row(
+                "SELECT COUNT(*) FROM lessons l JOIN topics t ON t.id = l.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = ?1",
+                [name], |r| r.get(0)
+            ).unwrap();
+            assert!(
+                lesson_count >= *min_lessons,
+                "{} should have at least {} lessons, got {}",
+                name,
+                min_lessons,
+                lesson_count
+            );
+        }
+    }
+
+    #[test]
+    fn test_creative_writing_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let cw: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Creative Writing'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(cw, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Creative Writing'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 7);
+    }
+
+    #[test]
+    fn test_learning_paths_include_psychology_and_envscience() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let psych_paths: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_paths WHERE goal = 'understanding people'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let env_paths: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_paths WHERE goal = 'planet earth'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(psych_paths, 4);
+        assert_eq!(env_paths, 4);
+    }
+
+    #[test]
+    fn test_chemistry_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let chem: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Chemistry'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(chem, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Chemistry'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
+        // Verify learning paths
+        let path_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_paths WHERE goal = 'chemistry basics'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(path_count, 4);
+    }
+
+    #[test]
+    fn test_civics_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let civics: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Civics & Government'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(civics, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Civics & Government'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
+        let path_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM learning_paths WHERE goal = 'Civics Foundations'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(path_count, 4);
+    }
+
+    #[test]
+    fn test_media_literacy_subject_exists() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let media: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM subjects WHERE name = 'Media Literacy'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(media, 1);
+        let topic_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM topics t JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Media Literacy'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert_eq!(topic_count, 4);
+        let quiz_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions q JOIN topics t ON t.id = q.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Media Literacy'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert!(
+            quiz_count >= 10,
+            "Media Literacy should have at least 10 quiz questions, got {}",
+            quiz_count
+        );
+    }
+
+    #[test]
+    fn test_extra_geography_content() {
+        let conn = Connection::open_in_memory().unwrap();
+        schema::create_tables(&conn).unwrap();
+        seed_if_empty(&conn).unwrap();
+        let geo_quiz_count: i64 = conn.query_row(
+            "SELECT COUNT(*) FROM quiz_questions q JOIN topics t ON t.id = q.topic_id JOIN subjects s ON s.id = t.subject_id WHERE s.name = 'Geography'",
+            [], |r| r.get(0)
+        ).unwrap();
+        assert!(
+            geo_quiz_count >= 10,
+            "Geography should have at least 10 quiz questions after expansion, got {}",
+            geo_quiz_count
+        );
+    }
 }

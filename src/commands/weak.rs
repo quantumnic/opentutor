@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Show the user's weakest topics — those with lowest scores, highest fail rates,
 /// or lowest retention. Helps focus study time where it matters most.
@@ -25,9 +25,16 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
     let rows: Vec<(i64, String, String, f64, i64, i64, i64, i64, f64, i64)> = stmt
         .query_map([limit as i64], |r| {
             Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?,
-                r.get(3)?, r.get(4)?, r.get(5)?,
-                r.get(6)?, r.get(7)?, r.get(8)?, r.get(9)?,
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+                r.get(6)?,
+                r.get(7)?,
+                r.get(8)?,
+                r.get(9)?,
             ))
         })?
         .filter_map(|r| r.ok())
@@ -39,7 +46,22 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
         return Ok(());
     }
 
-    for (i, (topic_id, name, subject, score, attempts, correct, consec_fails, leech_count, _ease, _interval)) in rows.iter().enumerate() {
+    for (
+        i,
+        (
+            topic_id,
+            name,
+            subject,
+            score,
+            attempts,
+            correct,
+            consec_fails,
+            leech_count,
+            _ease,
+            _interval,
+        ),
+    ) in rows.iter().enumerate()
+    {
         let retention = spaced::estimate_retention(conn, *topic_id);
         let is_leech = spaced::is_leech(conn, *topic_id);
 
@@ -56,8 +78,13 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
         };
 
         println!("{} {}", rank, topic_colored);
-        println!("     Score: {:.0}% ({}/{} correct) | Retention: {:.0}%",
-            score, correct, attempts, retention * 100.0);
+        println!(
+            "     Score: {:.0}% ({}/{} correct) | Retention: {:.0}%",
+            score,
+            correct,
+            attempts,
+            retention * 100.0
+        );
 
         let mut flags = Vec::new();
         if is_leech {
@@ -78,7 +105,9 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
 
     display::print_divider();
     println!();
-    display::print_hint("Focus on these topics first. Use 'opentutor review' for spaced repetition.");
+    display::print_hint(
+        "Focus on these topics first. Use 'opentutor review' for spaced repetition.",
+    );
 
     Ok(())
 }

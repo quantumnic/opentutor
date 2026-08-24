@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Subject Comparison");
@@ -16,12 +16,19 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          LEFT JOIN topics t ON t.subject_id = s.id
          LEFT JOIN user_progress p ON p.topic_id = t.id AND p.attempts > 0
          GROUP BY s.id
-         ORDER BY avg_score DESC, studied_count DESC"
+         ORDER BY avg_score DESC, studied_count DESC",
     )?;
 
     let rows: Vec<(String, i64, i64, f64, i64, f64)> = stmt
         .query_map([], |r| {
-            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?, r.get(5)?))
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
+            ))
         })?
         .collect::<Result<Vec<_>, _>>()?;
 
@@ -61,9 +68,20 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         };
 
         println!("  📘 {}", name.bold());
-        println!("     Score: {}{} {:.0}%", score_bar.green(), score_empty.dimmed(), avg_score);
-        println!("     Coverage: {}/{} topics ({}%)", studied, topic_count, coverage);
-        println!("     Attempts: {}  |  Ease: {:.2}  |  {}", attempts, avg_ease, strength);
+        println!(
+            "     Score: {}{} {:.0}%",
+            score_bar.green(),
+            score_empty.dimmed(),
+            avg_score
+        );
+        println!(
+            "     Coverage: {}/{} topics ({}%)",
+            studied, topic_count, coverage
+        );
+        println!(
+            "     Attempts: {}  |  Ease: {:.2}  |  {}",
+            attempts, avg_ease, strength
+        );
         println!();
     }
 
@@ -71,23 +89,30 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     let total_studied: i64 = rows.iter().map(|r| r.2).sum();
     let total_topics: i64 = rows.iter().map(|r| r.1).sum();
     let overall_avg: f64 = {
-        let active: Vec<&(String, i64, i64, f64, i64, f64)> = rows.iter().filter(|r| r.4 > 0).collect();
-        if active.is_empty() { 0.0 } else {
+        let active: Vec<&(String, i64, i64, f64, i64, f64)> =
+            rows.iter().filter(|r| r.4 > 0).collect();
+        if active.is_empty() {
+            0.0
+        } else {
             active.iter().map(|r| r.3).sum::<f64>() / active.len() as f64
         }
     };
 
     println!("{}", "─".repeat(50).dimmed());
-    println!("  📊 Studied {}/{} topics across {} subjects",
-        total_studied, total_topics, rows.len());
+    println!(
+        "  📊 Studied {}/{} topics across {} subjects",
+        total_studied,
+        total_topics,
+        rows.len()
+    );
     println!("  🎯 Overall average score: {:.1}%", overall_avg);
 
     // Recommendation
-    let weakest = rows.iter()
+    let weakest = rows
+        .iter()
         .filter(|r| r.4 > 0 && r.3 < 60.0)
         .min_by(|a, b| a.3.partial_cmp(&b.3).unwrap());
-    let unstudied = rows.iter()
-        .find(|r| r.2 == 0);
+    let unstudied = rows.iter().find(|r| r.2 == 0);
 
     if let Some(weak) = weakest {
         println!("  💡 Focus area: {} (avg {:.0}%)", weak.0.yellow(), weak.3);

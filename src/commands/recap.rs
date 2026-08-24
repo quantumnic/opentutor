@@ -1,6 +1,17 @@
 use colored::Colorize;
 use rusqlite::Connection;
 
+/// (topic_id, topic_name, subject_name, activity_type, score, timestamp, duration_seconds)
+type RecapRow = (
+    i64,
+    String,
+    String,
+    String,
+    Option<f64>,
+    String,
+    Option<i64>,
+);
+
 /// Show a recap of recently learned material — what you studied, how you did,
 /// and key concepts to reinforce.
 pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -18,7 +29,7 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
          ORDER BY sl.timestamp DESC",
     )?;
     let offset = format!("-{} days", days);
-    let rows: Vec<(i64, String, String, String, Option<f64>, String, Option<i64>)> = stmt
+    let rows: Vec<RecapRow> = stmt
         .query_map([&offset], |r| {
             Ok((
                 r.get(0)?,
@@ -47,9 +58,7 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
         std::collections::HashMap::new();
 
     for (_tid, topic, subject, _activity, score, _ts, duration) in &rows {
-        let entry = subject_stats
-            .entry(subject.clone())
-            .or_insert((0, 0.0, 0));
+        let entry = subject_stats.entry(subject.clone()).or_insert((0, 0.0, 0));
         entry.0 += 1; // sessions
         if let Some(s) = score {
             entry.1 += s;

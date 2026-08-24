@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::{adaptive, quiz as quiz_engine, spaced};
+use colored::*;
+use rusqlite::Connection;
 
 /// Daily learning plan: review due topics, then suggest new material.
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
@@ -12,8 +12,11 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     // Show streak
     if streak > 0 {
         let flame = "🔥".repeat(streak.min(7) as usize);
-        println!("  {} {} day streak! Keep it going!\n",
-            flame, streak.to_string().bold().bright_yellow());
+        println!(
+            "  {} {} day streak! Keep it going!\n",
+            flame,
+            streak.to_string().bold().bright_yellow()
+        );
     } else {
         println!("  Start a new streak today! 💪\n");
     }
@@ -51,8 +54,13 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
                 "🔄 Review".normal().to_string()
             };
 
-            println!("    {} {} ({}) — ease {:.1}",
-                urgency, topic_name.bold(), subject_name.dimmed(), ease);
+            println!(
+                "    {} {} ({}) — ease {:.1}",
+                urgency,
+                topic_name.bold(),
+                subject_name.dimmed(),
+                ease
+            );
 
             // Show 2 quick review questions
             let questions = quiz_engine::get_questions(conn, *topic_id, 2)?;
@@ -64,7 +72,12 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             // Update progress
             let quality = if is_lapsed { 3 } else { 4 };
             spaced::update_spaced_repetition(conn, *topic_id, quality)?;
-            adaptive::log_activity(conn, *topic_id, "review", Some(if is_lapsed { 60.0 } else { 80.0 }))?;
+            adaptive::log_activity(
+                conn,
+                *topic_id,
+                "review",
+                Some(if is_lapsed { 60.0 } else { 80.0 }),
+            )?;
             println!();
         }
     } else {
@@ -87,7 +100,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          )
          AND t.id NOT IN (SELECT topic_id FROM user_progress)
          ORDER BY t.sort_order ASC
-         LIMIT 2"
+         LIMIT 2",
     )?;
     let suggestions_known: Vec<(i64, String, String)> = new_from_known
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
@@ -103,28 +116,37 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          )
          AND t.sort_order = 1
          ORDER BY RANDOM()
-         LIMIT 1"
+         LIMIT 1",
     )?;
     let suggestion_new: Vec<(i64, String, String)> = new_subject
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
         .collect::<Result<Vec<_>, _>>()?;
 
-    let all_suggestions: Vec<&(i64, String, String)> = suggestions_known.iter()
+    let all_suggestions: Vec<&(i64, String, String)> = suggestions_known
+        .iter()
         .chain(suggestion_new.iter())
         .collect();
 
     if all_suggestions.is_empty() {
-        display::print_success("You've explored all available topics! You're a learning machine! 🏆");
+        display::print_success(
+            "You've explored all available topics! You're a learning machine! 🏆",
+        );
     } else {
         for (topic_id, topic_name, subject_name) in &all_suggestions {
             // Get a lesson preview
-            let preview: Option<String> = conn.query_row(
-                "SELECT content FROM lessons WHERE topic_id = ?1 ORDER BY sort_order LIMIT 1",
-                [topic_id],
-                |r| r.get(0),
-            ).ok();
+            let preview: Option<String> = conn
+                .query_row(
+                    "SELECT content FROM lessons WHERE topic_id = ?1 ORDER BY sort_order LIMIT 1",
+                    [topic_id],
+                    |r| r.get(0),
+                )
+                .ok();
 
-            println!("    🌟 {} ({})", topic_name.bold().bright_white(), subject_name.dimmed());
+            println!(
+                "    🌟 {} ({})",
+                topic_name.bold().bright_white(),
+                subject_name.dimmed()
+            );
             if let Some(content) = &preview {
                 let first_lines: String = content.lines().take(3).collect::<Vec<_>>().join("\n");
                 let truncated = if first_lines.len() > 200 {
@@ -136,7 +158,10 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
                     println!("       {}", line.dimmed());
                 }
             }
-            println!("       → {}", format!("opentutor learn {}", subject_name.to_lowercase()).bright_cyan());
+            println!(
+                "       → {}",
+                format!("opentutor learn {}", subject_name.to_lowercase()).bright_cyan()
+            );
             println!();
         }
     }
@@ -147,8 +172,12 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         display::print_section("🩹 Leech Cards");
         println!("    These topics need extra attention — try re-reading the lessons:\n");
         for (_id, name, subject, count) in &leeches {
-            println!("    🩹 {} ({}) — {} leeches",
-                name.bold().bright_yellow(), subject.dimmed(), count);
+            println!(
+                "    🩹 {} ({}) — {} leeches",
+                name.bold().bright_yellow(),
+                subject.dimmed(),
+                count
+            );
         }
         println!();
         display::print_hint("Use 'opentutor explain <concept>' for alternative explanations.");
@@ -157,19 +186,22 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
     // Phase 3: Quick stats
     display::print_divider();
-    let total_studied: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress", [], |r| r.get(0)
-    )?;
-    let total_topics: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM topics", [], |r| r.get(0)
-    )?;
+    let total_studied: i64 =
+        conn.query_row("SELECT COUNT(*) FROM user_progress", [], |r| r.get(0))?;
+    let total_topics: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
     let total_due: i64 = spaced::count_due_topics(conn).unwrap_or(0);
 
     println!();
-    display::print_progress_bar("Overall progress", total_studied as f64, total_topics as f64);
+    display::print_progress_bar(
+        "Overall progress",
+        total_studied as f64,
+        total_topics as f64,
+    );
     if total_due > 0 {
-        println!("  {} topics still due after this session",
-            total_due.to_string().bright_yellow());
+        println!(
+            "  {} topics still due after this session",
+            total_due.to_string().bright_yellow()
+        );
     }
 
     // Show optimal study time if we have data
@@ -177,7 +209,10 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         let end = (hour + 2) % 24;
         println!(
             "  ⏰ {} Your best study hours: {:02}:00–{:02}:00 (avg quality {:.1})",
-            "Tip:".bold().bright_cyan(), hour, end, quality
+            "Tip:".bold().bright_cyan(),
+            hour,
+            end,
+            quality
         );
     }
 
@@ -208,7 +243,8 @@ mod tests {
         conn.execute(
             "UPDATE user_progress SET next_review = datetime('now', '-1 day') WHERE topic_id = 1",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         run(&conn).unwrap();
     }
 

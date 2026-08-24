@@ -35,18 +35,14 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
     // Show bonus info
     if streak >= 3 {
-        let bonus = 1.0
-            + ((streak - 3) as f64 / 11.0) * (spaced::MAX_STREAK_BONUS - 1.0);
+        let bonus = 1.0 + ((streak - 3) as f64 / 11.0) * (spaced::MAX_STREAK_BONUS - 1.0);
         let bonus = bonus.min(spaced::MAX_STREAK_BONUS);
         println!();
         println!(
             "📈 Streak bonus: {:.0}% longer review intervals",
             (bonus - 1.0) * 100.0
         );
-        println!(
-            "   (earned by {} consecutive days of practice)",
-            streak
-        );
+        println!("   (earned by {} consecutive days of practice)", streak);
     }
 
     // Recent activity summary

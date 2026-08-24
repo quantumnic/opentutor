@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 pub fn run(conn: &Connection, query: &Option<String>) -> Result<(), Box<dyn std::error::Error>> {
     match query {
@@ -16,7 +16,7 @@ fn search_glossary(conn: &Connection, query: &str) -> Result<(), Box<dyn std::er
          JOIN topics t ON t.id = e.topic_id
          JOIN subjects s ON s.id = t.subject_id
          WHERE LOWER(e.concept) LIKE '%' || LOWER(?1) || '%'
-         ORDER BY e.concept"
+         ORDER BY e.concept",
     )?;
 
     let results: Vec<(String, String, Option<String>, String)> = stmt
@@ -31,7 +31,12 @@ fn search_glossary(conn: &Connection, query: &str) -> Result<(), Box<dyn std::er
         return Ok(());
     }
 
-    display::print_header(&format!("Glossary: '{}' ({} result{})", query, results.len(), if results.len() == 1 { "" } else { "s" }));
+    display::print_header(&format!(
+        "Glossary: '{}' ({} result{})",
+        query,
+        results.len(),
+        if results.len() == 1 { "" } else { "s" }
+    ));
 
     for (concept, explanation, analogy, subject) in &results {
         println!();
@@ -61,12 +66,11 @@ fn list_all_terms(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          FROM explanations e
          JOIN topics t ON t.id = e.topic_id
          JOIN subjects s ON s.id = t.subject_id
-         ORDER BY s.name, e.concept"
+         ORDER BY s.name, e.concept",
     )?;
 
     let terms: Vec<(String, String)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
-        ?
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
         .collect::<Result<Vec<_>, _>>()?;
 
     if terms.is_empty() {

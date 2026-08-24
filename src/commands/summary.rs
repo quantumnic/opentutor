@@ -1,8 +1,8 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::commands::config;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Quick summary of current learning state — one screen, at a glance.
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
@@ -19,7 +19,11 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     // Streak
     if streak > 0 {
         let flame = "🔥".repeat(streak.min(7) as usize);
-        println!("  {} {} day streak", flame, streak.to_string().bold().bright_yellow());
+        println!(
+            "  {} {} day streak",
+            flame,
+            streak.to_string().bold().bright_yellow()
+        );
     }
     println!();
 
@@ -48,7 +52,10 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             println!("    📋 {} topics due for review", due.to_string().bold());
         }
         if lapsed > 0 {
-            println!("    ⚠️  {} topics lapsed (overdue >7 days)", lapsed.to_string().bold().bright_red());
+            println!(
+                "    ⚠️  {} topics lapsed (overdue >7 days)",
+                lapsed.to_string().bold().bright_red()
+            );
         }
     }
 
@@ -57,7 +64,12 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         println!();
         display::print_section("Leeches 🧛");
         for (_, name, subject, count) in leeches.iter().take(3) {
-            println!("    {} ({}) — {} failures", name.bright_red(), subject.dimmed(), count);
+            println!(
+                "    {} ({}) — {} failures",
+                name.bright_red(),
+                subject.dimmed(),
+                count
+            );
         }
         if leeches.len() > 3 {
             println!("    ... and {} more", leeches.len() - 3);
@@ -100,9 +112,15 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     // Suggestion
     println!();
     if due > 0 {
-        display::print_hint(&format!("Run {} to review due topics.", "opentutor review".bright_cyan()));
+        display::print_hint(&format!(
+            "Run {} to review due topics.",
+            "opentutor review".bright_cyan()
+        ));
     } else if studied < total_topics {
-        display::print_hint(&format!("Run {} to learn something new!", "opentutor subjects".bright_cyan()));
+        display::print_hint(&format!(
+            "Run {} to learn something new!",
+            "opentutor subjects".bright_cyan()
+        ));
     } else {
         display::print_success("All caught up! Great work. 🎉");
     }

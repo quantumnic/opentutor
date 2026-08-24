@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 /// Show a study activity heatmap for the last N weeks (like GitHub contributions).
 pub fn run(conn: &Connection, weeks: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -39,12 +39,11 @@ pub fn run(conn: &Connection, weeks: usize) -> Result<(), Box<dyn std::error::Er
 
     // Build the heatmap grid (columns = weeks, rows = days of week)
     // We need to figure out the start date
-    let start_date: String = conn
-        .query_row(
-            "SELECT DATE('now', ?1)",
-            [&format!("-{} days", days - 1)],
-            |r| r.get(0),
-        )?;
+    let start_date: String = conn.query_row(
+        "SELECT DATE('now', ?1)",
+        [&format!("-{} days", days - 1)],
+        |r| r.get(0),
+    )?;
 
     // Parse start date to get day of week offset
     let start_dow = day_of_week_from_date(conn, &start_date)?;
@@ -123,11 +122,7 @@ pub fn run(conn: &Connection, weeks: usize) -> Result<(), Box<dyn std::error::Er
     );
     if active_days > 0 {
         let avg = total_sessions as f64 / active_days as f64;
-        println!(
-            "  {} {:.1} sessions per active day",
-            "Average:".bold(),
-            avg,
-        );
+        println!("  {} {:.1} sessions per active day", "Average:".bold(), avg,);
     }
     if streak > 0 {
         println!(
@@ -158,11 +153,9 @@ fn intensity_block(count: i64, max: i64) -> ColoredString {
 fn day_of_week_from_date(conn: &Connection, date: &str) -> Result<usize, rusqlite::Error> {
     // SQLite strftime('%w') returns 0=Sunday, 1=Monday, ..., 6=Saturday
     // We want 0=Monday, ..., 6=Sunday
-    let dow: i64 = conn.query_row(
-        "SELECT CAST(strftime('%w', ?1) AS INTEGER)",
-        [date],
-        |r| r.get(0),
-    )?;
+    let dow: i64 = conn.query_row("SELECT CAST(strftime('%w', ?1) AS INTEGER)", [date], |r| {
+        r.get(0)
+    })?;
     // Convert: Sunday(0)->6, Monday(1)->0, ..., Saturday(6)->5
     Ok(((dow + 6) % 7) as usize)
 }
@@ -220,7 +213,8 @@ mod tests {
                 "INSERT INTO session_log (topic_id, activity_type, score, timestamp)
                  VALUES (1, 'quiz', 80.0, datetime('now', ?1))",
                 [format!("-{} days", i)],
-            ).unwrap();
+            )
+            .unwrap();
         }
         run(&conn, 4).unwrap();
     }

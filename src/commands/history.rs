@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Session History");
@@ -11,7 +11,7 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
          JOIN topics t ON t.id = sl.topic_id
          JOIN subjects s ON s.id = t.subject_id
          ORDER BY sl.timestamp DESC
-         LIMIT ?1"
+         LIMIT ?1",
     )?;
 
     let rows: Vec<(String, String, String, String, Option<f64>)> = stmt

@@ -80,11 +80,18 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     let remaining = spaced::remaining_reviews_today(conn);
     let avg_ret = spaced::average_retention(conn);
 
-    println!("  📊 Overall retention: {:.0}% | Reviews remaining today: {}\n", avg_ret * 100.0, remaining);
+    println!(
+        "  📊 Overall retention: {:.0}% | Reviews remaining today: {}\n",
+        avg_ret * 100.0,
+        remaining
+    );
 
     let show_count = scored.len().min(10);
     println!("  Top {} study priorities:\n", show_count);
-    println!("  {:<30} {:<20} {:>10}  Status", "Topic", "Subject", "Retention");
+    println!(
+        "  {:<30} {:<20} {:>10}  Status",
+        "Topic", "Subject", "Retention"
+    );
     println!("  {}", "─".repeat(78));
 
     for (name, subj, retention, _impact, status) in scored.iter().take(show_count) {
@@ -102,9 +109,15 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     if let Some((name, _subj, retention, _impact, _status)) = scored.first() {
         println!();
         if *retention < 0.5 {
-            println!("  💡 \"{}\" is fading — review it now for maximum impact!", name);
+            println!(
+                "  💡 \"{}\" is fading — review it now for maximum impact!",
+                name
+            );
         } else if *retention < 0.8 {
-            println!("  💡 \"{}\" is at the sweet spot for reinforcement. Review it to lock it in!", name);
+            println!(
+                "  💡 \"{}\" is at the sweet spot for reinforcement. Review it to lock it in!",
+                name
+            );
         } else {
             println!("  ✅ Your top topics are in great shape! Consider learning something new.");
         }

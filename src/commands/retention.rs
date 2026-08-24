@@ -14,9 +14,18 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         return Ok(());
     }
 
-    println!("{}", "╔══════════════════════════════════════════════════════════════════╗".cyan());
-    println!("{}", "║              📊 Retention Analysis Report                       ║".cyan());
-    println!("{}", "╚══════════════════════════════════════════════════════════════════╝".cyan());
+    println!(
+        "{}",
+        "╔══════════════════════════════════════════════════════════════════╗".cyan()
+    );
+    println!(
+        "{}",
+        "║              📊 Retention Analysis Report                       ║".cyan()
+    );
+    println!(
+        "{}",
+        "╚══════════════════════════════════════════════════════════════════╝".cyan()
+    );
     println!();
 
     let mut current_subject = String::new();

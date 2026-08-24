@@ -228,7 +228,12 @@ fn main() {
 
     let result = match cli.command {
         Commands::Learn { subject } => commands::learn::run(&conn, &subject),
-        Commands::Quiz { topic, count, difficulty, timed } => commands::quiz::run(&conn, &topic, count, difficulty.as_deref(), timed),
+        Commands::Quiz {
+            topic,
+            count,
+            difficulty,
+            timed,
+        } => commands::quiz::run(&conn, &topic, count, difficulty.as_deref(), timed),
         Commands::Explain { concept } => commands::explain::run(&conn, &concept),
         Commands::Progress => commands::progress::run(&conn),
         Commands::Subjects => commands::subjects::run(&conn),

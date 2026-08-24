@@ -43,7 +43,9 @@ pub fn get_questions(
                 topic_id: r.get(1)?,
                 question: r.get(2)?,
                 question_type: r.get(3)?,
-                difficulty: r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "medium".to_string()),
+                difficulty: r
+                    .get::<_, Option<String>>(11)?
+                    .unwrap_or_else(|| "medium".to_string()),
                 correct_answer: r.get(4)?,
                 options,
                 hint: r.get(9)?,
@@ -89,8 +91,8 @@ pub fn get_questions(
                 // Adjust weight based on question difficulty vs user level
                 let diff_weight = match q.difficulty.as_str() {
                     "easy" => 1.0 / difficulty_mult, // Easier Qs less likely when user is strong
-                    "hard" => difficulty_mult,        // Harder Qs more likely when user struggles
-                    _ => 1.0,                         // Medium stays neutral
+                    "hard" => difficulty_mult,       // Harder Qs more likely when user struggles
+                    _ => 1.0,                        // Medium stays neutral
                 };
                 type_weight * diff_weight
             })
@@ -120,7 +122,10 @@ pub fn get_questions(
             remaining_weights.remove(chosen);
         }
 
-        questions = weighted_indices.into_iter().map(|i| questions[i].clone()).collect();
+        questions = weighted_indices
+            .into_iter()
+            .map(|i| questions[i].clone())
+            .collect();
     } else {
         questions.shuffle(&mut rng);
         questions.truncate(count);
@@ -166,7 +171,9 @@ pub fn get_questions_filtered(
                         topic_id: r.get(1)?,
                         question: r.get(2)?,
                         question_type: r.get(3)?,
-                        difficulty: r.get::<_, Option<String>>(11)?.unwrap_or_else(|| "medium".to_string()),
+                        difficulty: r
+                            .get::<_, Option<String>>(11)?
+                            .unwrap_or_else(|| "medium".to_string()),
                         correct_answer: r.get(4)?,
                         options,
                         hint: r.get(9)?,
@@ -198,10 +205,12 @@ fn levenshtein(a: &str, b: &str) -> usize {
     for i in 1..=m {
         curr[0] = i;
         for j in 1..=n {
-            let cost = if a_chars[i - 1] == b_chars[j - 1] { 0 } else { 1 };
-            curr[j] = (prev[j] + 1)
-                .min(curr[j - 1] + 1)
-                .min(prev[j - 1] + cost);
+            let cost = if a_chars[i - 1] == b_chars[j - 1] {
+                0
+            } else {
+                1
+            };
+            curr[j] = (prev[j] + 1).min(curr[j - 1] + 1).min(prev[j - 1] + cost);
         }
         std::mem::swap(&mut prev, &mut curr);
     }
@@ -307,23 +316,39 @@ pub struct AnswerResult {
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum AnswerFeedback {
     Correct,
-    NearMiss,      // Close but not quite (typo, partial match)
-    HalfRight,     // Got some parts right (ordering/matching)
+    NearMiss,  // Close but not quite (typo, partial match)
+    HalfRight, // Got some parts right (ordering/matching)
     Wrong,
 }
 
 impl AnswerResult {
     pub fn full() -> Self {
-        Self { correct: true, credit: 1.0, feedback: AnswerFeedback::Correct }
+        Self {
+            correct: true,
+            credit: 1.0,
+            feedback: AnswerFeedback::Correct,
+        }
     }
     pub fn near_miss() -> Self {
-        Self { correct: false, credit: 0.5, feedback: AnswerFeedback::NearMiss }
+        Self {
+            correct: false,
+            credit: 0.5,
+            feedback: AnswerFeedback::NearMiss,
+        }
     }
     pub fn half_right(credit: f64) -> Self {
-        Self { correct: false, credit: credit.clamp(0.0, 0.75), feedback: AnswerFeedback::HalfRight }
+        Self {
+            correct: false,
+            credit: credit.clamp(0.0, 0.75),
+            feedback: AnswerFeedback::HalfRight,
+        }
     }
     pub fn wrong() -> Self {
-        Self { correct: false, credit: 0.0, feedback: AnswerFeedback::Wrong }
+        Self {
+            correct: false,
+            credit: 0.0,
+            feedback: AnswerFeedback::Wrong,
+        }
     }
 }
 
@@ -374,7 +399,11 @@ pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResul
         }
         // Check by option letter
         if let Some(idx) = match answer_lower.as_str() {
-            "a" => Some(0), "b" => Some(1), "c" => Some(2), "d" => Some(3), _ => None,
+            "a" => Some(0),
+            "b" => Some(1),
+            "c" => Some(2),
+            "d" => Some(3),
+            _ => None,
         } {
             if let Some(opt) = question.options.get(idx) {
                 if opt.trim().to_lowercase() == correct_lower {
@@ -427,12 +456,20 @@ pub fn check_answer_scored(question: &QuizQuestion, answer: &str) -> AnswerResul
             "f" => correct_lower == "false",
             _ => false,
         };
-        return if is_correct { AnswerResult::full() } else { AnswerResult::wrong() };
+        return if is_correct {
+            AnswerResult::full()
+        } else {
+            AnswerResult::wrong()
+        };
     }
 
     // Multiple choice by letter
     if let Some(idx) = match answer_lower.as_str() {
-        "a" => Some(0), "b" => Some(1), "c" => Some(2), "d" => Some(3), _ => None,
+        "a" => Some(0),
+        "b" => Some(1),
+        "c" => Some(2),
+        "d" => Some(3),
+        _ => None,
     } {
         if let Some(opt) = question.options.get(idx) {
             if opt.trim().to_lowercase() == correct_lower {
@@ -467,7 +504,9 @@ fn check_ordering_scored(correct: &str, answer: &str) -> AnswerResult {
     }
 
     // Count items in correct position
-    let correct_positions = correct_items.iter().zip(answer_items.iter())
+    let correct_positions = correct_items
+        .iter()
+        .zip(answer_items.iter())
         .filter(|(c, a)| c == a)
         .count();
     let fraction = correct_positions as f64 / correct_items.len() as f64;
@@ -485,7 +524,10 @@ fn check_ordering_scored(correct: &str, answer: &str) -> AnswerResult {
 fn check_matching_scored(correct: &str, answer: &str) -> AnswerResult {
     let parse_pairs = |s: &str| -> Vec<(String, String)> {
         s.split(';')
-            .filter_map(|p| p.split_once('=').map(|(l, r)| (l.trim().to_lowercase(), r.trim().to_lowercase())))
+            .filter_map(|p| {
+                p.split_once('=')
+                    .map(|(l, r)| (l.trim().to_lowercase(), r.trim().to_lowercase()))
+            })
             .collect()
     };
 
@@ -546,8 +588,7 @@ pub fn check_answer(question: &QuizQuestion, answer: &str) -> bool {
     }
 
     // For analogy questions: accept exact text, fuzzy match, or option letter
-    if question.question_type == "analogy"
-        && (answer == correct || fuzzy_match(&answer, &correct))
+    if question.question_type == "analogy" && (answer == correct || fuzzy_match(&answer, &correct))
     {
         return true;
         // Otherwise fall through to option-letter check below
@@ -596,7 +637,10 @@ fn check_matching_answer(correct: &str, answer: &str) -> bool {
         .filter_map(|pair| {
             let parts: Vec<&str> = pair.splitn(2, '=').collect();
             if parts.len() == 2 {
-                Some((parts[0].trim().to_lowercase(), parts[1].trim().to_lowercase()))
+                Some((
+                    parts[0].trim().to_lowercase(),
+                    parts[1].trim().to_lowercase(),
+                ))
             } else {
                 None
             }
@@ -607,7 +651,10 @@ fn check_matching_answer(correct: &str, answer: &str) -> bool {
         .filter_map(|pair| {
             let parts: Vec<&str> = pair.splitn(2, '=').collect();
             if parts.len() == 2 {
-                Some((parts[0].trim().to_lowercase(), parts[1].trim().to_lowercase()))
+                Some((
+                    parts[0].trim().to_lowercase(),
+                    parts[1].trim().to_lowercase(),
+                ))
             } else {
                 None
             }
@@ -745,7 +792,8 @@ fn check_categorize_scored(correct: &str, answer: &str) -> AnswerResult {
     }
 
     // Build item→category lookup from correct answer
-    let mut item_to_cat: std::collections::HashMap<String, String> = std::collections::HashMap::new();
+    let mut item_to_cat: std::collections::HashMap<String, String> =
+        std::collections::HashMap::new();
     let mut total_items = 0usize;
     for (cat, items) in &correct_map {
         for item in items {
@@ -797,7 +845,8 @@ mod tests {
     #[test]
     fn test_check_answer_exact() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Test?".into(),
             question_type: "multiple_choice".into(),
             difficulty: "medium".into(),
@@ -814,12 +863,18 @@ mod tests {
     #[test]
     fn test_check_answer_by_letter() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Test?".into(),
             question_type: "multiple_choice".into(),
             difficulty: "medium".into(),
             correct_answer: "Paris".into(),
-            options: vec!["London".into(), "Paris".into(), "Berlin".into(), "Rome".into()],
+            options: vec![
+                "London".into(),
+                "Paris".into(),
+                "Berlin".into(),
+                "Rome".into(),
+            ],
             hint: None,
             explanation: "Paris is the capital.".into(),
         };
@@ -831,7 +886,8 @@ mod tests {
     #[test]
     fn test_check_answer_true_false() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "True or false: The sky is blue.".into(),
             question_type: "true_false".into(),
             difficulty: "medium".into(),
@@ -850,7 +906,8 @@ mod tests {
     #[test]
     fn test_check_answer_fill_in_blank() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "3 + 4 × 2 = ___".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "medium".into(),
@@ -867,7 +924,8 @@ mod tests {
     #[test]
     fn test_check_answer_ordering_text() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Order these:".into(),
             question_type: "ordering".into(),
             difficulty: "medium".into(),
@@ -884,7 +942,8 @@ mod tests {
     #[test]
     fn test_check_answer_ordering_numeric() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Order these:".into(),
             question_type: "ordering".into(),
             difficulty: "medium".into(),
@@ -949,7 +1008,8 @@ mod tests {
     #[test]
     fn test_check_matching_answer_correct() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Match these:".into(),
             question_type: "matching".into(),
             difficulty: "medium".into(),
@@ -968,7 +1028,8 @@ mod tests {
     #[test]
     fn test_check_matching_answer_wrong() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Match these:".into(),
             question_type: "matching".into(),
             difficulty: "medium".into(),
@@ -984,7 +1045,8 @@ mod tests {
     #[test]
     fn test_fill_in_blank_fuzzy_acceptance() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "The Odyssey follows ___ on his journey home.".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "medium".into(),
@@ -1007,7 +1069,7 @@ mod tests {
 
     #[test]
     fn test_parse_numeric_float() {
-        assert_eq!(parse_numeric("3.14"), Some(3.14));
+        assert_eq!(parse_numeric("3.25"), Some(3.25));
         assert_eq!(parse_numeric("0.5"), Some(0.5));
     }
 
@@ -1047,7 +1109,8 @@ mod tests {
     #[test]
     fn test_fill_in_blank_numeric_normalization() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "What is 1/2 as a decimal?".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "easy".into(),
@@ -1066,7 +1129,8 @@ mod tests {
     #[test]
     fn test_fill_in_blank_integer_normalization() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "What is 2+1?".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "easy".into(),
@@ -1084,34 +1148,50 @@ mod tests {
     fn test_game_theory_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
         // Find the Nash Equilibrium topic
-        let nash_id: Option<i64> = conn.query_row(
-            "SELECT id FROM topics WHERE name = 'Nash Equilibrium'",
-            [], |r| r.get(0),
-        ).ok();
+        let nash_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM topics WHERE name = 'Nash Equilibrium'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(nash_id.is_some(), "Nash Equilibrium topic should exist");
         let qs = get_questions(&conn, nash_id.unwrap(), 5).unwrap();
-        assert!(!qs.is_empty(), "Should have quiz questions for Nash Equilibrium");
+        assert!(
+            !qs.is_empty(),
+            "Should have quiz questions for Nash Equilibrium"
+        );
     }
 
     #[test]
     fn test_game_theory_all_topics_have_quizzes() {
         let conn = db::init_memory_db().unwrap();
-        let gt_id: i64 = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Game Theory'",
-            [], |r| r.get(0),
-        ).unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let gt_id: i64 = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Game Theory'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([gt_id], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
             .filter_map(|r| r.ok())
             .collect();
-        assert!(topics.len() >= 6, "Game Theory should have at least 6 topics");
+        assert!(
+            topics.len() >= 6,
+            "Game Theory should have at least 6 topics"
+        );
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
@@ -1120,7 +1200,8 @@ mod tests {
     #[test]
     fn test_scored_exact_match_full_credit() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "What is 2+2?".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "easy".into(),
@@ -1138,7 +1219,8 @@ mod tests {
     #[test]
     fn test_scored_near_miss_fill_in_blank() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Who wrote Hamlet?".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "medium".into(),
@@ -1149,7 +1231,11 @@ mod tests {
         };
         // Close typo gets full credit (within fuzzy_match range)
         let result = check_answer_scored(&q, "Shakespear");
-        assert!(result.credit >= 0.5, "One-letter-off should get at least partial credit, got {}", result.credit);
+        assert!(
+            result.credit >= 0.5,
+            "One-letter-off should get at least partial credit, got {}",
+            result.credit
+        );
         // Totally wrong
         let result = check_answer_scored(&q, "Tolkien");
         assert!((result.credit - 0.0).abs() < f64::EPSILON);
@@ -1158,7 +1244,8 @@ mod tests {
     #[test]
     fn test_scored_ordering_partial_credit() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Order these:".into(),
             question_type: "ordering".into(),
             difficulty: "medium".into(),
@@ -1175,14 +1262,18 @@ mod tests {
         // 2 out of 4 correct positions
         let result = check_answer_scored(&q, "alpha,gamma,beta,delta");
         assert!(!result.correct);
-        assert!(result.credit > 0.0, "Should get partial credit for some correct positions");
+        assert!(
+            result.credit > 0.0,
+            "Should get partial credit for some correct positions"
+        );
         assert!(result.credit < 1.0);
     }
 
     #[test]
     fn test_scored_matching_partial_credit() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Match:".into(),
             question_type: "matching".into(),
             difficulty: "medium".into(),
@@ -1198,19 +1289,28 @@ mod tests {
         // One correct, two wrong
         let result = check_answer_scored(&q, "Dog=Mammal;Snake=Amphibian;Frog=Reptile");
         assert!(!result.correct);
-        assert!(result.credit > 0.0, "One correct pair should give partial credit");
+        assert!(
+            result.credit > 0.0,
+            "One correct pair should give partial credit"
+        );
         assert!(result.credit <= 0.75);
     }
 
     #[test]
     fn test_scored_multiple_choice_wrong() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Capital of France?".into(),
             question_type: "multiple_choice".into(),
             difficulty: "easy".into(),
             correct_answer: "Paris".into(),
-            options: vec!["London".into(), "Paris".into(), "Berlin".into(), "Rome".into()],
+            options: vec![
+                "London".into(),
+                "Paris".into(),
+                "Berlin".into(),
+                "Rome".into(),
+            ],
             hint: None,
             explanation: "Paris.".into(),
         };
@@ -1222,7 +1322,8 @@ mod tests {
     #[test]
     fn test_scored_true_false() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "Water boils at 100°C.".into(),
             question_type: "true_false".into(),
             difficulty: "easy".into(),
@@ -1238,7 +1339,8 @@ mod tests {
     #[test]
     fn test_scored_numeric_near_miss() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "What is pi to 2 decimal places?".into(),
             question_type: "fill_in_blank".into(),
             difficulty: "medium".into(),
@@ -1251,15 +1353,18 @@ mod tests {
         assert!(check_answer_scored(&q, "3.14").correct);
         // Close numeric value
         let result = check_answer_scored(&q, "3.15");
-        assert!(result.credit >= 0.5, "Close numeric answer should get partial credit");
+        assert!(
+            result.credit >= 0.5,
+            "Close numeric answer should get partial credit"
+        );
     }
 
     #[test]
     fn test_select_all_exact_match() {
         assert!(check_select_all_answer("a, b, c", "a, b, c"));
         assert!(check_select_all_answer("a, b, c", "c, a, b")); // order irrelevant
-        assert!(!check_select_all_answer("a, b, c", "a, b"));   // missing one
-        assert!(!check_select_all_answer("a, b", "a, b, c"));   // extra one
+        assert!(!check_select_all_answer("a, b, c", "a, b")); // missing one
+        assert!(!check_select_all_answer("a, b", "a, b, c")); // extra one
     }
 
     #[test]
@@ -1273,7 +1378,10 @@ mod tests {
     fn test_select_all_scored_partial() {
         let result = check_select_all_scored("a, b, c", "a, b");
         assert!(!result.correct);
-        assert!(result.credit > 0.0, "Partial selection should get partial credit");
+        assert!(
+            result.credit > 0.0,
+            "Partial selection should get partial credit"
+        );
     }
 
     #[test]
@@ -1294,14 +1402,17 @@ mod tests {
     #[test]
     fn test_formal_languages_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let fl_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Formal Languages'",
-            [], |r| r.get(0),
-        ).ok();
+        let fl_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Formal Languages'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(fl_id.is_some(), "Formal Languages subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([fl_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1310,21 +1421,28 @@ mod tests {
         assert_eq!(topics.len(), 4, "Formal Languages should have 4 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_philosophy_of_mind_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let pm_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Philosophy of Mind'",
-            [], |r| r.get(0),
-        ).ok();
+        let pm_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Philosophy of Mind'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(pm_id.is_some(), "Philosophy of Mind subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([pm_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1333,43 +1451,61 @@ mod tests {
         assert_eq!(topics.len(), 4, "Philosophy of Mind should have 4 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_linear_algebra_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let la_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Linear Algebra'",
-            [], |r| r.get(0),
-        ).ok();
+        let la_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Linear Algebra'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(la_id.is_some(), "Linear Algebra subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([la_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
             .filter_map(|r| r.ok())
             .collect();
-        assert!(topics.len() >= 5, "Linear Algebra should have at least 5 topics, got {}", topics.len());
+        assert!(
+            topics.len() >= 5,
+            "Linear Algebra should have at least 5 topics, got {}",
+            topics.len()
+        );
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_organic_chemistry_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let oc_id: i64 = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Organic Chemistry'",
-            [], |r| r.get(0),
-        ).unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let oc_id: i64 = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Organic Chemistry'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([oc_id], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1378,20 +1514,27 @@ mod tests {
         assert_eq!(topics.len(), 6, "Organic Chemistry should have 6 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_graph_theory_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let gt_id: i64 = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Graph Theory'",
-            [], |r| r.get(0),
-        ).unwrap();
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let gt_id: i64 = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Graph Theory'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([gt_id], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1400,22 +1543,33 @@ mod tests {
         assert_eq!(topics.len(), 6, "Graph Theory should have 6 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_cloze_exact_match() {
-        let result = check_cloze_scored("mitochondria;ATP;respiration", "mitochondria;ATP;respiration");
+        let result = check_cloze_scored(
+            "mitochondria;ATP;respiration",
+            "mitochondria;ATP;respiration",
+        );
         assert!(result.correct);
         assert!((result.credit - 1.0).abs() < f64::EPSILON);
     }
 
     #[test]
     fn test_cloze_partial_match() {
-        let result = check_cloze_scored("mitochondria;ATP;respiration", "mitochondria;ATP;digestion");
+        let result =
+            check_cloze_scored("mitochondria;ATP;respiration", "mitochondria;ATP;digestion");
         assert!(!result.correct);
-        assert!(result.credit > 0.0, "2/3 correct should give partial credit");
+        assert!(
+            result.credit > 0.0,
+            "2/3 correct should give partial credit"
+        );
         assert!(result.credit < 1.0);
     }
 
@@ -1436,20 +1590,26 @@ mod tests {
     fn test_cloze_fuzzy_typo() {
         // "mitocondria" is a 1-char typo of "mitochondria" (11 chars)
         let result = check_cloze_scored("mitochondria;ATP", "mitocondria;ATP");
-        assert!(result.correct, "Fuzzy match should accept small typo in long words");
+        assert!(
+            result.correct,
+            "Fuzzy match should accept small typo in long words"
+        );
     }
 
     #[test]
     fn test_thermodynamics_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let td_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Thermodynamics'",
-            [], |r| r.get(0),
-        ).ok();
+        let td_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Thermodynamics'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(td_id.is_some(), "Thermodynamics subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([td_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1458,21 +1618,28 @@ mod tests {
         assert_eq!(topics.len(), 5, "Thermodynamics should have 5 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_cognitive_science_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let cs_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Cognitive Science'",
-            [], |r| r.get(0),
-        ).ok();
+        let cs_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Cognitive Science'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(cs_id.is_some(), "Cognitive Science subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([cs_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1481,31 +1648,45 @@ mod tests {
         assert_eq!(topics.len(), 5, "Cognitive Science should have 5 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_cloze_questions_seeded() {
         let conn = db::init_memory_db().unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'cloze'",
-            [], |r| r.get(0),
-        ).unwrap();
-        assert!(count >= 3, "Should have at least 3 cloze questions seeded, got {}", count);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'cloze'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            count >= 3,
+            "Should have at least 3 cloze questions seeded, got {}",
+            count
+        );
     }
 
     #[test]
     fn test_cryptography_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let cr_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Cryptography'",
-            [], |r| r.get(0),
-        ).ok();
+        let cr_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Cryptography'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(cr_id.is_some(), "Cryptography subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([cr_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1514,21 +1695,28 @@ mod tests {
         assert_eq!(topics.len(), 6, "Cryptography should have 6 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_information_theory_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let it_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Information Theory'",
-            [], |r| r.get(0),
-        ).ok();
+        let it_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Information Theory'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(it_id.is_some(), "Information Theory subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([it_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1537,7 +1725,11 @@ mod tests {
         assert_eq!(topics.len(), 5, "Information Theory should have 5 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
@@ -1564,10 +1756,8 @@ mod tests {
 
     #[test]
     fn test_categorize_wrong() {
-        let result = check_categorize_scored(
-            "fruit:apple;veggie:carrot",
-            "fruit:carrot;veggie:apple",
-        );
+        let result =
+            check_categorize_scored("fruit:apple;veggie:carrot", "fruit:carrot;veggie:apple");
         assert!(!result.correct);
     }
 
@@ -1597,7 +1787,8 @@ mod analogy_tests {
     #[test]
     fn test_analogy_exact_match() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "A is to B as C is to ___".into(),
             question_type: "analogy".into(),
             difficulty: "medium".into(),
@@ -1614,7 +1805,8 @@ mod analogy_tests {
     #[test]
     fn test_analogy_by_letter() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "A is to B as C is to ___".into(),
             question_type: "analogy".into(),
             difficulty: "medium".into(),
@@ -1629,12 +1821,17 @@ mod analogy_tests {
     #[test]
     fn test_analogy_scored_full_credit() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "A:B :: C:___".into(),
             question_type: "analogy".into(),
             difficulty: "medium".into(),
             correct_answer: "cellular respiration".into(),
-            options: vec!["photosynthesis".into(), "cellular respiration".into(), "osmosis".into()],
+            options: vec![
+                "photosynthesis".into(),
+                "cellular respiration".into(),
+                "osmosis".into(),
+            ],
             hint: None,
             explanation: "Organelle functions.".into(),
         };
@@ -1646,24 +1843,34 @@ mod analogy_tests {
     #[test]
     fn test_analogy_scored_near_miss() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "A:B :: C:___".into(),
             question_type: "analogy".into(),
             difficulty: "medium".into(),
             correct_answer: "cellular respiration".into(),
-            options: vec!["photosynthesis".into(), "cellular respiration".into(), "osmosis".into()],
+            options: vec![
+                "photosynthesis".into(),
+                "cellular respiration".into(),
+                "osmosis".into(),
+            ],
             hint: None,
             explanation: "Organelle functions.".into(),
         };
         let result = check_answer_scored(&q, "celular respiration");
         // Should get full credit via fuzzy match (1 edit in long string)
-        assert!(result.credit >= 0.5, "Near-miss analogy should get partial credit, got {}", result.credit);
+        assert!(
+            result.credit >= 0.5,
+            "Near-miss analogy should get partial credit, got {}",
+            result.credit
+        );
     }
 
     #[test]
     fn test_analogy_scored_wrong() {
         let q = QuizQuestion {
-            id: 1, topic_id: 1,
+            id: 1,
+            topic_id: 1,
             question: "A:B :: C:___".into(),
             question_type: "analogy".into(),
             difficulty: "medium".into(),
@@ -1680,14 +1887,17 @@ mod analogy_tests {
     #[test]
     fn test_molecular_biology_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let mb_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Molecular Biology'",
-            [], |r| r.get(0),
-        ).ok();
+        let mb_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Molecular Biology'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(mb_id.is_some(), "Molecular Biology subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([mb_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1696,21 +1906,28 @@ mod analogy_tests {
         assert_eq!(topics.len(), 6, "Molecular Biology should have 6 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_set_theory_quiz_loads() {
         let conn = db::init_memory_db().unwrap();
-        let st_id: Option<i64> = conn.query_row(
-            "SELECT id FROM subjects WHERE name = 'Set Theory'",
-            [], |r| r.get(0),
-        ).ok();
+        let st_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM subjects WHERE name = 'Set Theory'",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         assert!(st_id.is_some(), "Set Theory subject should exist");
-        let mut stmt = conn.prepare(
-            "SELECT id, name FROM topics WHERE subject_id = ?1",
-        ).unwrap();
+        let mut stmt = conn
+            .prepare("SELECT id, name FROM topics WHERE subject_id = ?1")
+            .unwrap();
         let topics: Vec<(i64, String)> = stmt
             .query_map([st_id.unwrap()], |r| Ok((r.get(0)?, r.get(1)?)))
             .unwrap()
@@ -1719,17 +1936,28 @@ mod analogy_tests {
         assert_eq!(topics.len(), 5, "Set Theory should have 5 topics");
         for (tid, name) in &topics {
             let qs = get_questions(&conn, *tid, 10).unwrap();
-            assert!(!qs.is_empty(), "Topic '{}' should have quiz questions", name);
+            assert!(
+                !qs.is_empty(),
+                "Topic '{}' should have quiz questions",
+                name
+            );
         }
     }
 
     #[test]
     fn test_analogy_questions_seeded() {
         let conn = db::init_memory_db().unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'analogy'",
-            [], |r| r.get(0),
-        ).unwrap();
-        assert!(count >= 6, "Should have at least 6 analogy questions, got {}", count);
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM quiz_questions WHERE question_type = 'analogy'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            count >= 6,
+            "Should have at least 6 analogy questions, got {}",
+            count
+        );
     }
 }

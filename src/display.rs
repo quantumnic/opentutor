@@ -38,7 +38,13 @@ pub fn print_hint(msg: &str) {
 #[allow(dead_code)]
 pub fn print_encouragement(correct: bool) {
     if correct {
-        let msgs = ["Great job!", "Excellent!", "You got it!", "Perfect!", "Well done!"];
+        let msgs = [
+            "Great job!",
+            "Excellent!",
+            "You got it!",
+            "Perfect!",
+            "Well done!",
+        ];
         let idx = rand::random::<usize>() % msgs.len();
         print_success(msgs[idx]);
     } else {

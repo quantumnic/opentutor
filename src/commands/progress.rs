@@ -1,14 +1,15 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Your Learning Progress");
 
     let total_topics: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
     let studied: i64 = conn.query_row("SELECT COUNT(*) FROM user_progress", [], |r| r.get(0))?;
-    let total_sessions: i64 = conn.query_row("SELECT COUNT(*) FROM session_log", [], |r| r.get(0))?;
+    let total_sessions: i64 =
+        conn.query_row("SELECT COUNT(*) FROM session_log", [], |r| r.get(0))?;
 
     display::print_section("Overview");
     display::print_progress_bar("Topics studied", studied as f64, total_topics as f64);
@@ -24,7 +25,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          FROM subjects s
          LEFT JOIN topics t ON t.subject_id = s.id
          LEFT JOIN user_progress p ON p.topic_id = t.id
-         GROUP BY s.id ORDER BY s.name"
+         GROUP BY s.id ORDER BY s.name",
     )?;
 
     let rows = stmt.query_map([], |r| {
@@ -45,8 +46,11 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         } else {
             format!("{}/{} topics", studied_count, total)
         };
-        println!("  \u{1F4D8} {} \u{2014} {} | Avg: {:.0}%",
-            name.bold(), status, avg_score
+        println!(
+            "  \u{1F4D8} {} \u{2014} {} | Avg: {:.0}%",
+            name.bold(),
+            status,
+            avg_score
         );
     }
     println!();
@@ -58,17 +62,21 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          JOIN subjects s ON s.id = t.subject_id
          WHERE p.next_review IS NOT NULL AND p.next_review <= datetime('now')
          ORDER BY p.next_review ASC
-         LIMIT 5"
+         LIMIT 5",
     )?;
 
-    let due_rows: Vec<(String, String, String)> = due_stmt.query_map([], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let due_rows: Vec<(String, String, String)> = due_stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
 
     if !due_rows.is_empty() {
         display::print_section("Due for Review \u{1F504}");
         for (topic, subject, _date) in &due_rows {
-            println!("  \u{2022} {} ({})", topic.bright_yellow(), subject.dimmed());
+            println!(
+                "  \u{2022} {} ({})",
+                topic.bright_yellow(),
+                subject.dimmed()
+            );
         }
         println!();
         display::print_hint("Review these topics to strengthen your memory!");

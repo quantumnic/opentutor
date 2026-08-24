@@ -1,8 +1,8 @@
+use crate::commands::achievements;
+use crate::display;
+use crate::engine::adaptive;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
-use crate::commands::achievements;
-use crate::engine::adaptive;
 
 pub fn run(conn: &Connection, subject: &str) -> Result<(), Box<dyn std::error::Error>> {
     // Find subject (case-insensitive)
@@ -26,11 +26,11 @@ pub fn run(conn: &Connection, subject: &str) -> Result<(), Box<dyn std::error::E
 
     // Get topics for this subject
     let mut stmt = conn.prepare(
-        "SELECT id, name, difficulty FROM topics WHERE subject_id = ?1 ORDER BY sort_order"
+        "SELECT id, name, difficulty FROM topics WHERE subject_id = ?1 ORDER BY sort_order",
     )?;
-    let topics: Vec<(i64, String, String)> = stmt.query_map([subject_id], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let topics: Vec<(i64, String, String)> = stmt
+        .query_map([subject_id], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
 
     for (topic_id, topic_name, _difficulty) in &topics {
         let rec = adaptive::recommended_difficulty(conn, *topic_id);
@@ -44,11 +44,11 @@ pub fn run(conn: &Connection, subject: &str) -> Result<(), Box<dyn std::error::E
 
         // Show lesson content
         let mut lstmt = conn.prepare(
-            "SELECT title, content FROM lessons WHERE topic_id = ?1 ORDER BY sort_order"
+            "SELECT title, content FROM lessons WHERE topic_id = ?1 ORDER BY sort_order",
         )?;
-        let lessons: Vec<(String, String)> = lstmt.query_map([topic_id], |r| {
-            Ok((r.get(0)?, r.get(1)?))
-        })?.collect::<Result<Vec<_>, _>>()?;
+        let lessons: Vec<(String, String)> = lstmt
+            .query_map([topic_id], |r| Ok((r.get(0)?, r.get(1)?)))?
+            .collect::<Result<Vec<_>, _>>()?;
 
         for (title, content) in &lessons {
             println!("    {} {}", "▹".dimmed(), title.bold());
@@ -66,14 +66,19 @@ pub fn run(conn: &Connection, subject: &str) -> Result<(), Box<dyn std::error::E
 
     println!();
     display::print_success(&format!("Completed learning session for {}!", subject_name));
-    display::print_info(&format!("Test yourself: {}",
+    display::print_info(&format!(
+        "Test yourself: {}",
         "opentutor quiz <topic>".bright_cyan()
     ));
 
     // Check achievements
     if let Ok(newly) = achievements::check_achievements(conn) {
         for name in &newly {
-            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+            println!(
+                "  🏆 {} {}",
+                "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(),
+                name.bold().bright_yellow()
+            );
         }
     }
 

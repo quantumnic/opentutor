@@ -69,9 +69,9 @@ fn topic_difficulty_factor(conn: &Connection, topic_id: i64) -> f64 {
         .unwrap_or(2.5);
 
     let base = match difficulty.as_str() {
-        "advanced" => 0.6,       // 60% of normal interval (review sooner)
-        "intermediate" => 0.8,   // 80% of normal interval
-        _ => 1.0,                // beginner: normal intervals
+        "advanced" => 0.6,     // 60% of normal interval (review sooner)
+        "intermediate" => 0.8, // 80% of normal interval
+        _ => 1.0,              // beginner: normal intervals
     };
 
     // If ease is very low (user struggling), compress further
@@ -94,7 +94,7 @@ pub fn retrieval_practice_bonus(quality: u8, question_type: &str) -> u8 {
         return quality; // No bonus on failure or already max
     }
     let bonus: u8 = match question_type {
-        "fill_in_blank" => 1,  // Active recall: hardest
+        "fill_in_blank" => 1, // Active recall: hardest
         "ordering" => 1,      // Requires full sequence knowledge
         _ => 0,               // multiple_choice, true_false: recognition-based
     };
@@ -187,7 +187,8 @@ pub fn update_spaced_repetition(
     let streak = calculate_streak(conn);
     let streak_bonus = if streak >= STREAK_BONUS_THRESHOLD {
         // Bonus scales from 1.0 to MAX_STREAK_BONUS over streaks 3-14
-        let bonus = 1.0 + ((streak - STREAK_BONUS_THRESHOLD) as f64 / 11.0) * (MAX_STREAK_BONUS - 1.0);
+        let bonus =
+            1.0 + ((streak - STREAK_BONUS_THRESHOLD) as f64 / 11.0) * (MAX_STREAK_BONUS - 1.0);
         bonus.min(MAX_STREAK_BONUS)
     } else {
         1.0
@@ -228,17 +229,33 @@ pub fn update_spaced_repetition(
                 n => {
                     let calculated = (n as f64 * ease).round() as i64;
                     let quality_bonus = if quality == 5 { 1.1 } else { 1.0 };
-                    let same_day_factor = if is_same_day { SAME_DAY_REVIEW_FACTOR } else { 1.0 };
-                    let sleep_bonus = if has_sleep_gap && !is_same_day { SLEEP_CONSOLIDATION_BONUS } else { 1.0 };
+                    let same_day_factor = if is_same_day {
+                        SAME_DAY_REVIEW_FACTOR
+                    } else {
+                        1.0
+                    };
+                    let sleep_bonus = if has_sleep_gap && !is_same_day {
+                        SLEEP_CONSOLIDATION_BONUS
+                    } else {
+                        1.0
+                    };
                     let spacing = spacing_bonus(conn, topic_id);
                     let interleave = interleaving_bonus(conn);
                     let context_bonus = context_strengthening(conn, topic_id);
-                    (calculated as f64 * quality_bonus * streak_bonus * same_day_factor * sleep_bonus * spacing * interleave * context_bonus)
+                    (calculated as f64
+                        * quality_bonus
+                        * streak_bonus
+                        * same_day_factor
+                        * sleep_bonus
+                        * spacing
+                        * interleave
+                        * context_bonus)
                         .round()
                         .max(n as f64) as i64 // Never shrink interval on success
                 }
             };
-            let new_ease = ease + (0.1 - (5.0 - quality as f64) * (0.08 + (5.0 - quality as f64) * 0.02));
+            let new_ease =
+                ease + (0.1 - (5.0 - quality as f64) * (0.08 + (5.0 - quality as f64) * 0.02));
             (new_ease.max(MIN_EASE), new_interval.min(MAX_INTERVAL))
         }
     } else {
@@ -276,20 +293,23 @@ pub fn update_spaced_repetition(
     // Scale interval by desired retention: higher retention → shorter intervals.
     // Uses the FSRS power-law forgetting curve to adjust.
     let desired_retention = crate::commands::config::get_desired_retention(conn);
-    let retention_scaled_interval = if (desired_retention - DEFAULT_DESIRED_RETENTION).abs() > 0.001 && new_interval > 1 {
-        // Derived from R(t) = (1 + t / (S * FSRS_FACTOR))^(-FSRS_DECAY)
-        // Ratio of intervals for two retention targets (at same stability):
-        //   t2/t1 = ((1/R2)^(1/FSRS_DECAY) - 1) / ((1/R1)^(1/FSRS_DECAY) - 1)
-        let ratio_new = (1.0 / desired_retention).powf(1.0 / FSRS_DECAY) - 1.0;
-        let ratio_default = (1.0 / DEFAULT_DESIRED_RETENTION).powf(1.0 / FSRS_DECAY) - 1.0;
-        if ratio_default > 0.0 {
-            ((new_interval as f64) * (ratio_new / ratio_default)).round().max(1.0) as i64
+    let retention_scaled_interval =
+        if (desired_retention - DEFAULT_DESIRED_RETENTION).abs() > 0.001 && new_interval > 1 {
+            // Derived from R(t) = (1 + t / (S * FSRS_FACTOR))^(-FSRS_DECAY)
+            // Ratio of intervals for two retention targets (at same stability):
+            //   t2/t1 = ((1/R2)^(1/FSRS_DECAY) - 1) / ((1/R1)^(1/FSRS_DECAY) - 1)
+            let ratio_new = (1.0 / desired_retention).powf(1.0 / FSRS_DECAY) - 1.0;
+            let ratio_default = (1.0 / DEFAULT_DESIRED_RETENTION).powf(1.0 / FSRS_DECAY) - 1.0;
+            if ratio_default > 0.0 {
+                ((new_interval as f64) * (ratio_new / ratio_default))
+                    .round()
+                    .max(1.0) as i64
+            } else {
+                new_interval
+            }
         } else {
             new_interval
-        }
-    } else {
-        new_interval
-    };
+        };
 
     // Apply interval fuzzing to prevent review clustering on the same day
     let final_interval = fuzz_interval(retention_scaled_interval);
@@ -297,7 +317,9 @@ pub fn update_spaced_repetition(
     // Update leech tracking
     let (new_consecutive_fails, new_leech_count) = if quality < 3 {
         let new_fails = consecutive_fails + 1;
-        let new_leeches = if new_fails >= LEECH_THRESHOLD && (new_fails - LEECH_THRESHOLD) % LEECH_THRESHOLD == 0 {
+        let new_leeches = if new_fails >= LEECH_THRESHOLD
+            && (new_fails - LEECH_THRESHOLD) % LEECH_THRESHOLD == 0
+        {
             leech_count + 1
         } else {
             leech_count
@@ -322,7 +344,11 @@ pub fn update_spaced_repetition(
 
     // Record time-of-day performance for future scheduling insights
     let current_hour: u32 = conn
-        .query_row("SELECT CAST(strftime('%H', 'now', 'localtime') AS INTEGER)", [], |r| r.get::<_, i64>(0))
+        .query_row(
+            "SELECT CAST(strftime('%H', 'now', 'localtime') AS INTEGER)",
+            [],
+            |r| r.get::<_, i64>(0),
+        )
         .unwrap_or(12) as u32;
     let _ = record_time_of_day_performance(conn, current_hour, quality);
 
@@ -452,7 +478,11 @@ pub fn review_urgency(conn: &Connection, topic_id: i64) -> f64 {
 
             let overdue_ratio = overdue_days / (interval.max(1) as f64);
             let ease_penalty = (3.0 - ease).max(0.0); // Lower ease = higher urgency
-            let lapsed_bonus = if is_card_lapsed(conn, topic_id) { 2.0 } else { 0.0 };
+            let lapsed_bonus = if is_card_lapsed(conn, topic_id) {
+                2.0
+            } else {
+                0.0
+            };
 
             overdue_ratio + ease_penalty + lapsed_bonus
         }
@@ -565,7 +595,9 @@ pub fn optimal_interval_for_retention(
         )
         .ok()?;
 
-    let r = desired_retention.unwrap_or(DEFAULT_DESIRED_RETENTION).clamp(0.5, 0.99);
+    let r = desired_retention
+        .unwrap_or(DEFAULT_DESIRED_RETENTION)
+        .clamp(0.5, 0.99);
     let stability = (interval as f64) * ease / 2.5;
     if stability <= 0.0 {
         return Some(1);
@@ -577,12 +609,11 @@ pub fn optimal_interval_for_retention(
 
 /// Get average retention across all studied topics.
 pub fn average_retention(conn: &Connection) -> f64 {
-    let mut stmt = match conn.prepare(
-        "SELECT topic_id FROM user_progress WHERE last_reviewed IS NOT NULL",
-    ) {
-        Ok(s) => s,
-        Err(_) => return 0.0,
-    };
+    let mut stmt =
+        match conn.prepare("SELECT topic_id FROM user_progress WHERE last_reviewed IS NOT NULL") {
+            Ok(s) => s,
+            Err(_) => return 0.0,
+        };
     let ids: Vec<i64> = stmt
         .query_map([], |r| r.get(0))
         .ok()
@@ -626,7 +657,7 @@ pub fn get_leeches(conn: &Connection) -> Result<Vec<(i64, String, String, i64)>,
          JOIN topics t ON t.id = p.topic_id
          JOIN subjects s ON s.id = t.subject_id
          WHERE p.leech_count > 0
-         ORDER BY p.leech_count DESC"
+         ORDER BY p.leech_count DESC",
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?)))?;
     rows.collect()
@@ -660,7 +691,8 @@ pub fn stability_half_life(interval_days: i64, ease_factor: f64) -> f64 {
     // Half-life: time t where R(t) = 0.5
     // 0.5 = (1 + t/(9·S))^(-1) → t = 9·S·(2^1 - 1) = 9·S
     // But with decay exponent: t_half = S · (2^(1/FSRS_DECAY) - 1) · FSRS_FACTOR^(-1/FSRS_DECAY)
-    let t_half = base_stability * (2.0_f64.powf(1.0 / FSRS_DECAY) - 1.0) / FSRS_FACTOR.powf(1.0 / FSRS_DECAY);
+    let t_half = base_stability * (2.0_f64.powf(1.0 / FSRS_DECAY) - 1.0)
+        / FSRS_FACTOR.powf(1.0 / FSRS_DECAY);
     t_half.max(0.5) // at least half a day
 }
 
@@ -699,7 +731,9 @@ pub fn retrievability(conn: &Connection, topic_id: i64) -> f64 {
 
 /// Sort due topics by priority: combine urgency (overdue ratio) with
 /// retrievability to surface the cards most at risk of being forgotten.
-pub fn prioritized_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
+pub fn prioritized_due_topics(
+    conn: &Connection,
+) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
     let topics = get_due_topics(conn)?;
     let mut scored: Vec<(i64, String, String, f64)> = topics
         .into_iter()
@@ -805,7 +839,9 @@ pub fn get_daily_review_cap(conn: &Connection) -> usize {
 /// Get prioritized due topics, capped at the user's daily review limit.
 /// This prevents review overload when many cards become due at once.
 #[allow(dead_code)]
-pub fn capped_due_topics(conn: &Connection) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
+pub fn capped_due_topics(
+    conn: &Connection,
+) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
     let cap = get_daily_review_cap(conn);
     let mut topics = prioritized_due_topics(conn)?;
     topics.truncate(cap);
@@ -855,11 +891,13 @@ pub fn estimate_study_time(conn: &Connection) -> (f64, i64, f64) {
 /// Uses the last 50 review entries to estimate pace.
 #[allow(dead_code)]
 fn average_review_pace(conn: &Connection) -> Option<f64> {
-    let mut stmt = conn.prepare(
-        "SELECT timestamp FROM session_log
+    let mut stmt = conn
+        .prepare(
+            "SELECT timestamp FROM session_log
          WHERE activity_type = 'review'
          ORDER BY timestamp DESC LIMIT 50",
-    ).ok()?;
+        )
+        .ok()?;
     let timestamps: Vec<String> = stmt
         .query_map([], |r| r.get(0))
         .ok()?
@@ -926,15 +964,18 @@ pub fn memory_forecast(conn: &Connection) -> Result<Vec<ForecastEntry>, rusqlite
         .filter_map(|r| r.ok())
         .map(|(topic_id, name, subject, ease, interval, last_reviewed)| {
             let stability = (interval as f64 * ease / 2.5).max(1.0);
-            let elapsed = chrono::NaiveDateTime::parse_from_str(&last_reviewed, "%Y-%m-%d %H:%M:%S")
-                .or_else(|_| chrono::NaiveDate::parse_from_str(&last_reviewed, "%Y-%m-%d")
-                    .map(|d| d.and_hms_opt(0, 0, 0).unwrap()))
-                .map(|dt| {
-                    let now = chrono::Local::now().naive_local();
-                    (now - dt).num_seconds() as f64 / 86400.0
-                })
-                .unwrap_or(0.0)
-                .max(0.0);
+            let elapsed =
+                chrono::NaiveDateTime::parse_from_str(&last_reviewed, "%Y-%m-%d %H:%M:%S")
+                    .or_else(|_| {
+                        chrono::NaiveDate::parse_from_str(&last_reviewed, "%Y-%m-%d")
+                            .map(|d| d.and_hms_opt(0, 0, 0).unwrap())
+                    })
+                    .map(|dt| {
+                        let now = chrono::Local::now().naive_local();
+                        (now - dt).num_seconds() as f64 / 86400.0
+                    })
+                    .unwrap_or(0.0)
+                    .max(0.0);
 
             // Current retention
             let current_r = (1.0 + FSRS_FACTOR * elapsed / stability).powf(-1.0 / FSRS_DECAY);
@@ -945,7 +986,13 @@ pub fn memory_forecast(conn: &Connection) -> Result<Vec<ForecastEntry>, rusqlite
             let critical_t = stability / FSRS_FACTOR * (desired_retention.powf(-FSRS_DECAY) - 1.0);
             let days_until = (critical_t - elapsed).max(0.0);
 
-            (topic_id, name, subject, days_until, current_r.clamp(0.0, 1.0))
+            (
+                topic_id,
+                name,
+                subject,
+                days_until,
+                current_r.clamp(0.0, 1.0),
+            )
         })
         .collect();
 
@@ -1001,7 +1048,9 @@ pub fn balance_review_load(conn: &Connection, days_ahead: usize) -> Result<usize
                     "SELECT topic_id FROM user_progress WHERE next_review LIKE ?1 || '%' LIMIT ?2",
                 )?;
                 let topic_ids: Vec<i64> = stmt
-                    .query_map(rusqlite::params![&day_counts[i].0, shift_count], |r| r.get(0))?
+                    .query_map(rusqlite::params![&day_counts[i].0, shift_count], |r| {
+                        r.get(0)
+                    })?
                     .filter_map(|r| r.ok())
                     .collect();
 
@@ -1028,7 +1077,10 @@ pub fn balance_review_load(conn: &Connection, days_ahead: usize) -> Result<usize
 /// Review workload distribution: returns a Vec of (date_string, review_count)
 /// for the next N days, useful for displaying review load forecasts.
 #[allow(dead_code)]
-pub fn review_load_forecast(conn: &Connection, days: usize) -> Result<Vec<(String, i64)>, rusqlite::Error> {
+pub fn review_load_forecast(
+    conn: &Connection,
+    days: usize,
+) -> Result<Vec<(String, i64)>, rusqlite::Error> {
     let mut result = Vec::with_capacity(days);
     for d in 0..days {
         let date = (chrono::Local::now() + chrono::Duration::days(d as i64))
@@ -1071,13 +1123,19 @@ pub fn adaptive_retention_target(conn: &Connection, topic_id: i64) -> f64 {
 
     // Trend: compare recent 3 to older scores
     let recent_avg = scores.iter().take(3).sum::<f64>() / 3.0;
-    let trend_bonus = if recent_avg > avg { 0.02 } else if recent_avg < avg * 0.8 { -0.03 } else { 0.0 };
+    let trend_bonus = if recent_avg > avg {
+        0.02
+    } else if recent_avg < avg * 0.8 {
+        -0.03
+    } else {
+        0.0
+    };
 
     // Scale retention based on performance
     let adjustment = if avg >= 90.0 {
-        0.05  // Mastering: push intervals longer
+        0.05 // Mastering: push intervals longer
     } else if avg >= 70.0 {
-        0.0   // On track
+        0.0 // On track
     } else if avg >= 50.0 {
         -0.03 // Struggling: review more often
     } else {
@@ -1103,10 +1161,10 @@ pub struct RetentionReport {
 
 #[derive(Debug)]
 pub enum RetentionStatus {
-    Fresh,      // Well above target
-    Good,       // At or near target
-    Fading,     // Below target but recoverable
-    Critical,   // Far below target
+    Fresh,    // Well above target
+    Good,     // At or near target
+    Fading,   // Below target but recoverable
+    Critical, // Far below target
 }
 
 impl std::fmt::Display for RetentionStatus {
@@ -1191,10 +1249,13 @@ mod tests {
              VALUES (1, 100.0, 1, 1, 2.5, 1)", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let (ease, interval): (f64, i64) = conn.query_row(
-            "SELECT ease_factor, interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| Ok((r.get(0)?, r.get(1)?))
-        ).unwrap();
+        let (ease, interval): (f64, i64) = conn
+            .query_row(
+                "SELECT ease_factor, interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
         assert!(ease >= 2.4);
         assert_eq!(interval, 3, "Second review should be 3 days");
     }
@@ -1204,28 +1265,49 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         // First: interval 0 -> FSRS-5 initial stability for quality 4 = 4 days
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(interval >= 3 && interval <= 5, "First review (q4) should use FSRS-5 initial stability ~4 days, got {}", interval);
+        let interval: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            (3..=5).contains(&interval),
+            "First review (q4) should use FSRS-5 initial stability ~4 days, got {}",
+            interval
+        );
 
         // Second: same-day review gets partial credit, but with fuzz
         // interval stays around the same or grows slightly
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval2: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(interval2 >= 3, "Second review (same-day) should maintain reasonable interval, got {}", interval2);
+        let interval2: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            interval2 >= 3,
+            "Second review (same-day) should maintain reasonable interval, got {}",
+            interval2
+        );
 
         // Third: further same-day review, interval should stay stable or grow
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval3: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(interval3 >= 3, "Third review should maintain interval (±fuzz), got {}", interval3);
+        let interval3: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            interval3 >= 3,
+            "Third review should maintain interval (±fuzz), got {}",
+            interval3
+        );
     }
 
     #[test]
@@ -1236,10 +1318,13 @@ mod tests {
              VALUES (1, 50.0, 5, 3, 2.5, 6)", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 1).unwrap();
-        let interval: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let interval: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(interval, 1, "Failed review should reset interval to 1");
     }
 
@@ -1251,11 +1336,19 @@ mod tests {
              VALUES (1, 100.0, 10, 10, 3.0, 170)", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 5).unwrap();
-        let interval: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert!(interval <= MAX_INTERVAL, "Interval should be capped at {}, got {}", MAX_INTERVAL, interval);
+        let interval: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert!(
+            interval <= MAX_INTERVAL,
+            "Interval should be capped at {}, got {}",
+            MAX_INTERVAL,
+            interval
+        );
     }
 
     #[test]
@@ -1295,10 +1388,13 @@ mod tests {
              VALUES (1, 0.0, 10, 0, 1.3, 1)", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 0).unwrap();
-        let ease: f64 = conn.query_row(
-            "SELECT ease_factor FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let ease: f64 = conn
+            .query_row(
+                "SELECT ease_factor FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert!(ease >= 1.3, "Ease factor should never go below 1.3");
     }
 
@@ -1326,7 +1422,11 @@ mod tests {
              VALUES (1, 80.0, 3, 2, 2.5, 5, datetime('now', '-3 days'))", []
         ).unwrap();
         let urgency = review_urgency(&conn, 1);
-        assert!(urgency > 0.0, "Overdue topic should have positive urgency, got {}", urgency);
+        assert!(
+            urgency > 0.0,
+            "Overdue topic should have positive urgency, got {}",
+            urgency
+        );
     }
 
     #[test]
@@ -1339,11 +1439,17 @@ mod tests {
         ).unwrap();
         // Review it — should get re-learning step, not full reset
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
-        assert_eq!(interval, 3, "Lapsed card at step 1 should advance to step 2 (3 days)");
+        let interval: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
+        assert_eq!(
+            interval, 3,
+            "Lapsed card at step 1 should advance to step 2 (3 days)"
+        );
     }
 
     #[test]
@@ -1361,7 +1467,11 @@ mod tests {
             [],
         ).unwrap();
         let streak = calculate_streak(&conn);
-        assert!(streak >= 1, "Should have at least 1 day streak, got {}", streak);
+        assert!(
+            streak >= 1,
+            "Should have at least 1 day streak, got {}",
+            streak
+        );
     }
 
     #[test]
@@ -1377,8 +1487,11 @@ mod tests {
         // For interval=100, fuzz should be ±5 (5%), so result in [95, 105]
         for _ in 0..50 {
             let fuzzed = fuzz_interval(100);
-            assert!(fuzzed >= 95 && fuzzed <= 105,
-                "Fuzzed interval {} out of expected range [95, 105]", fuzzed);
+            assert!(
+                (95..=105).contains(&fuzzed),
+                "Fuzzed interval {} out of expected range [95, 105]",
+                fuzzed
+            );
         }
     }
 
@@ -1386,8 +1499,12 @@ mod tests {
     fn test_fuzz_interval_never_exceeds_max() {
         for _ in 0..50 {
             let fuzzed = fuzz_interval(MAX_INTERVAL);
-            assert!(fuzzed <= MAX_INTERVAL,
-                "Fuzzed interval {} exceeds MAX_INTERVAL {}", fuzzed, MAX_INTERVAL);
+            assert!(
+                fuzzed <= MAX_INTERVAL,
+                "Fuzzed interval {} exceeds MAX_INTERVAL {}",
+                fuzzed,
+                MAX_INTERVAL
+            );
         }
     }
 
@@ -1402,7 +1519,10 @@ mod tests {
         for _ in 0..4 {
             update_spaced_repetition(&conn, 1, 1).unwrap();
         }
-        assert!(is_leech(&conn, 1), "Should be a leech after 4 consecutive failures");
+        assert!(
+            is_leech(&conn, 1),
+            "Should be a leech after 4 consecutive failures"
+        );
         assert_eq!(get_leech_count(&conn, 1), 1);
     }
 
@@ -1416,10 +1536,13 @@ mod tests {
             update_spaced_repetition(&conn, 1, 1).unwrap();
         }
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let fails: i64 = conn.query_row(
-            "SELECT consecutive_fails FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let fails: i64 = conn
+            .query_row(
+                "SELECT consecutive_fails FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(fails, 0, "Consecutive fails should reset on success");
     }
 
@@ -1442,13 +1565,22 @@ mod tests {
              VALUES (1, 100.0, 5, 5, 2.5, 10)", []
         ).unwrap();
         let interval = optimal_interval_for_retention(&conn, 1, Some(0.85)).unwrap();
-        assert!(interval >= 1, "Should compute a positive interval, got {}", interval);
+        assert!(
+            interval >= 1,
+            "Should compute a positive interval, got {}",
+            interval
+        );
         assert!(interval <= MAX_INTERVAL);
 
         // Higher retention → shorter interval
         let high = optimal_interval_for_retention(&conn, 1, Some(0.95)).unwrap();
         let low = optimal_interval_for_retention(&conn, 1, Some(0.70)).unwrap();
-        assert!(high <= low, "Higher retention ({}) should need shorter interval than lower ({})", high, low);
+        assert!(
+            high <= low,
+            "Higher retention ({}) should need shorter interval than lower ({})",
+            high,
+            low
+        );
     }
 
     #[test]
@@ -1466,7 +1598,11 @@ mod tests {
         ).unwrap();
         let avg = average_retention(&conn);
         // Just reviewed → retention should be very high (close to 1.0)
-        assert!(avg > 0.9, "Just-reviewed topic should have high retention, got {}", avg);
+        assert!(
+            avg > 0.9,
+            "Just-reviewed topic should have high retention, got {}",
+            avg
+        );
     }
 
     #[test]
@@ -1477,22 +1613,33 @@ mod tests {
              VALUES (1, 100.0, 5, 5, 2.5, 10)", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 5).unwrap();
-        let interval_q5: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let interval_q5: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
 
         // Reset and try quality 4
         conn.execute(
-            "UPDATE user_progress SET ease_factor = 2.5, interval_days = 10 WHERE topic_id = 1", []
-        ).unwrap();
+            "UPDATE user_progress SET ease_factor = 2.5, interval_days = 10 WHERE topic_id = 1",
+            [],
+        )
+        .unwrap();
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval_q4: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let interval_q4: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
 
-        assert!(interval_q5 >= interval_q4, "Quality 5 should give equal or longer interval than quality 4");
+        assert!(
+            interval_q5 >= interval_q4,
+            "Quality 5 should give equal or longer interval than quality 4"
+        );
     }
 
     #[test]
@@ -1502,24 +1649,36 @@ mod tests {
         assert!(hl > 0.5, "Half-life should be positive");
         // Higher ease → higher half-life
         let hl_high_ease = stability_half_life(10, 3.0);
-        assert!(hl_high_ease > hl, "Higher ease factor should give longer half-life");
+        assert!(
+            hl_high_ease > hl,
+            "Higher ease factor should give longer half-life"
+        );
         // Longer interval → higher half-life
         let hl_long_interval = stability_half_life(30, 2.5);
-        assert!(hl_long_interval > hl, "Longer interval should give longer half-life");
+        assert!(
+            hl_long_interval > hl,
+            "Longer interval should give longer half-life"
+        );
     }
 
     #[test]
     fn test_stability_half_life_minimum() {
         // Even tiny intervals should return at least 0.5
         let hl = stability_half_life(0, 1.3);
-        assert!((hl - 0.5).abs() < f64::EPSILON, "Minimum half-life should be 0.5");
+        assert!(
+            (hl - 0.5).abs() < f64::EPSILON,
+            "Minimum half-life should be 0.5"
+        );
     }
 
     #[test]
     fn test_retrievability_no_progress() {
         let conn = db::init_memory_db().unwrap();
         let r = retrievability(&conn, 9999);
-        assert!((r - 0.0).abs() < f64::EPSILON, "No progress should return 0.0");
+        assert!(
+            (r - 0.0).abs() < f64::EPSILON,
+            "No progress should return 0.0"
+        );
     }
 
     #[test]
@@ -1532,7 +1691,11 @@ mod tests {
             [&today],
         ).unwrap();
         let r = retrievability(&conn, 1);
-        assert!(r > 0.9, "Just-reviewed card should have high retrievability, got {}", r);
+        assert!(
+            r > 0.9,
+            "Just-reviewed card should have high retrievability, got {}",
+            r
+        );
     }
 
     #[test]
@@ -1547,7 +1710,11 @@ mod tests {
         let conn = db::init_memory_db().unwrap();
         // Topic 1 should be beginner difficulty
         let factor = topic_difficulty_factor(&conn, 1);
-        assert!((factor - 1.0).abs() < 0.01, "Beginner should have factor ~1.0, got {}", factor);
+        assert!(
+            (factor - 1.0).abs() < 0.01,
+            "Beginner should have factor ~1.0, got {}",
+            factor
+        );
     }
 
     #[test]
@@ -1560,21 +1727,31 @@ mod tests {
             [],
         ).unwrap();
         let factor = topic_difficulty_factor(&conn, 1);
-        assert!(factor < 1.0, "Low ease should compress intervals, got {}", factor);
+        assert!(
+            factor < 1.0,
+            "Low ease should compress intervals, got {}",
+            factor
+        );
     }
 
     #[test]
     fn test_difficulty_aware_intervals() {
         let conn = db::init_memory_db().unwrap();
         // Find an intermediate topic
-        let int_id: Option<i64> = conn.query_row(
-            "SELECT id FROM topics WHERE difficulty = 'intermediate' LIMIT 1",
-            [],
-            |r| r.get(0),
-        ).ok();
+        let int_id: Option<i64> = conn
+            .query_row(
+                "SELECT id FROM topics WHERE difficulty = 'intermediate' LIMIT 1",
+                [],
+                |r| r.get(0),
+            )
+            .ok();
         if let Some(topic_id) = int_id {
             let factor = topic_difficulty_factor(&conn, topic_id);
-            assert!(factor <= 1.0, "Intermediate should have factor <= 1.0, got {}", factor);
+            assert!(
+                factor <= 1.0,
+                "Intermediate should have factor <= 1.0, got {}",
+                factor
+            );
         }
     }
 
@@ -1590,7 +1767,8 @@ mod tests {
         conn.execute(
             "INSERT INTO user_config (key, value) VALUES ('daily_review_cap', '25')",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         assert_eq!(get_daily_review_cap(&conn), 25);
     }
 
@@ -1601,7 +1779,8 @@ mod tests {
         conn.execute(
             "INSERT INTO user_config (key, value) VALUES ('daily_review_cap', '2')",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         let topics = capped_due_topics(&conn).unwrap();
         assert!(topics.len() <= 2);
     }
@@ -1649,7 +1828,10 @@ mod tests {
             crate::engine::adaptive::log_activity(&conn, 1, "quiz", Some(95.0)).unwrap();
         }
         let target = adaptive_retention_target(&conn, 1);
-        assert!(target > DEFAULT_DESIRED_RETENTION, "High scores should raise target");
+        assert!(
+            target > DEFAULT_DESIRED_RETENTION,
+            "High scores should raise target"
+        );
         assert!(target <= MAX_ADAPTIVE_RETENTION);
     }
 
@@ -1660,7 +1842,10 @@ mod tests {
             crate::engine::adaptive::log_activity(&conn, 1, "quiz", Some(40.0)).unwrap();
         }
         let target = adaptive_retention_target(&conn, 1);
-        assert!(target < DEFAULT_DESIRED_RETENTION, "Low scores should lower target");
+        assert!(
+            target < DEFAULT_DESIRED_RETENTION,
+            "Low scores should lower target"
+        );
         assert!(target >= MIN_ADAPTIVE_RETENTION);
     }
 
@@ -1713,7 +1898,11 @@ mod tests {
             ).unwrap();
         }
         let adjusted = fatigue_adjusted_quality(&conn, 5);
-        assert!(adjusted < 5, "Quality should be reduced by fatigue, got {}", adjusted);
+        assert!(
+            adjusted < 5,
+            "Quality should be reduced by fatigue, got {}",
+            adjusted
+        );
         assert!(adjusted >= 1, "Quality should never go below 1");
     }
 
@@ -1728,7 +1917,11 @@ mod tests {
     fn test_spacing_bonus_no_history() {
         let conn = db::init_memory_db().unwrap();
         let bonus = spacing_bonus(&conn, 1);
-        assert!((bonus - 1.0).abs() < 0.01, "No history should give 1.0 bonus, got {}", bonus);
+        assert!(
+            (bonus - 1.0).abs() < 0.01,
+            "No history should give 1.0 bonus, got {}",
+            bonus
+        );
     }
 
     #[test]
@@ -1748,7 +1941,11 @@ mod tests {
             [],
         ).unwrap();
         let bonus = spacing_bonus(&conn, 1);
-        assert!(bonus > 1.0, "Multiple days should give bonus > 1.0, got {}", bonus);
+        assert!(
+            bonus > 1.0,
+            "Multiple days should give bonus > 1.0, got {}",
+            bonus
+        );
         assert!(bonus <= 1.2, "Bonus should be capped at 1.2, got {}", bonus);
     }
 
@@ -1763,11 +1960,13 @@ mod tests {
             ).unwrap();
         }
         let q = fatigue_adjusted_quality(&conn, 3);
-        assert!(q >= 1, "Fatigue should never push quality below 1, got {}", q);
+        assert!(
+            q >= 1,
+            "Fatigue should never push quality below 1, got {}",
+            q
+        );
     }
 }
-
-
 
 /// Mastery level for a topic based on long-term performance indicators.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -1853,9 +2052,7 @@ pub fn assess_mastery(conn: &Connection, topic_id: i64) -> MasteryLevel {
 #[allow(dead_code)]
 /// Get a summary of mastery levels across all studied topics.
 pub fn mastery_summary(conn: &Connection) -> Result<Vec<(MasteryLevel, i64)>, rusqlite::Error> {
-    let mut stmt = conn.prepare(
-        "SELECT topic_id FROM user_progress",
-    )?;
+    let mut stmt = conn.prepare("SELECT topic_id FROM user_progress")?;
     let ids: Vec<i64> = stmt
         .query_map([], |r| r.get(0))?
         .filter_map(|r| r.ok())
@@ -1892,7 +2089,9 @@ pub fn mastery_summary(conn: &Connection) -> Result<Vec<(MasteryLevel, i64)>, ru
 /// retention compared to blocked practice (reviewing all items from one subject at a time).
 /// This function takes prioritized due topics and reorders them so consecutive reviews
 /// alternate between subjects when possible.
-pub fn interleaved_review_batch(conn: &Connection) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
+pub fn interleaved_review_batch(
+    conn: &Connection,
+) -> Result<Vec<(i64, String, String, f64)>, rusqlite::Error> {
     let cap = get_daily_review_cap(conn);
     let topics = prioritized_due_topics(conn)?;
 
@@ -1919,7 +2118,9 @@ pub fn interleaved_review_batch(conn: &Connection) -> Result<Vec<(i64, String, S
     queues.sort_by(|a, b| {
         let a_max = a.front().map(|t| t.3).unwrap_or(0.0);
         let b_max = b.front().map(|t| t.3).unwrap_or(0.0);
-        b_max.partial_cmp(&a_max).unwrap_or(std::cmp::Ordering::Equal)
+        b_max
+            .partial_cmp(&a_max)
+            .unwrap_or(std::cmp::Ordering::Equal)
     });
 
     let mut result = Vec::with_capacity(cap);
@@ -2098,7 +2299,9 @@ mod mastery_tests {
         let summary = mastery_summary(&conn).unwrap();
         // All topics are new
         assert!(!summary.is_empty());
-        assert!(summary.iter().any(|(level, count)| *level == MasteryLevel::New && *count > 0));
+        assert!(summary
+            .iter()
+            .any(|(level, count)| *level == MasteryLevel::New && *count > 0));
     }
 
     #[test]
@@ -2119,7 +2322,10 @@ mod mastery_tests {
     fn test_interleaving_bonus_no_reviews() {
         let conn = db::init_memory_db().unwrap();
         let bonus = interleaving_bonus(&conn);
-        assert!((bonus - 1.0).abs() < f64::EPSILON, "No reviews should give bonus 1.0");
+        assert!(
+            (bonus - 1.0).abs() < f64::EPSILON,
+            "No reviews should give bonus 1.0"
+        );
     }
 
     #[test]
@@ -2129,9 +2335,13 @@ mod mastery_tests {
         conn.execute(
             "INSERT INTO session_log (topic_id, activity_type, score) VALUES (1, 'review', 80.0)",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         let bonus = interleaving_bonus(&conn);
-        assert!((bonus - 1.0).abs() < f64::EPSILON, "Single subject should give bonus 1.0");
+        assert!(
+            (bonus - 1.0).abs() < f64::EPSILON,
+            "Single subject should give bonus 1.0"
+        );
     }
 
     #[test]
@@ -2140,12 +2350,24 @@ mod mastery_tests {
         let conn = db::init_memory_db().unwrap();
         // First attempt: fail with quality 1
         update_spaced_repetition(&conn, 1, 1).unwrap();
-        let ease_after_fail: f64 = conn.query_row(
-            "SELECT ease_factor FROM user_progress WHERE topic_id = 1", [], |r| r.get(0),
-        ).unwrap();
+        let ease_after_fail: f64 = conn
+            .query_row(
+                "SELECT ease_factor FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         // With grace period, ease should be 2.5 - 0.08 = 2.42 (not 2.5 - 0.15 = 2.35)
-        assert!(ease_after_fail > 2.35, "New card grace period should apply softer penalty, got {}", ease_after_fail);
-        assert!(ease_after_fail <= 2.5, "Ease should decrease on failure, got {}", ease_after_fail);
+        assert!(
+            ease_after_fail > 2.35,
+            "New card grace period should apply softer penalty, got {}",
+            ease_after_fail
+        );
+        assert!(
+            ease_after_fail <= 2.5,
+            "Ease should decrease on failure, got {}",
+            ease_after_fail
+        );
     }
 
     #[test]
@@ -2156,17 +2378,29 @@ mod mastery_tests {
         update_spaced_repetition(&conn, 1, 4).unwrap();
         update_spaced_repetition(&conn, 1, 4).unwrap();
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let ease_before: f64 = conn.query_row(
-            "SELECT ease_factor FROM user_progress WHERE topic_id = 1", [], |r| r.get(0),
-        ).unwrap();
+        let ease_before: f64 = conn
+            .query_row(
+                "SELECT ease_factor FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         // Now fail
         update_spaced_repetition(&conn, 1, 1).unwrap();
-        let ease_after: f64 = conn.query_row(
-            "SELECT ease_factor FROM user_progress WHERE topic_id = 1", [], |r| r.get(0),
-        ).unwrap();
+        let ease_after: f64 = conn
+            .query_row(
+                "SELECT ease_factor FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         // Full penalty of 0.15 should be applied
         let penalty = ease_before - ease_after;
-        assert!(penalty >= 0.14, "Established card should get full penalty, got {}", penalty);
+        assert!(
+            penalty >= 0.14,
+            "Established card should get full penalty, got {}",
+            penalty
+        );
     }
 
     #[test]
@@ -2188,7 +2422,11 @@ mod mastery_tests {
         ).unwrap();
         let (minutes, due, _pace) = estimate_study_time(&conn);
         assert_eq!(due, 1);
-        assert!(minutes > 0.0, "Should estimate positive study time, got {}", minutes);
+        assert!(
+            minutes > 0.0,
+            "Should estimate positive study time, got {}",
+            minutes
+        );
     }
 
     #[test]
@@ -2208,8 +2446,16 @@ mod mastery_tests {
         let forecast = memory_forecast(&conn).unwrap();
         assert_eq!(forecast.len(), 1);
         let (_, _, _, days_until, retention) = &forecast[0];
-        assert!(*retention > 0.9, "Just-reviewed should have high retention, got {}", retention);
-        assert!(*days_until > 0.0, "Should have positive days until critical, got {}", days_until);
+        assert!(
+            *retention > 0.9,
+            "Just-reviewed should have high retention, got {}",
+            retention
+        );
+        assert!(
+            *days_until > 0.0,
+            "Should have positive days until critical, got {}",
+            days_until
+        );
     }
 
     #[test]
@@ -2229,7 +2475,11 @@ mod mastery_tests {
              VALUES (1, 80.0, 5, 4, 2.5, 10, datetime('now', '-20 days'), datetime('now', '-30 days'))", []
         ).unwrap();
         let decay = stability_decay_factor(&conn, 1);
-        assert!((decay - 1.0).abs() < f64::EPSILON, "2× overdue should not trigger decay, got {}", decay);
+        assert!(
+            (decay - 1.0).abs() < f64::EPSILON,
+            "2× overdue should not trigger decay, got {}",
+            decay
+        );
     }
 
     #[test]
@@ -2241,7 +2491,11 @@ mod mastery_tests {
              VALUES (1, 80.0, 5, 4, 2.5, 10, datetime('now', '-100 days'), datetime('now', '-110 days'))", []
         ).unwrap();
         let decay = stability_decay_factor(&conn, 1);
-        assert!(decay < 1.0, "10× overdue should trigger decay, got {}", decay);
+        assert!(
+            decay < 1.0,
+            "10× overdue should trigger decay, got {}",
+            decay
+        );
         assert!(decay >= 0.3, "Decay should be capped at 0.3, got {}", decay);
     }
 
@@ -2272,7 +2526,11 @@ mod mastery_tests {
         }
         record_time_of_day_performance(&conn, 22, 2).unwrap();
         let bonus = time_of_day_quality_bonus(&conn, 10);
-        assert!(bonus >= 1.0, "Best hour should have bonus >= 1.0, got {}", bonus);
+        assert!(
+            bonus >= 1.0,
+            "Best hour should have bonus >= 1.0, got {}",
+            bonus
+        );
     }
 
     #[test]
@@ -2291,7 +2549,10 @@ mod mastery_tests {
         let forecast = memory_forecast(&conn).unwrap();
         assert_eq!(forecast.len(), 2);
         // Topic 2 should be more urgent (fewer days until critical)
-        assert!(forecast[0].3 <= forecast[1].3, "Forecast should be sorted by urgency");
+        assert!(
+            forecast[0].3 <= forecast[1].3,
+            "Forecast should be sorted by urgency"
+        );
     }
 }
 
@@ -2321,13 +2582,17 @@ pub fn retrieval_strength(conn: &Connection, topic_id: i64) -> f64 {
 
     let ret = retrievability(conn, topic_id); // 0.0-1.0
     let momentum = learning_momentum(conn, topic_id); // roughly -20 to +20
-    let accuracy = if attempts > 0 { correct as f64 / attempts as f64 } else { 0.0 }; // 0.0-1.0
+    let accuracy = if attempts > 0 {
+        correct as f64 / attempts as f64
+    } else {
+        0.0
+    }; // 0.0-1.0
 
     // Weight each component
-    let retention_score = ret * 40.0;  // 0-40 points
-    let ease_score = ((ease - MIN_EASE) / (3.0 - MIN_EASE)).clamp(0.0, 1.0) * 20.0;  // 0-20 points
-    let momentum_score = ((momentum + 10.0) / 20.0).clamp(0.0, 1.0) * 20.0;  // 0-20 points
-    let accuracy_score = accuracy * 20.0;  // 0-20 points
+    let retention_score = ret * 40.0; // 0-40 points
+    let ease_score = ((ease - MIN_EASE) / (3.0 - MIN_EASE)).clamp(0.0, 1.0) * 20.0; // 0-20 points
+    let momentum_score = ((momentum + 10.0) / 20.0).clamp(0.0, 1.0) * 20.0; // 0-20 points
+    let accuracy_score = accuracy * 20.0; // 0-20 points
 
     (retention_score + ease_score + momentum_score + accuracy_score).clamp(0.0, 100.0)
 }
@@ -2586,7 +2851,12 @@ mod surge_tests {
         }
         let mult = difficulty_surge_multiplier(&conn);
         assert!(mult > 1.0, "Surge multiplier should be > 1.0, got {}", mult);
-        assert!(mult <= DIFFICULTY_SURGE_MULTIPLIER, "Surge multiplier should be <= {}, got {}", DIFFICULTY_SURGE_MULTIPLIER, mult);
+        assert!(
+            mult <= DIFFICULTY_SURGE_MULTIPLIER,
+            "Surge multiplier should be <= {}, got {}",
+            DIFFICULTY_SURGE_MULTIPLIER,
+            mult
+        );
     }
 
     #[test]
@@ -2620,7 +2890,11 @@ mod momentum_tests {
              VALUES (1, 90.0, 10, 9, 2.5, 30, datetime('now'))", []
         ).unwrap();
         let strength = retrieval_strength(&conn, 1);
-        assert!(strength > 50.0, "Healthy topic should have strength > 50, got {}", strength);
+        assert!(
+            strength > 50.0,
+            "Healthy topic should have strength > 50, got {}",
+            strength
+        );
     }
 
     #[test]
@@ -2631,7 +2905,11 @@ mod momentum_tests {
              VALUES (1, 20.0, 10, 2, 1.4, 1, datetime('now', '-10 days'))", []
         ).unwrap();
         let strength = retrieval_strength(&conn, 1);
-        assert!(strength < 50.0, "Weak topic should have strength < 50, got {}", strength);
+        assert!(
+            strength < 50.0,
+            "Weak topic should have strength < 50, got {}",
+            strength
+        );
     }
 
     #[test]
@@ -2662,9 +2940,11 @@ mod momentum_tests {
         let result = auto_promote_difficulty(&conn, 1);
         assert_eq!(result, Some("intermediate".to_string()));
         // Verify DB was updated
-        let diff: String = conn.query_row(
-            "SELECT difficulty FROM topics WHERE id = 1", [], |r| r.get(0)
-        ).unwrap();
+        let diff: String = conn
+            .query_row("SELECT difficulty FROM topics WHERE id = 1", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
         assert_eq!(diff, "intermediate");
     }
 
@@ -2672,7 +2952,11 @@ mod momentum_tests {
     fn test_auto_promote_intermediate_to_advanced() {
         let conn = db::init_memory_db().unwrap();
         // Set topic to intermediate first
-        conn.execute("UPDATE topics SET difficulty = 'intermediate' WHERE id = 1", []).unwrap();
+        conn.execute(
+            "UPDATE topics SET difficulty = 'intermediate' WHERE id = 1",
+            [],
+        )
+        .unwrap();
         conn.execute(
             "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
              VALUES (1, 95.0, 12, 11, 2.6, 30)", []
@@ -2684,7 +2968,8 @@ mod momentum_tests {
     #[test]
     fn test_auto_promote_already_advanced() {
         let conn = db::init_memory_db().unwrap();
-        conn.execute("UPDATE topics SET difficulty = 'advanced' WHERE id = 1", []).unwrap();
+        conn.execute("UPDATE topics SET difficulty = 'advanced' WHERE id = 1", [])
+            .unwrap();
         conn.execute(
             "INSERT INTO user_progress (topic_id, score, attempts, correct, ease_factor, interval_days)
              VALUES (1, 95.0, 15, 14, 2.8, 60)", []
@@ -2716,7 +3001,11 @@ mod momentum_tests {
             adaptive::log_activity(&conn, 1, "quiz", Some(*score)).unwrap();
         }
         let m = learning_momentum(&conn, 1);
-        assert!(m > 0.0, "Improving scores should have positive momentum, got {}", m);
+        assert!(
+            m > 0.0,
+            "Improving scores should have positive momentum, got {}",
+            m
+        );
     }
 
     #[test]
@@ -2727,7 +3016,11 @@ mod momentum_tests {
             adaptive::log_activity(&conn, 1, "quiz", Some(*score)).unwrap();
         }
         let m = learning_momentum(&conn, 1);
-        assert!(m < 0.0, "Declining scores should have negative momentum, got {}", m);
+        assert!(
+            m < 0.0,
+            "Declining scores should have negative momentum, got {}",
+            m
+        );
     }
 
     #[test]
@@ -2737,7 +3030,11 @@ mod momentum_tests {
             adaptive::log_activity(&conn, 1, "quiz", Some(75.0)).unwrap();
         }
         let m = learning_momentum(&conn, 1);
-        assert!((m).abs() < 1.0, "Stable scores should have near-zero momentum, got {}", m);
+        assert!(
+            (m).abs() < 1.0,
+            "Stable scores should have near-zero momentum, got {}",
+            m
+        );
     }
 }
 
@@ -2755,10 +3052,13 @@ mod sleep_tests {
              VALUES (1, 100.0, 5, 5, 2.5, 10, datetime('now', '-1 day'))", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval_with_sleep: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let interval_with_sleep: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
 
         // Compare with same-day review (no sleep bonus)
         conn.execute(
@@ -2766,16 +3066,22 @@ mod sleep_tests {
              WHERE topic_id = 1", []
         ).unwrap();
         update_spaced_repetition(&conn, 1, 4).unwrap();
-        let interval_same_day: i64 = conn.query_row(
-            "SELECT interval_days FROM user_progress WHERE topic_id = 1",
-            [], |r| r.get(0)
-        ).unwrap();
+        let interval_same_day: i64 = conn
+            .query_row(
+                "SELECT interval_days FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
 
         // Sleep gap review should produce equal or longer interval
         // (same-day gets the SAME_DAY_REVIEW_FACTOR reduction, sleep gets the bonus)
-        assert!(interval_with_sleep >= interval_same_day,
+        assert!(
+            interval_with_sleep >= interval_same_day,
             "Sleep consolidation should give longer interval ({}) than same-day ({})",
-            interval_with_sleep, interval_same_day);
+            interval_with_sleep,
+            interval_same_day
+        );
     }
 
     #[test]
@@ -2783,17 +3089,24 @@ mod sleep_tests {
         let conn = db::init_memory_db().unwrap();
         // No sibling reviews → bonus should be 1.0
         let bonus = context_strengthening(&conn, 1);
-        assert!((bonus - 1.0).abs() < f64::EPSILON,
-            "No sibling reviews should give no bonus, got {}", bonus);
+        assert!(
+            (bonus - 1.0).abs() < f64::EPSILON,
+            "No sibling reviews should give no bonus, got {}",
+            bonus
+        );
     }
 
     #[test]
     fn test_context_strengthening_with_siblings() {
         let conn = db::init_memory_db().unwrap();
         // Get subject_id for topic 1
-        let subject_id: i64 = conn.query_row(
-            "SELECT subject_id FROM topics WHERE id = 1", [], |r: &rusqlite::Row| r.get(0)
-        ).unwrap();
+        let subject_id: i64 = conn
+            .query_row(
+                "SELECT subject_id FROM topics WHERE id = 1",
+                [],
+                |r: &rusqlite::Row| r.get(0),
+            )
+            .unwrap();
         // Add two more topics in same subject
         conn.execute(
             "INSERT OR IGNORE INTO topics (id, subject_id, name, difficulty, sort_order) VALUES (9990, ?1, 'Sibling A', 'beginner', 90)",
@@ -2813,17 +3126,24 @@ mod sleep_tests {
             [],
         ).unwrap();
         let bonus = context_strengthening(&conn, 1);
-        assert!((bonus - CONTEXT_STRENGTHENING_BONUS).abs() < f64::EPSILON,
-            "Two sibling reviews should give context bonus {}, got {}", CONTEXT_STRENGTHENING_BONUS, bonus);
+        assert!(
+            (bonus - CONTEXT_STRENGTHENING_BONUS).abs() < f64::EPSILON,
+            "Two sibling reviews should give context bonus {}, got {}",
+            CONTEXT_STRENGTHENING_BONUS,
+            bonus
+        );
     }
 
     #[test]
     fn test_recap_query_runs() {
         let conn = db::init_memory_db().unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM session_log WHERE timestamp >= datetime('now', '-7 days')",
-            [], |r: &rusqlite::Row| r.get(0)
-        ).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM session_log WHERE timestamp >= datetime('now', '-7 days')",
+                [],
+                |r: &rusqlite::Row| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 0, "Fresh DB should have no session log entries");
     }
 }

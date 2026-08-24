@@ -56,7 +56,11 @@ pub fn update_progress(
            correct = correct + ?3,
            score = CAST((correct + ?3) AS REAL) / CAST((attempts + 1) AS REAL) * 100.0,
            last_reviewed = datetime('now')",
-        rusqlite::params![topic_id, if correct { 100.0 } else { 0.0 }, if correct { 1 } else { 0 }],
+        rusqlite::params![
+            topic_id,
+            if correct { 100.0 } else { 0.0 },
+            if correct { 1 } else { 0 }
+        ],
     )?;
     Ok(())
 }
@@ -82,15 +86,21 @@ pub fn log_activity(
 pub fn confidence_weighted_quality(correct: bool, time_ms: u64) -> u8 {
     if !correct {
         // Even wrong answers: very fast wrong = 2 (close guess), slow = 0
-        return if time_ms < 5_000 { 2 } else if time_ms < 15_000 { 1 } else { 0 };
+        return if time_ms < 5_000 {
+            2
+        } else if time_ms < 15_000 {
+            1
+        } else {
+            0
+        };
     }
 
     // Correct answers: faster = higher confidence
     match time_ms {
-        0..=3_000 => 5,       // Very fast: strong recall
-        3_001..=8_000 => 4,   // Moderate: decent recall
-        8_001..=20_000 => 3,  // Slow: barely recalled
-        _ => 3,               // Very slow but correct: still a pass
+        0..=3_000 => 5,      // Very fast: strong recall
+        3_001..=8_000 => 4,  // Moderate: decent recall
+        8_001..=20_000 => 3, // Slow: barely recalled
+        _ => 3,              // Very slow but correct: still a pass
     }
 }
 
@@ -134,8 +144,10 @@ pub fn todays_session_summary(conn: &Connection) -> SessionSummary {
             "SELECT COUNT(DISTINCT t.subject_id) FROM session_log sl
              JOIN topics t ON t.id = sl.topic_id
              WHERE sl.activity_type IN ('review', 'quiz') AND DATE(sl.timestamp) = DATE('now')",
-            [], |r| r.get(0),
-        ).unwrap_or(0);
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     let leeches: i64 = conn
         .query_row(
@@ -144,11 +156,17 @@ pub fn todays_session_summary(conn: &Connection) -> SessionSummary {
              WHERE sl.activity_type IN ('review', 'quiz')
              AND DATE(sl.timestamp) = DATE('now')
              AND p.leech_count > 0",
-            [], |r| r.get(0),
-        ).unwrap_or(0);
+            [],
+            |r| r.get(0),
+        )
+        .unwrap_or(0);
 
     let incorrect = total - correct;
-    let accuracy = if total > 0 { correct as f64 / total as f64 * 100.0 } else { 0.0 };
+    let accuracy = if total > 0 {
+        correct as f64 / total as f64 * 100.0
+    } else {
+        0.0
+    };
 
     SessionSummary {
         topics_reviewed: total as usize,
@@ -170,7 +188,10 @@ mod tests {
     #[test]
     fn test_difficulty_from_str() {
         assert_eq!(Difficulty::from_str("beginner"), Difficulty::Beginner);
-        assert_eq!(Difficulty::from_str("intermediate"), Difficulty::Intermediate);
+        assert_eq!(
+            Difficulty::from_str("intermediate"),
+            Difficulty::Intermediate
+        );
         assert_eq!(Difficulty::from_str("advanced"), Difficulty::Advanced);
         assert_eq!(Difficulty::from_str("unknown"), Difficulty::Beginner);
     }
@@ -187,9 +208,13 @@ mod tests {
         update_progress(&conn, 1, true).unwrap();
         update_progress(&conn, 1, true).unwrap();
         update_progress(&conn, 1, false).unwrap();
-        let attempts: i64 = conn.query_row(
-            "SELECT attempts FROM user_progress WHERE topic_id = 1", [], |r| r.get(0)
-        ).unwrap();
+        let attempts: i64 = conn
+            .query_row(
+                "SELECT attempts FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(attempts, 3);
     }
 
@@ -197,9 +222,13 @@ mod tests {
     fn test_log_activity() {
         let conn = db::init_memory_db().unwrap();
         log_activity(&conn, 1, "learn", Some(100.0)).unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM session_log WHERE topic_id = 1", [], |r| r.get(0)
-        ).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM session_log WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(count, 1);
     }
 

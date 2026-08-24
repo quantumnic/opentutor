@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Learning velocity: track how fast the user is acquiring and retaining knowledge.
 /// Shows topics mastered per week, retention trend, and predicted mastery dates.
@@ -20,46 +20,64 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     for (week, count) in &weeks {
         let bar_len = (*count as usize).min(40);
         let bar = "█".repeat(bar_len);
-        println!("    {} {} {}",
+        println!(
+            "    {} {} {}",
             week.dimmed(),
             bar.bright_cyan(),
-            count.to_string().bold());
+            count.to_string().bold()
+        );
     }
     println!();
 
     // Current velocity (topics per day, last 7 days)
     let daily_velocity = daily_velocity_7d(conn)?;
-    println!("  Current pace: {} topics/day (last 7 days)",
-        format!("{:.1}", daily_velocity).bold().bright_green());
+    println!(
+        "  Current pace: {} topics/day (last 7 days)",
+        format!("{:.1}", daily_velocity).bold().bright_green()
+    );
 
     // Retention trend: compare average retention now vs 2 weeks ago
     let current_retention = spaced::average_retention(conn);
     let retention_pct = (current_retention * 100.0) as u32;
-    let retention_indicator = if retention_pct >= 85 { "🟢" } else if retention_pct >= 70 { "🟡" } else { "🔴" };
-    println!("  Average retention: {} {}%",
+    let retention_indicator = if retention_pct >= 85 {
+        "🟢"
+    } else if retention_pct >= 70 {
+        "🟡"
+    } else {
+        "🔴"
+    };
+    println!(
+        "  Average retention: {} {}%",
         retention_indicator,
-        retention_pct.to_string().bold());
+        retention_pct.to_string().bold()
+    );
 
     // Mastery forecast: at current pace, when will all topics be studied?
-    let total_topics: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM topics", [], |r| r.get(0)
-    )?;
+    let total_topics: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
     let studied: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress WHERE attempts > 0", [], |r| r.get(0)
+        "SELECT COUNT(*) FROM user_progress WHERE attempts > 0",
+        [],
+        |r| r.get(0),
     )?;
     let remaining = total_topics - studied;
 
     if remaining > 0 && daily_velocity > 0.0 {
         let days_to_complete = remaining as f64 / daily_velocity;
-        println!("  Remaining topics: {} / {}",
+        println!(
+            "  Remaining topics: {} / {}",
             remaining.to_string().bright_yellow(),
-            total_topics.to_string().dimmed());
+            total_topics.to_string().dimmed()
+        );
         if days_to_complete < 365.0 {
-            println!("  Estimated completion: ~{} days at current pace",
-                format!("{:.0}", days_to_complete).bold());
+            println!(
+                "  Estimated completion: ~{} days at current pace",
+                format!("{:.0}", days_to_complete).bold()
+            );
         } else {
-            println!("  Estimated completion: {}+ days — try increasing your daily pace!",
-                format!("{:.0}", days_to_complete).bold().bright_red());
+            println!(
+                "  Estimated completion: {}+ days — try increasing your daily pace!",
+                format!("{:.0}", days_to_complete).bold().bright_red()
+            );
         }
     } else if remaining == 0 {
         display::print_success("All topics studied! Focus on retention now. 🏆");
@@ -80,20 +98,34 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
          LEFT JOIN user_progress p ON p.topic_id = t.id AND p.attempts > 0
          GROUP BY s.id
          HAVING studied > 0
-         ORDER BY CAST(studied AS REAL) / total DESC"
+         ORDER BY CAST(studied AS REAL) / total DESC",
     )?;
 
     let subject_stats: Vec<(String, i64, i64, f64)> = stmt
-        .query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get::<_, Option<f64>>(3)?.unwrap_or(2.5))))?
+        .query_map([], |r| {
+            Ok((
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get::<_, Option<f64>>(3)?.unwrap_or(2.5),
+            ))
+        })?
         .collect::<Result<Vec<_>, _>>()?;
 
     for (name, studied, total, avg_ease) in &subject_stats {
         let pct = (*studied as f64 / *total as f64 * 100.0) as u32;
-        let ease_indicator = if *avg_ease >= 2.5 { "💪" } else if *avg_ease >= 2.0 { "📖" } else { "🔨" };
+        let ease_indicator = if *avg_ease >= 2.5 {
+            "💪"
+        } else if *avg_ease >= 2.0 {
+            "📖"
+        } else {
+            "🔨"
+        };
         let bar_len = (pct as usize / 5).min(20);
         let bar = "█".repeat(bar_len);
         let empty = "░".repeat(20 - bar_len);
-        println!("    {} {}{} {}% ({}/{}) {} ease {:.1}",
+        println!(
+            "    {} {}{} {}% ({}/{}) {} ease {:.1}",
             name.bold(),
             bar.bright_green(),
             empty.dimmed(),
@@ -101,7 +133,8 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             studied,
             total,
             ease_indicator,
-            avg_ease);
+            avg_ease
+        );
     }
 
     println!();
@@ -117,7 +150,7 @@ fn weekly_acquisition(conn: &Connection) -> Result<Vec<(String, i64)>, rusqlite:
          FROM session_log
          WHERE timestamp >= datetime('now', '-28 days')
          GROUP BY week
-         ORDER BY week ASC"
+         ORDER BY week ASC",
     )?;
     let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?;
     rows.collect()
