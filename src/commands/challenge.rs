@@ -1,17 +1,17 @@
-use colored::*;
-use rusqlite::Connection;
+use crate::commands::achievements;
 use crate::display;
 use crate::engine::{adaptive, quiz as quiz_engine, spaced};
-use crate::commands::achievements;
+use colored::*;
+use rusqlite::Connection;
 
 /// Cross-topic challenge: mix questions from multiple subjects for comprehensive review.
 pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Cross-Topic Challenge");
 
     // Gather questions from all topics the user has studied (or random if none studied)
-    let has_progress: bool = conn.query_row(
-        "SELECT COUNT(*) > 0 FROM user_progress", [], |r| r.get(0)
-    ).unwrap_or(false);
+    let has_progress: bool = conn
+        .query_row("SELECT COUNT(*) > 0 FROM user_progress", [], |r| r.get(0))
+        .unwrap_or(false);
 
     let query = if has_progress {
         "SELECT t.id, t.name, s.name
@@ -55,14 +55,17 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     }
 
     let total = all_questions.len();
-    println!("  {} questions across {} topics | Mixed difficulty\n",
+    println!(
+        "  {} questions across {} topics | Mixed difficulty\n",
         total.to_string().bold(),
-        topic_ids.len().min(total).to_string().bold());
+        topic_ids.len().min(total).to_string().bold()
+    );
 
     let mut correct_count = 0;
 
     for (i, (q, topic_name, subject_name, topic_id)) in all_questions.iter().enumerate() {
-        println!("  {} {} [{}→{}]",
+        println!(
+            "  {} {} [{}→{}]",
             format!("Q{}.", i + 1).bold().bright_cyan(),
             q.question.bold(),
             subject_name.dimmed(),
@@ -92,7 +95,11 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         }
 
         println!();
-        println!("    {} {}", "Answer:".dimmed(), q.correct_answer.bright_green().bold());
+        println!(
+            "    {} {}",
+            "Answer:".dimmed(),
+            q.correct_answer.bright_green().bold()
+        );
         println!("    {} {}", "Why:".dimmed(), q.explanation);
         if let Some(hint) = &q.hint {
             display::print_hint(hint);
@@ -110,7 +117,13 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     // Log as challenge activity for each topic
     for (_, _, _, topic_id) in &all_questions {
         adaptive::log_activity(conn, *topic_id, "challenge", Some(score))?;
-        let quality = if score >= 90.0 { 5 } else if score >= 70.0 { 4 } else { 3 };
+        let quality = if score >= 90.0 {
+            5
+        } else if score >= 70.0 {
+            4
+        } else {
+            3
+        };
         spaced::update_spaced_repetition(conn, *topic_id, quality)?;
     }
 
@@ -118,14 +131,22 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     if correct_count == total && total >= 5 {
         if let Ok(Some(name)) = achievements::unlock_perfect_quiz(conn) {
             println!();
-            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+            println!(
+                "  🏆 {} {}",
+                "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(),
+                name.bold().bright_yellow()
+            );
         }
     }
 
     // Check general achievements
     if let Ok(newly) = achievements::check_achievements(conn) {
         for name in &newly {
-            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+            println!(
+                "  🏆 {} {}",
+                "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(),
+                name.bold().bright_yellow()
+            );
         }
     }
 
@@ -134,12 +155,18 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     println!();
 
     let subjects_hit: Vec<String> = {
-        let mut s: Vec<String> = all_questions.iter().map(|(_, _, sn, _)| sn.clone()).collect();
+        let mut s: Vec<String> = all_questions
+            .iter()
+            .map(|(_, _, sn, _)| sn.clone())
+            .collect();
         s.sort();
         s.dedup();
         s
     };
-    println!("  Subjects covered: {}", subjects_hit.join(", ").bright_white());
+    println!(
+        "  Subjects covered: {}",
+        subjects_hit.join(", ").bright_white()
+    );
 
     if score >= 80.0 {
         display::print_success("Outstanding performance across subjects! 🌟");
@@ -183,10 +210,13 @@ mod tests {
     fn test_challenge_logs_activity() {
         let conn = db::init_memory_db().unwrap();
         run(&conn, 3).unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM session_log WHERE activity_type = 'challenge'",
-            [], |r| r.get(0)
-        ).unwrap();
+        let count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM session_log WHERE activity_type = 'challenge'",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert!(count > 0, "Challenge should log activities");
     }
 }

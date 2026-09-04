@@ -1,9 +1,12 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 /// Reset all user progress (keep content, wipe learning history).
-pub fn run(conn: &Connection, subject_filter: &Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(
+    conn: &Connection,
+    subject_filter: &Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match subject_filter {
         Some(subject) => {
             // Reset progress for a specific subject
@@ -34,7 +37,9 @@ pub fn run(conn: &Connection, subject_filter: &Option<String>) -> Result<(), Box
             display::print_header(&format!("Reset: {}", subject_name));
             display::print_success(&format!(
                 "Cleared {} progress records and {} session logs for {}.",
-                deleted_progress, deleted_logs, subject_name.bold()
+                deleted_progress,
+                deleted_logs,
+                subject_name.bold()
             ));
         }
         None => {
@@ -51,7 +56,10 @@ pub fn run(conn: &Connection, subject_filter: &Option<String>) -> Result<(), Box
     }
 
     display::print_info("Your content library is untouched — only learning history was reset.");
-    display::print_info(&format!("Start fresh: {}", "opentutor learn <subject>".bright_cyan()));
+    display::print_info(&format!(
+        "Start fresh: {}",
+        "opentutor learn <subject>".bright_cyan()
+    ));
 
     Ok(())
 }
@@ -68,16 +76,16 @@ mod tests {
         adaptive::update_progress(&conn, 1, true).unwrap();
         adaptive::log_activity(&conn, 1, "learn", Some(100.0)).unwrap();
 
-        let count_before: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM user_progress", [], |r| r.get(0)
-        ).unwrap();
+        let count_before: i64 = conn
+            .query_row("SELECT COUNT(*) FROM user_progress", [], |r| r.get(0))
+            .unwrap();
         assert!(count_before > 0);
 
         run(&conn, &None).unwrap();
 
-        let count_after: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM user_progress", [], |r| r.get(0)
-        ).unwrap();
+        let count_after: i64 = conn
+            .query_row("SELECT COUNT(*) FROM user_progress", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count_after, 0);
     }
 
@@ -93,15 +101,23 @@ mod tests {
         run(&conn, &Some("Mathematics".to_string())).unwrap();
 
         // Math progress should be gone
-        let math_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM user_progress WHERE topic_id = 1", [], |r| r.get(0)
-        ).unwrap();
+        let math_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_progress WHERE topic_id = 1",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(math_count, 0);
 
         // Science progress should remain
-        let science_count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM user_progress WHERE topic_id = 6", [], |r| r.get(0)
-        ).unwrap();
+        let science_count: i64 = conn
+            .query_row(
+                "SELECT COUNT(*) FROM user_progress WHERE topic_id = 6",
+                [],
+                |r| r.get(0),
+            )
+            .unwrap();
         assert_eq!(science_count, 1);
     }
 

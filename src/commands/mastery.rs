@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Mastery Overview");
@@ -34,9 +34,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     // Show per-subject mastery breakdown
-    let mut stmt = conn.prepare(
-        "SELECT s.id, s.name FROM subjects s ORDER BY s.name",
-    )?;
+    let mut stmt = conn.prepare("SELECT s.id, s.name FROM subjects s ORDER BY s.name")?;
     let subjects: Vec<(i64, String)> = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))
         .unwrap()
@@ -47,9 +45,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     println!();
 
     for (subj_id, subj_name) in &subjects {
-        let mut topic_stmt = conn.prepare(
-            "SELECT t.id FROM topics t WHERE t.subject_id = ?1",
-        )?;
+        let mut topic_stmt = conn.prepare("SELECT t.id FROM topics t WHERE t.subject_id = ?1")?;
         let topic_ids: Vec<i64> = topic_stmt
             .query_map([subj_id], |r| r.get(0))
             .unwrap()
@@ -67,11 +63,26 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
 
         let total_topics = topic_ids.len();
-        let mastered = level_counts.get(&spaced::MasteryLevel::Mastered).copied().unwrap_or(0)
-            + level_counts.get(&spaced::MasteryLevel::Expert).copied().unwrap_or(0);
-        let learning = level_counts.get(&spaced::MasteryLevel::Learning).copied().unwrap_or(0)
-            + level_counts.get(&spaced::MasteryLevel::Developing).copied().unwrap_or(0);
-        let new_count = level_counts.get(&spaced::MasteryLevel::New).copied().unwrap_or(0);
+        let mastered = level_counts
+            .get(&spaced::MasteryLevel::Mastered)
+            .copied()
+            .unwrap_or(0)
+            + level_counts
+                .get(&spaced::MasteryLevel::Expert)
+                .copied()
+                .unwrap_or(0);
+        let learning = level_counts
+            .get(&spaced::MasteryLevel::Learning)
+            .copied()
+            .unwrap_or(0)
+            + level_counts
+                .get(&spaced::MasteryLevel::Developing)
+                .copied()
+                .unwrap_or(0);
+        let new_count = level_counts
+            .get(&spaced::MasteryLevel::New)
+            .copied()
+            .unwrap_or(0);
 
         let mastery_pct = mastered as f64 / total_topics as f64 * 100.0;
         let indicator = if mastery_pct >= 80.0 {

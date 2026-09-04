@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Show time-of-day performance analysis.
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {

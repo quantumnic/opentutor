@@ -3,11 +3,9 @@ use rusqlite::Connection;
 
 /// Get a config value, returning the default if not set.
 pub fn get_config(conn: &Connection, key: &str, default: &str) -> String {
-    conn.query_row(
-        "SELECT value FROM user_config WHERE key = ?1",
-        [key],
-        |r| r.get(0),
-    )
+    conn.query_row("SELECT value FROM user_config WHERE key = ?1", [key], |r| {
+        r.get(0)
+    })
     .unwrap_or_else(|_| default.to_string())
 }
 
@@ -27,13 +25,19 @@ pub fn get_desired_retention(conn: &Connection) -> f64 {
     val.parse::<f64>().unwrap_or(0.85).clamp(0.5, 0.99)
 }
 
-pub fn run(conn: &Connection, key: &Option<String>, value: &Option<String>) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(
+    conn: &Connection,
+    key: &Option<String>,
+    value: &Option<String>,
+) -> Result<(), Box<dyn std::error::Error>> {
     match (key, value) {
         (Some(k), Some(v)) => {
             // Validate known keys
             match k.as_str() {
                 "desired_retention" => {
-                    let r: f64 = v.parse().map_err(|_| "Value must be a number between 0.5 and 0.99")?;
+                    let r: f64 = v
+                        .parse()
+                        .map_err(|_| "Value must be a number between 0.5 and 0.99")?;
                     if !(0.5..=0.99).contains(&r) {
                         return Err("desired_retention must be between 0.50 and 0.99".into());
                     }
@@ -55,7 +59,10 @@ pub fn run(conn: &Connection, key: &Option<String>, value: &Option<String>) -> R
                     }
                     set_config(conn, k, v)?;
                     println!("{} {} = {}", "✓".green().bold(), k, v);
-                    println!("  {}", format!("Your daily goal is now {} topics.", g).dimmed());
+                    println!(
+                        "  {}",
+                        format!("Your daily goal is now {} topics.", g).dimmed()
+                    );
                 }
                 _ => {
                     set_config(conn, k, v)?;
@@ -74,7 +81,11 @@ pub fn run(conn: &Connection, key: &Option<String>, value: &Option<String>) -> R
             println!();
 
             let known = [
-                ("desired_retention", "0.85", "Target memory retention for spaced repetition (0.50–0.99)"),
+                (
+                    "desired_retention",
+                    "0.85",
+                    "Target memory retention for spaced repetition (0.50–0.99)",
+                ),
                 ("daily_goal", "5", "Number of topics to study per day"),
             ];
 

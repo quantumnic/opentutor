@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 pub fn run(conn: &Connection, query: &str) -> Result<(), Box<dyn std::error::Error>> {
     let pattern = format!("%{}%", query);
@@ -16,17 +16,24 @@ pub fn run(conn: &Connection, query: &str) -> Result<(), Box<dyn std::error::Err
          JOIN topics t ON t.id = l.topic_id
          JOIN subjects s ON s.id = t.subject_id
          WHERE LOWER(l.title) LIKE LOWER(?1) OR LOWER(l.content) LIKE LOWER(?1)
-         LIMIT 10"
+         LIMIT 10",
     )?;
-    let lessons: Vec<(String, String, String, String)> = lesson_stmt.query_map([&pattern], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let lessons: Vec<(String, String, String, String)> = lesson_stmt
+        .query_map([&pattern], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
 
     if !lessons.is_empty() {
         found = true;
         display::print_section(&format!("Lessons ({})", lessons.len()));
         for (title, content, topic, subject) in &lessons {
-            println!("    📖 {} ({} → {})", title.bold(), subject.dimmed(), topic.dimmed());
+            println!(
+                "    📖 {} ({} → {})",
+                title.bold(),
+                subject.dimmed(),
+                topic.dimmed()
+            );
             // Show first 2 lines of content as preview
             let preview: String = content.lines().take(2).collect::<Vec<_>>().join(" ");
             let preview = if preview.len() > 120 {
@@ -46,17 +53,22 @@ pub fn run(conn: &Connection, query: &str) -> Result<(), Box<dyn std::error::Err
          JOIN topics t ON t.id = q.topic_id
          JOIN subjects s ON s.id = t.subject_id
          WHERE LOWER(q.question) LIKE LOWER(?1) OR LOWER(q.explanation) LIKE LOWER(?1)
-         LIMIT 10"
+         LIMIT 10",
     )?;
-    let quizzes: Vec<(String, String, String)> = quiz_stmt.query_map([&pattern], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let quizzes: Vec<(String, String, String)> = quiz_stmt
+        .query_map([&pattern], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
 
     if !quizzes.is_empty() {
         found = true;
         display::print_section(&format!("Quiz Questions ({})", quizzes.len()));
         for (question, topic, subject) in &quizzes {
-            println!("    ❓ {} ({} → {})", question, subject.dimmed(), topic.dimmed());
+            println!(
+                "    ❓ {} ({} → {})",
+                question,
+                subject.dimmed(),
+                topic.dimmed()
+            );
         }
         println!();
     }
@@ -70,11 +82,13 @@ pub fn run(conn: &Connection, query: &str) -> Result<(), Box<dyn std::error::Err
          WHERE LOWER(e.concept) LIKE LOWER(?1)
             OR LOWER(e.explanation) LIKE LOWER(?1)
             OR LOWER(COALESCE(e.analogy, '')) LIKE LOWER(?1)
-         LIMIT 10"
+         LIMIT 10",
     )?;
-    let expls: Vec<(String, String, String, String)> = expl_stmt.query_map([&pattern], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let expls: Vec<(String, String, String, String)> = expl_stmt
+        .query_map([&pattern], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
 
     if !expls.is_empty() {
         found = true;
@@ -97,11 +111,11 @@ pub fn run(conn: &Connection, query: &str) -> Result<(), Box<dyn std::error::Err
          FROM topics t
          JOIN subjects s ON s.id = t.subject_id
          WHERE LOWER(t.name) LIKE LOWER(?1)
-         LIMIT 10"
+         LIMIT 10",
     )?;
-    let topics: Vec<(String, String, String)> = topic_stmt.query_map([&pattern], |r| {
-        Ok((r.get(0)?, r.get(1)?, r.get(2)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let topics: Vec<(String, String, String)> = topic_stmt
+        .query_map([&pattern], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
 
     if !topics.is_empty() {
         found = true;
@@ -112,7 +126,13 @@ pub fn run(conn: &Connection, query: &str) -> Result<(), Box<dyn std::error::Err
                 "advanced" => "🔴",
                 _ => "🟢",
             };
-            println!("    {} {} ({} — {})", diff_badge, name.bold(), subject.dimmed(), difficulty);
+            println!(
+                "    {} {} ({} — {})",
+                diff_badge,
+                name.bold(),
+                subject.dimmed(),
+                difficulty
+            );
         }
         println!();
     }

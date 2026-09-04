@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::adaptive;
+use colored::*;
+use rusqlite::Connection;
 
 struct ExplanationRow {
     topic_id: i64,
@@ -17,13 +17,15 @@ pub fn run(conn: &Connection, concept: &str) -> Result<(), Box<dyn std::error::E
          FROM explanations e
          WHERE LOWER(e.concept) LIKE '%' || LOWER(?1) || '%'",
         [concept],
-        |r| Ok(ExplanationRow {
-            topic_id: r.get(0)?,
-            concept: r.get(1)?,
-            explanation: r.get(2)?,
-            analogy: r.get(3)?,
-            follow_up: r.get(4)?,
-        }),
+        |r| {
+            Ok(ExplanationRow {
+                topic_id: r.get(0)?,
+                concept: r.get(1)?,
+                explanation: r.get(2)?,
+                analogy: r.get(3)?,
+                follow_up: r.get(4)?,
+            })
+        },
     );
 
     match result {
@@ -46,7 +48,8 @@ pub fn run(conn: &Connection, concept: &str) -> Result<(), Box<dyn std::error::E
 
             adaptive::log_activity(conn, row.topic_id, "explain", None)?;
 
-            display::print_info(&format!("Dive deeper: {}",
+            display::print_info(&format!(
+                "Dive deeper: {}",
                 "opentutor learn <subject>".bright_cyan()
             ));
         }
@@ -54,7 +57,8 @@ pub fn run(conn: &Connection, concept: &str) -> Result<(), Box<dyn std::error::E
             display::print_error(&format!("No explanation found for '{}'.", concept));
 
             let mut stmt = conn.prepare("SELECT concept FROM explanations")?;
-            let concepts: Vec<String> = stmt.query_map([], |r| r.get(0))?
+            let concepts: Vec<String> = stmt
+                .query_map([], |r| r.get(0))?
                 .filter_map(|r| r.ok())
                 .collect();
 

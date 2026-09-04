@@ -1,8 +1,8 @@
+use crate::display;
+use crate::engine::spaced;
 use colored::*;
 use rusqlite::Connection;
 use serde_json::{json, Value};
-use crate::display;
-use crate::engine::spaced;
 
 /// Export learning data as JSON for backup/analysis.
 pub fn run(conn: &Connection, output: &Option<String>) -> Result<(), Box<dyn std::error::Error>> {
@@ -15,7 +15,7 @@ pub fn run(conn: &Connection, output: &Option<String>) -> Result<(), Box<dyn std
          FROM user_progress p
          JOIN topics t ON t.id = p.topic_id
          JOIN subjects s ON s.id = t.subject_id
-         ORDER BY s.name, t.name"
+         ORDER BY s.name, t.name",
     )?;
 
     let progress: Vec<Value> = stmt.query_map([], |r| {
@@ -47,23 +47,26 @@ pub fn run(conn: &Connection, output: &Option<String>) -> Result<(), Box<dyn std
          FROM session_log sl
          JOIN topics t ON t.id = sl.topic_id
          ORDER BY sl.timestamp DESC
-         LIMIT 100"
+         LIMIT 100",
     )?;
 
-    let sessions: Vec<Value> = log_stmt.query_map([], |r| {
-        Ok(json!({
-            "topic": r.get::<_, String>(0)?,
-            "activity": r.get::<_, String>(1)?,
-            "score": r.get::<_, Option<f64>>(2)?,
-            "timestamp": r.get::<_, String>(3)?,
-        }))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let sessions: Vec<Value> = log_stmt
+        .query_map([], |r| {
+            Ok(json!({
+                "topic": r.get::<_, String>(0)?,
+                "activity": r.get::<_, String>(1)?,
+                "score": r.get::<_, Option<f64>>(2)?,
+                "timestamp": r.get::<_, String>(3)?,
+            }))
+        })?
+        .collect::<Result<Vec<_>, _>>()?;
 
     // Content stats
     let total_subjects: i64 = conn.query_row("SELECT COUNT(*) FROM subjects", [], |r| r.get(0))?;
     let total_topics: i64 = conn.query_row("SELECT COUNT(*) FROM topics", [], |r| r.get(0))?;
     let total_lessons: i64 = conn.query_row("SELECT COUNT(*) FROM lessons", [], |r| r.get(0))?;
-    let total_questions: i64 = conn.query_row("SELECT COUNT(*) FROM quiz_questions", [], |r| r.get(0))?;
+    let total_questions: i64 =
+        conn.query_row("SELECT COUNT(*) FROM quiz_questions", [], |r| r.get(0))?;
 
     let export = json!({
         "opentutor_export": {
@@ -94,7 +97,8 @@ pub fn run(conn: &Connection, output: &Option<String>) -> Result<(), Box<dyn std
 
     display::print_info(&format!(
         "Exported {} progress records and {} session logs.",
-        progress.len(), sessions.len()
+        progress.len(),
+        sessions.len()
     ));
 
     Ok(())

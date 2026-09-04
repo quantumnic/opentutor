@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Generate a personalized study plan based on due reviews, weak areas, and learning paths.
 pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Error>> {
@@ -18,24 +18,41 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
     let avg_retention = spaced::average_retention(conn);
 
     // 2. Summary header
-    println!("  {} Reviews due: {}, Lapsed: {}, Today's remaining: {}",
-        "📊".bold(), due_count.to_string().bold(),
-        if lapsed_count > 0 { lapsed_count.to_string().red().bold().to_string() } else { "0".to_string() },
-        remaining.to_string().bold());
-    println!("  {} Streak: {} days, Avg retention: {:.0}%",
-        "🔥".bold(), streak.to_string().bold(),
-        avg_retention * 100.0);
+    println!(
+        "  {} Reviews due: {}, Lapsed: {}, Today's remaining: {}",
+        "📊".bold(),
+        due_count.to_string().bold(),
+        if lapsed_count > 0 {
+            lapsed_count.to_string().red().bold().to_string()
+        } else {
+            "0".to_string()
+        },
+        remaining.to_string().bold()
+    );
+    println!(
+        "  {} Streak: {} days, Avg retention: {:.0}%",
+        "🔥".bold(),
+        streak.to_string().bold(),
+        avg_retention * 100.0
+    );
     println!();
 
     // 3. Priority review list (lapsed first, then most urgent)
     if lapsed_count > 0 {
-        display::print_info(&format!("⚠️  {} lapsed topics need immediate attention!", lapsed_count));
+        display::print_info(&format!(
+            "⚠️  {} lapsed topics need immediate attention!",
+            lapsed_count
+        ));
         println!();
     }
 
     let prioritized = spaced::prioritized_due_topics(conn).unwrap_or_default();
     if !prioritized.is_empty() {
-        println!("  {} {}", "🎯 Priority Reviews".bold().underline(), "(most urgent first)".dimmed());
+        println!(
+            "  {} {}",
+            "🎯 Priority Reviews".bold().underline(),
+            "(most urgent first)".dimmed()
+        );
         for (i, (_, name, subject, priority)) in prioritized.iter().take(10).enumerate() {
             let urgency_label = if *priority > 3.0 {
                 "CRITICAL".red().bold().to_string()
@@ -44,11 +61,13 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
             } else {
                 "normal".dimmed().to_string()
             };
-            println!("  {}. {} ({}) [{}]",
+            println!(
+                "  {}. {} ({}) [{}]",
                 (i + 1).to_string().bold(),
                 name.bright_cyan(),
                 subject.dimmed(),
-                urgency_label);
+                urgency_label
+            );
         }
         println!();
     }
@@ -56,12 +75,18 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
     // 4. Weak areas (leech topics)
     let leeches = spaced::get_leeches(conn).unwrap_or_default();
     if !leeches.is_empty() {
-        println!("  {} {}", "🔨 Weak Areas".bold().underline(), "(repeatedly failed — need extra focus)".dimmed());
+        println!(
+            "  {} {}",
+            "🔨 Weak Areas".bold().underline(),
+            "(repeatedly failed — need extra focus)".dimmed()
+        );
         for (_, name, subject, count) in leeches.iter().take(5) {
-            println!("  • {} ({}) — {} lapses",
+            println!(
+                "  • {} ({}) — {} lapses",
                 name.bright_red(),
                 subject.dimmed(),
-                count.to_string().bold());
+                count.to_string().bold()
+            );
         }
         println!();
     }
@@ -74,14 +99,18 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
              LEFT JOIN user_progress p ON p.topic_id = t.id
              WHERE p.id IS NULL
              ORDER BY t.subject_id, t.sort_order
-             LIMIT 10"
+             LIMIT 10",
         )?;
         let rows = stmt.query_map([], |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)))?;
         rows.collect::<Result<Vec<_>, _>>()?
     };
 
     if !unstudied.is_empty() {
-        println!("  {} {}", "🌱 New Topics to Explore".bold().underline(), "(not yet started)".dimmed());
+        println!(
+            "  {} {}",
+            "🌱 New Topics to Explore".bold().underline(),
+            "(not yet started)".dimmed()
+        );
         for (_, name, subject) in unstudied.iter().take(8) {
             println!("  • {} ({})", name.bright_green(), subject.dimmed());
         }
@@ -93,12 +122,25 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
     let reviews_per_day = (due_count as usize / days).max(1).min(daily_cap);
     let new_per_day = if due_count < daily_cap as i64 { 2 } else { 1 };
 
-    println!("  {} {}", "📋 Recommended Daily Schedule".bold().underline(), format!("({} days)", days).dimmed());
-    println!("  • Review {} due topics per day", reviews_per_day.to_string().bold());
-    println!("  • Learn {} new topic(s) per day", new_per_day.to_string().bold());
+    println!(
+        "  {} {}",
+        "📋 Recommended Daily Schedule".bold().underline(),
+        format!("({} days)", days).dimmed()
+    );
+    println!(
+        "  • Review {} due topics per day",
+        reviews_per_day.to_string().bold()
+    );
+    println!(
+        "  • Learn {} new topic(s) per day",
+        new_per_day.to_string().bold()
+    );
     if lapsed_count > 0 {
-        println!("  • {} Tackle lapsed topics {} — they're at risk of being forgotten",
-            "❗".bold(), "first".bold().red());
+        println!(
+            "  • {} Tackle lapsed topics {} — they're at risk of being forgotten",
+            "❗".bold(),
+            "first".bold().red()
+        );
     }
 
     // 7. Best study time
@@ -109,16 +151,24 @@ pub fn run(conn: &Connection, days: usize) -> Result<(), Box<dyn std::error::Err
             18..=22 => "evening",
             _ => "night",
         };
-        println!("  • Your best study time: ~{}:00 ({}) based on past performance",
-            format!("{:02}", hour).bold(), period);
+        println!(
+            "  • Your best study time: ~{}:00 ({}) based on past performance",
+            format!("{:02}", hour).bold(),
+            period
+        );
     }
 
     // 8. Estimated time
     let est_minutes = reviews_per_day as f64 * 2.0 + new_per_day as f64 * 5.0;
-    println!("  • Estimated daily time: ~{} minutes", (est_minutes as usize).to_string().bold());
+    println!(
+        "  • Estimated daily time: ~{} minutes",
+        (est_minutes as usize).to_string().bold()
+    );
 
     println!();
-    display::print_success("Consistency beats intensity! Even 10 minutes daily builds strong retention. 💪");
+    display::print_success(
+        "Consistency beats intensity! Even 10 minutes daily builds strong retention. 💪",
+    );
 
     Ok(())
 }

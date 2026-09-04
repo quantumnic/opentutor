@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Show the most urgent topics to review, ranked by a combination of
 /// overdue ratio, current retention estimate, and stability decay.
@@ -14,9 +14,7 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
     }
 
     display::print_header("📋 Review Priorities");
-    println!(
-        "  Topics ranked by urgency × forgetting risk. Review the top ones first.\n"
-    );
+    println!("  Topics ranked by urgency × forgetting risk. Review the top ones first.\n");
 
     let shown = topics.len().min(limit);
 
@@ -73,8 +71,16 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
         println!(
             "  {}  {:<30} {:<20} {:>10}  {:>10}  {}",
             format!("{:>2}", i + 1).dimmed(),
-            if name.len() > 28 { format!("{}…", &name[..27]) } else { name.clone() },
-            if subject.len() > 18 { format!("{}…", &subject[..17]) } else { subject.clone() },
+            if name.len() > 28 {
+                format!("{}…", &name[..27])
+            } else {
+                name.clone()
+            },
+            if subject.len() > 18 {
+                format!("{}…", &subject[..17])
+            } else {
+                subject.clone()
+            },
             ret_display,
             priority_colored,
             status,
@@ -85,14 +91,28 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
 
     // Summary stats
     let total_due = topics.len();
-    let critical = topics.iter().filter(|(id, _, _, _)| spaced::retrievability(conn, *id) < 0.5).count();
-    let lapsed = topics.iter().filter(|(id, _, _, _)| spaced::is_card_lapsed(conn, *id)).count();
+    let critical = topics
+        .iter()
+        .filter(|(id, _, _, _)| spaced::retrievability(conn, *id) < 0.5)
+        .count();
+    let lapsed = topics
+        .iter()
+        .filter(|(id, _, _, _)| spaced::is_card_lapsed(conn, *id))
+        .count();
 
     println!(
         "  {} due  •  {} critical (<50% retention)  •  {} lapsed",
         total_due.to_string().bold(),
-        if critical > 0 { critical.to_string().bright_red().bold() } else { "0".normal() },
-        if lapsed > 0 { lapsed.to_string().bright_yellow().bold() } else { "0".normal() },
+        if critical > 0 {
+            critical.to_string().bright_red().bold()
+        } else {
+            "0".normal()
+        },
+        if lapsed > 0 {
+            lapsed.to_string().bright_yellow().bold()
+        } else {
+            "0".normal()
+        },
     );
 
     if critical > 3 {

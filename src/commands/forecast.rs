@@ -1,31 +1,38 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::spaced;
+use colored::*;
+use rusqlite::Connection;
 
 /// Show a 7-day review forecast: how many topics are due each day.
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Review Forecast (Next 7 Days)");
 
     let studied: i64 = conn.query_row(
-        "SELECT COUNT(*) FROM user_progress WHERE next_review IS NOT NULL", [], |r| r.get(0)
+        "SELECT COUNT(*) FROM user_progress WHERE next_review IS NOT NULL",
+        [],
+        |r| r.get(0),
     )?;
 
     if studied == 0 {
         display::print_info("No review schedule yet. Start learning to build one!");
-        display::print_info(&format!("Try: {}", "opentutor learn <subject>".bright_cyan()));
+        display::print_info(&format!(
+            "Try: {}",
+            "opentutor learn <subject>".bright_cyan()
+        ));
         return Ok(());
     }
 
     // Overdue
     let overdue: i64 = conn.query_row(
         "SELECT COUNT(*) FROM user_progress WHERE next_review <= datetime('now')",
-        [], |r| r.get(0)
+        [],
+        |r| r.get(0),
     )?;
 
     if overdue > 0 {
         let bar_len = overdue.min(30) as usize;
-        println!("  {} {} {}",
+        println!(
+            "  {} {} {}",
             "Overdue".bright_red().bold(),
             "█".repeat(bar_len).bright_red(),
             format!("{} topics", overdue).bold().bright_red()
@@ -41,10 +48,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             "SELECT COUNT(*) FROM user_progress
              WHERE next_review > datetime('now', ?1)
                AND next_review <= datetime('now', ?2)",
-            rusqlite::params![
-                format!("+{} days", day),
-                format!("+{} days", day + 1)
-            ],
+            rusqlite::params![format!("+{} days", day), format!("+{} days", day + 1)],
             |r| r.get(0),
         )?;
         daily_counts.push((day, count));
@@ -53,9 +57,15 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         }
     }
 
-    let scale = if max_count > 0 { 30.0 / max_count as f64 } else { 1.0 };
+    let scale = if max_count > 0 {
+        30.0 / max_count as f64
+    } else {
+        1.0
+    };
 
-    let day_names = ["Today", "Tomorrow", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7"];
+    let day_names = [
+        "Today", "Tomorrow", "Day 3", "Day 4", "Day 5", "Day 6", "Day 7",
+    ];
     println!();
 
     for (day, count) in &daily_counts {
@@ -79,8 +89,13 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             format!("{} topics", count).to_string()
         };
 
-        println!("  {:>10} {} {}",
-            if *day == 0 { label.bold().to_string() } else { label.to_string() },
+        println!(
+            "  {:>10} {} {}",
+            if *day == 0 {
+                label.bold().to_string()
+            } else {
+                label.to_string()
+            },
             colored_bar,
             count_str
         );
@@ -92,17 +107,25 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     // Summary stats
     let total_upcoming: i64 = daily_counts.iter().map(|(_, c)| c).sum();
     let total_reviews = overdue + total_upcoming;
-    let daily_avg = if total_reviews > 0 { total_reviews as f64 / 7.0 } else { 0.0 };
+    let daily_avg = if total_reviews > 0 {
+        total_reviews as f64 / 7.0
+    } else {
+        0.0
+    };
 
     println!();
-    println!("  Total reviews this week: {}", total_reviews.to_string().bold());
+    println!(
+        "  Total reviews this week: {}",
+        total_reviews.to_string().bold()
+    );
     println!("  Daily average: {:.1} topics/day", daily_avg);
 
     if overdue > 0 {
         println!();
         display::print_hint(&format!(
             "You have {} overdue topics! Run: {}",
-            overdue, "opentutor review".bright_cyan()
+            overdue,
+            "opentutor review".bright_cyan()
         ));
     }
 
@@ -113,11 +136,11 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         "SELECT p.topic_id, t.name FROM user_progress p
          JOIN topics t ON t.id = p.topic_id
          ORDER BY p.ease_factor ASC
-         LIMIT 5"
+         LIMIT 5",
     )?;
-    let weakest: Vec<(i64, String)> = ret_stmt.query_map([], |r| {
-        Ok((r.get(0)?, r.get(1)?))
-    })?.collect::<Result<Vec<_>, _>>()?;
+    let weakest: Vec<(i64, String)> = ret_stmt
+        .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
+        .collect::<Result<Vec<_>, _>>()?;
 
     if !weakest.is_empty() {
         for (topic_id, topic_name) in &weakest {
@@ -130,8 +153,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
             } else {
                 "🔴"
             };
-            println!("    {} {} — {}% retention",
-                indicator, topic_name, pct);
+            println!("    {} {} — {}% retention", indicator, topic_name, pct);
         }
     }
 
@@ -192,7 +214,8 @@ mod tests {
         conn.execute(
             "UPDATE user_progress SET next_review = datetime('now', '-2 days') WHERE topic_id = 1",
             [],
-        ).unwrap();
+        )
+        .unwrap();
         run(&conn).unwrap();
     }
 }

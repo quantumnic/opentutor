@@ -1,8 +1,8 @@
+use crate::commands::achievements;
+use crate::display;
+use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
-use crate::commands::achievements;
-use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
 /// Interleaved practice: mix questions from different subjects.
 ///
@@ -27,7 +27,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
          FROM subjects s
          JOIN topics t ON t.subject_id = s.id
          JOIN quiz_questions q ON q.topic_id = t.id
-         ORDER BY RANDOM()"
+         ORDER BY RANDOM()",
     )?;
     let subjects: Vec<(i64, String)> = stmt
         .query_map([], |r| Ok((r.get(0)?, r.get(1)?)))?
@@ -83,7 +83,7 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
              JOIN quiz_questions q ON q.topic_id = t.id
              GROUP BY t.id
              ORDER BY RANDOM()
-             LIMIT ?1"
+             LIMIT ?1",
         )?;
         let fill_topics: Vec<i64> = filler
             .query_map([remaining as i64], |r| r.get(0))?
@@ -124,7 +124,12 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
             )
             .unwrap_or_else(|_| "Unknown".to_string());
 
-        println!("  {} {} {}", format!("Q{}.", i + 1).bold().bright_cyan(), format!("[{}]", topic_name).dimmed(), q.question.bold());
+        println!(
+            "  {} {} {}",
+            format!("Q{}.", i + 1).bold().bright_cyan(),
+            format!("[{}]", topic_name).dimmed(),
+            q.question.bold()
+        );
 
         match q.question_type.as_str() {
             "true_false" => {
@@ -149,7 +154,11 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
         }
 
         println!();
-        println!("    {} {}", "Answer:".dimmed(), q.correct_answer.bright_green().bold());
+        println!(
+            "    {} {}",
+            "Answer:".dimmed(),
+            q.correct_answer.bright_green().bold()
+        );
         println!("    {} {}", "Why:".dimmed(), q.explanation);
         if let Some(hint) = &q.hint {
             display::print_hint(hint);
@@ -264,7 +273,10 @@ mod tests {
             if w[0].topic_id == w[1].topic_id {
                 // Only acceptable if no other topic available
                 let others: Vec<_> = qs.iter().filter(|q| q.topic_id != w[0].topic_id).collect();
-                assert!(others.is_empty(), "Sibling burying failed to separate topics");
+                assert!(
+                    others.is_empty(),
+                    "Sibling burying failed to separate topics"
+                );
             }
         }
     }

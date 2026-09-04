@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 /// Show topics where the user has made the most mistakes, along with
 /// accuracy rates, to help targeted review of problem areas.
@@ -22,8 +22,12 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
     let rows: Vec<(String, String, i64, i64, f64, i64)> = stmt
         .query_map([limit as i64], |r| {
             Ok((
-                r.get(0)?, r.get(1)?, r.get(2)?,
-                r.get(3)?, r.get(4)?, r.get(5)?,
+                r.get(0)?,
+                r.get(1)?,
+                r.get(2)?,
+                r.get(3)?,
+                r.get(4)?,
+                r.get(5)?,
             ))
         })?
         .filter_map(|r| r.ok())
@@ -34,7 +38,8 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
         return Ok(());
     }
 
-    println!("  {:<30} {:<18} {:>8} {:>8} {:>10}",
+    println!(
+        "  {:<30} {:<18} {:>8} {:>8} {:>10}",
         "Topic".bold().underline(),
         "Subject".bold().underline(),
         "Wrong".bold().underline(),
@@ -64,17 +69,21 @@ pub fn run(conn: &Connection, limit: usize) -> Result<(), Box<dyn std::error::Er
             name.clone()
         };
 
-        println!("  {:<30} {:<18} {:>8} {:>8} {:>10}",
-            name_short, subject_short, wrong_count, attempts, acc_colored);
+        println!(
+            "  {:<30} {:<18} {:>8} {:>8} {:>10}",
+            name_short, subject_short, wrong_count, attempts, acc_colored
+        );
     }
 
     let total_wrong: i64 = rows.iter().map(|r| r.5).sum();
     let total_attempts: i64 = rows.iter().map(|r| r.2).sum();
     println!();
     display::print_divider();
-    println!("  Total mistakes: {} across {} attempts", 
+    println!(
+        "  Total mistakes: {} across {} attempts",
         total_wrong.to_string().bright_red().bold(),
-        total_attempts);
+        total_attempts
+    );
     println!();
     display::print_hint("Use 'opentutor review' to revisit these topics with spaced repetition.");
 

@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 /// Add, remove, or list bookmarked (favorite) topics for quick access.
 pub fn run(
@@ -32,7 +32,11 @@ pub fn run(
                         "INSERT OR IGNORE INTO bookmarks (topic_id) VALUES (?1)",
                         [tid],
                     )?;
-                    println!("  {} Bookmarked: {}", "★".bright_yellow().bold(), name.bold());
+                    println!(
+                        "  {} Bookmarked: {}",
+                        "★".bright_yellow().bold(),
+                        name.bold()
+                    );
                 }
                 Err(_) => {
                     display::print_error(&format!("Topic '{}' not found.", topic_name));
@@ -51,10 +55,8 @@ pub fn run(
             );
             match row {
                 Ok((tid, name)) => {
-                    let removed = conn.execute(
-                        "DELETE FROM bookmarks WHERE topic_id = ?1",
-                        [tid],
-                    )?;
+                    let removed =
+                        conn.execute("DELETE FROM bookmarks WHERE topic_id = ?1", [tid])?;
                     if removed > 0 {
                         println!("  {} Removed bookmark: {}", "☆".dimmed(), name);
                     } else {
@@ -146,11 +148,12 @@ mod tests {
             "CREATE TABLE IF NOT EXISTS bookmarks (
                 topic_id INTEGER PRIMARY KEY REFERENCES topics(id),
                 created_at TEXT NOT NULL DEFAULT (datetime('now'))
-            );"
-        ).unwrap();
-        let count: i64 = conn.query_row(
-            "SELECT COUNT(*) FROM bookmarks", [], |r| r.get(0)
-        ).unwrap();
+            );",
+        )
+        .unwrap();
+        let count: i64 = conn
+            .query_row("SELECT COUNT(*) FROM bookmarks", [], |r| r.get(0))
+            .unwrap();
         assert_eq!(count, 0);
     }
 

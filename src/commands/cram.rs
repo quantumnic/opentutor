@@ -1,7 +1,7 @@
-use colored::*;
-use rusqlite::Connection;
 use crate::display;
 use crate::engine::{quiz as quiz_engine, spaced};
+use colored::*;
+use rusqlite::Connection;
 
 /// Cram mode: intensive review of the lowest-retention topics.
 /// Unlike normal review (which follows spaced repetition schedules),
@@ -9,7 +9,10 @@ use crate::engine::{quiz as quiz_engine, spaced};
 /// likely to forget — perfect for last-minute exam prep.
 pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Cram Mode — Lowest Retention First");
-    println!("  {}\n", "Ignoring spaced repetition schedule — focusing on weakest material.".dimmed());
+    println!(
+        "  {}\n",
+        "Ignoring spaced repetition schedule — focusing on weakest material.".dimmed()
+    );
 
     // Get all topics with progress, sorted by retrievability (lowest first)
     let mut stmt = conn.prepare(
@@ -29,7 +32,9 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
 
     if topics.is_empty() {
         // Fall back: if no progress yet, pick topics with lowest difficulty
-        display::print_info("No study history yet. Use 'review' or 'quiz' first to build a history, then cram!");
+        display::print_info(
+            "No study history yet. Use 'review' or 'quiz' first to build a history, then cram!",
+        );
         return Ok(());
     }
 
@@ -46,11 +51,17 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     scored.sort_by(|a, b| a.3.partial_cmp(&b.3).unwrap_or(std::cmp::Ordering::Equal));
 
     let cram_count = count.min(scored.len());
-    println!("  Cramming {} topics (out of {} studied):\n", cram_count.to_string().bold(), scored.len());
+    println!(
+        "  Cramming {} topics (out of {} studied):\n",
+        cram_count.to_string().bold(),
+        scored.len()
+    );
 
     let mut total_questions = 0;
 
-    for (i, (topic_id, topic_name, subject_name, retention)) in scored.iter().take(cram_count).enumerate() {
+    for (i, (topic_id, topic_name, subject_name, retention)) in
+        scored.iter().take(cram_count).enumerate()
+    {
         let ret_pct = (retention * 100.0) as u32;
         let ret_color = if ret_pct < 40 {
             format!("{}%", ret_pct).bright_red()
@@ -60,7 +71,8 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
             format!("{}%", ret_pct).bright_green()
         };
 
-        println!("  {} {} {} (retention: {})",
+        println!(
+            "  {} {} {} (retention: {})",
             format!("{}.", i + 1).bold().bright_cyan(),
             topic_name.bold(),
             format!("[{}]", subject_name).dimmed(),
@@ -81,10 +93,15 @@ pub fn run(conn: &Connection, count: usize) -> Result<(), Box<dyn std::error::Er
     }
 
     println!("  {}", "─".repeat(50).dimmed());
-    println!("  Crammed {} questions across {} topics.", 
+    println!(
+        "  Crammed {} questions across {} topics.",
         total_questions.to_string().bold(),
-        cram_count.to_string().bold());
-    println!("  {}", "Tip: Follow up with 'opentutor review' for proper spaced repetition.".dimmed());
+        cram_count.to_string().bold()
+    );
+    println!(
+        "  {}",
+        "Tip: Follow up with 'opentutor review' for proper spaced repetition.".dimmed()
+    );
 
     Ok(())
 }

@@ -1,10 +1,16 @@
+use crate::commands::achievements;
+use crate::display;
+use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
-use crate::commands::achievements;
-use crate::engine::{adaptive, quiz as quiz_engine, spaced};
 
-pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str>, timed: bool) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run(
+    conn: &Connection,
+    topic: &str,
+    count: usize,
+    difficulty: Option<&str>,
+    timed: bool,
+) -> Result<(), Box<dyn std::error::Error>> {
     // Find topic (case-insensitive, partial match)
     let topic_row: Result<(i64, String), _> = conn.query_row(
         "SELECT id, name FROM topics WHERE LOWER(name) LIKE '%' || LOWER(?1) || '%'",
@@ -23,26 +29,38 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
 
     let questions = quiz_engine::get_questions_filtered(conn, topic_id, count, difficulty)?;
     if questions.is_empty() {
-        display::print_info(&format!("No quiz questions available for '{}'.", topic_name));
+        display::print_info(&format!(
+            "No quiz questions available for '{}'.",
+            topic_name
+        ));
         return Ok(());
     }
 
     display::print_header(&format!("Quiz: {}", topic_name));
     if timed {
-        println!("  {} questions | {} | Type the answer or letter (a/b/c/d) or true/false\n",
-            questions.len().to_string().bold(), "⏱ TIMED MODE".bold().bright_yellow());
+        println!(
+            "  {} questions | {} | Type the answer or letter (a/b/c/d) or true/false\n",
+            questions.len().to_string().bold(),
+            "⏱ TIMED MODE".bold().bright_yellow()
+        );
     } else {
-        println!("  {} questions | Type the answer or letter (a/b/c/d) or true/false\n",
-            questions.len().to_string().bold());
+        println!(
+            "  {} questions | Type the answer or letter (a/b/c/d) or true/false\n",
+            questions.len().to_string().bold()
+        );
     }
 
     let mut correct_count = 0;
-    let mut streak = 0;      // Consecutive correct answers in this quiz
+    let mut streak = 0; // Consecutive correct answers in this quiz
     let mut best_streak = 0; // Best streak in this quiz
     let total = questions.len();
 
     for (i, q) in questions.iter().enumerate() {
-        println!("  {} {}", format!("Q{}.", i + 1).bold().bright_cyan(), q.question.bold());
+        println!(
+            "  {} {}",
+            format!("Q{}.", i + 1).bold().bright_cyan(),
+            q.question.bold()
+        );
         match q.question_type.as_str() {
             "true_false" => {
                 println!("     {} True", "T)".dimmed());
@@ -58,26 +76,40 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
                 }
             }
             "select_all" => {
-                println!("     {}", "(Select ALL that apply — separate with commas)".dimmed());
+                println!(
+                    "     {}",
+                    "(Select ALL that apply — separate with commas)".dimmed()
+                );
                 for (j, opt) in q.options.iter().enumerate() {
                     let letter = (b'a' + j as u8) as char;
                     println!("     {} {}", format!("{})", letter).dimmed(), opt);
                 }
             }
             "cloze" => {
-                println!("     {}", "(Fill in ALL blanks — separate answers with semicolons)".dimmed());
+                println!(
+                    "     {}",
+                    "(Fill in ALL blanks — separate answers with semicolons)".dimmed()
+                );
             }
             "analogy" => {
-                println!("     {}", "(Complete the analogy — type the answer or letter)".dimmed());
+                println!(
+                    "     {}",
+                    "(Complete the analogy — type the answer or letter)".dimmed()
+                );
                 for (j, opt) in q.options.iter().enumerate() {
                     let letter = (b'a' + j as u8) as char;
                     println!("     {} {}", format!("{})", letter).dimmed(), opt);
                 }
             }
             "matching" => {
-                println!("     {}", "(Match each item on the left with the correct item on the right)".dimmed());
+                println!(
+                    "     {}",
+                    "(Match each item on the left with the correct item on the right)".dimmed()
+                );
                 // Parse correct_answer pairs (e.g. "Dog=Mammal;Snake=Reptile") and display
-                let pairs: Vec<(&str, &str)> = q.correct_answer.split(';')
+                let pairs: Vec<(&str, &str)> = q
+                    .correct_answer
+                    .split(';')
                     .filter_map(|p| p.split_once('=').map(|(l, r)| (l.trim(), r.trim())))
                     .collect();
                 for (j, (left, _)) in pairs.iter().enumerate() {
@@ -94,7 +126,11 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
 
         // In non-interactive mode, show the answer
         println!();
-        println!("    {} {}", "Answer:".dimmed(), q.correct_answer.bright_green().bold());
+        println!(
+            "    {} {}",
+            "Answer:".dimmed(),
+            q.correct_answer.bright_green().bold()
+        );
         println!("    {} {}", "Why:".dimmed(), q.explanation);
         if let Some(hint) = &q.hint {
             display::print_hint(hint);
@@ -110,11 +146,25 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
 
         // Streak encouragement messages
         if streak == 3 {
-            println!("    {} {}", "🔥".bold(), "3 in a row! You're on fire!".bright_yellow());
+            println!(
+                "    {} {}",
+                "🔥".bold(),
+                "3 in a row! You're on fire!".bright_yellow()
+            );
         } else if streak == 5 {
-            println!("    {} {}", "⚡".bold(), "5 streak! Unstoppable!".bright_yellow().bold());
+            println!(
+                "    {} {}",
+                "⚡".bold(),
+                "5 streak! Unstoppable!".bright_yellow().bold()
+            );
         } else if streak >= 7 && streak % 2 == 1 {
-            println!("    {} {}", "🏆".bold(), format!("{} streak! Legendary!", streak).bright_yellow().bold());
+            println!(
+                "    {} {}",
+                "🏆".bold(),
+                format!("{} streak! Legendary!", streak)
+                    .bright_yellow()
+                    .bold()
+            );
         }
 
         println!();
@@ -123,7 +173,15 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
     }
 
     let score = (correct_count as f64 / total as f64) * 100.0;
-    let quality = if score >= 90.0 { 5 } else if score >= 70.0 { 4 } else if score >= 50.0 { 3 } else { 2 };
+    let quality = if score >= 90.0 {
+        5
+    } else if score >= 70.0 {
+        4
+    } else if score >= 50.0 {
+        3
+    } else {
+        2
+    };
     // In timed mode, apply confidence-weighted quality based on assumed fast recall
     let effective_quality = if timed {
         // Timed quiz: fast correct answers get full quality, boost by 1 if perfect
@@ -139,7 +197,11 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
     display::print_header("Quiz Results");
     display::print_progress_bar(&topic_name, correct_count as f64, total as f64);
     if best_streak >= 3 {
-        println!("  {} Best streak: {} in a row!", "🔥".bold(), best_streak.to_string().bright_yellow().bold());
+        println!(
+            "  {} Best streak: {} in a row!",
+            "🔥".bold(),
+            best_streak.to_string().bright_yellow().bold()
+        );
     }
     println!();
 
@@ -164,14 +226,22 @@ pub fn run(conn: &Connection, topic: &str, count: usize, difficulty: Option<&str
     if correct_count == total && total >= 5 {
         if let Ok(Some(name)) = achievements::unlock_perfect_quiz(conn) {
             println!();
-            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+            println!(
+                "  🏆 {} {}",
+                "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(),
+                name.bold().bright_yellow()
+            );
         }
     }
 
     // Check general achievements
     if let Ok(newly) = achievements::check_achievements(conn) {
         for name in &newly {
-            println!("  🏆 {} {}", "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(), name.bold().bright_yellow());
+            println!(
+                "  🏆 {} {}",
+                "ACHIEVEMENT UNLOCKED:".bold().bright_yellow(),
+                name.bold().bright_yellow()
+            );
         }
     }
 

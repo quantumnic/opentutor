@@ -1,6 +1,6 @@
+use crate::display;
 use colored::*;
 use rusqlite::Connection;
-use crate::display;
 
 pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
     display::print_header("Available Subjects");
@@ -9,7 +9,7 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         "SELECT s.name, s.description, COUNT(t.id) as topic_count
          FROM subjects s
          LEFT JOIN topics t ON t.subject_id = s.id
-         GROUP BY s.id ORDER BY s.name"
+         GROUP BY s.id ORDER BY s.name",
     )?;
 
     let rows = stmt.query_map([], |r| {
@@ -22,7 +22,8 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
 
     for row in rows {
         let (name, desc, count) = row?;
-        println!("  \u{1F4D8} {} ({})",
+        println!(
+            "  \u{1F4D8} {} ({})",
             name.bold().bright_white(),
             format!("{} topics", count).dimmed()
         );
@@ -30,7 +31,8 @@ pub fn run(conn: &Connection) -> Result<(), Box<dyn std::error::Error>> {
         println!();
     }
 
-    display::print_info(&format!("Start learning: {} or {}",
+    display::print_info(&format!(
+        "Start learning: {} or {}",
         "opentutor learn <subject>".bright_cyan(),
         "opentutor quiz <topic>".bright_cyan()
     ));
