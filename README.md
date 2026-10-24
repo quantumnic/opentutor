@@ -14,8 +14,8 @@ Every child deserves access to a patient, knowledgeable tutor — regardless of 
 
 - **Adaptive Learning** — Tracks what you know and what you need to review
 - **Spaced Repetition** — Enhanced SM-2 algorithm with streak bonuses and graduated re-learning
-- **13 Subjects** — Mathematics, Science, Language, History, Health, Computer Science, Geography, Music, Art, Philosophy, Economics, Psychology, Environmental Science
-- **Quiz System** — Multiple-choice, true/false, and fill-in-the-blank questions with hints and explanations
+- **58 Subjects** — Mathematics, Science, Language, History, Health, Computer Science, Geography, Music, Art, Philosophy, Economics, Psychology, Environmental Science and many more (run `opentutor subjects` for the full list)
+- **Quiz System** — Multiple-choice, true/false, and fill-in-the-blank questions with hints and explanations (quizzes currently run in walkthrough mode: each question is shown with its answer and explanation; typed answers are not read yet)
 - **Daily Plan** — Personalized daily learning combining reviews + new material suggestions
 - **Review Command** — Dedicated spaced repetition review with urgency-based prioritization
 - **Learning Paths** — Step-by-step guides toward mastery goals
@@ -138,7 +138,7 @@ opentutor search "gravity"            # Search across all content
 ## 🧠 How It Works
 
 ### Adaptive Learning
-opentutor tracks your performance on each topic. As you answer questions correctly, the difficulty adapts:
+opentutor tracks your activity on each topic and adapts the difficulty level (note: quizzes currently run in walkthrough mode and count every question as answered):
 - **Beginner** → foundational concepts
 - **Intermediate** → deeper understanding
 - **Advanced** → mastery-level challenges
