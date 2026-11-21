@@ -1,5 +1,7 @@
 # 📚 opentutor
 
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-FFDD00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/redbasecap)
+
 **World-class education for every child on earth.**
 
 An offline-first, free, personal AI tutor that adapts to your learning pace. No internet required. No subscription. No data collection. Just learning.
